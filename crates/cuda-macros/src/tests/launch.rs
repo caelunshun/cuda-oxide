@@ -505,3 +505,109 @@ fn non_generic_launches_keep_the_plain_lookup_panic() {
     );
     assert!(expanded.contains("Failedtoloadkernel"), "{expanded}");
 }
+
+// --- LLM-generated --- //
+
+/// Runs the visitor and returns the recorded error, expecting one.
+fn expect_loop_unroll_error(mut func: ItemFn) -> String {
+    rewrite_loop_unroll_attrs(&mut func)
+        .expect_err("expected an unroll-attr error")
+        .to_string()
+}
+
+#[test]
+fn bare_llvm_unroll_injects_the_llvm_marker() {
+    let func: ItemFn = parse_quote! {
+        fn k(n: u32) {
+            let mut i = 0u32;
+            #[llvm_unroll]
+            while i < n { i += 1; }
+        }
+    };
+    let out = run_loop_unroll_visitor(func);
+    assert!(
+        out.contains("cuda_device::thread::__llvm_unroll_config::<{0u32}>()"),
+        "expected the LLVM factor-0 marker:\n{out}"
+    );
+    // The two mechanisms must not be confused: this plants no oxide marker.
+    assert!(
+        !out.contains("thread::__unroll_config"),
+        "#[llvm_unroll] must not request cuda-oxide's own unroller:\n{out}"
+    );
+    assert!(
+        !out.contains("#[llvm_unroll]"),
+        "the attribute should be removed:\n{out}"
+    );
+}
+
+#[test]
+fn llvm_unroll_n_injects_its_factor() {
+    let func: ItemFn = parse_quote! {
+        fn k(n: u32) {
+            let mut i = 0u32;
+            #[llvm_unroll(4)]
+            while i < n { i += 1; }
+        }
+    };
+    let out = run_loop_unroll_visitor(func);
+    assert!(
+        out.contains("cuda_device::thread::__llvm_unroll_config::<{4}>()"),
+        "expected the LLVM factor-4 marker:\n{out}"
+    );
+}
+
+#[test]
+fn unroll_and_llvm_unroll_on_one_loop_is_an_error() {
+    let func: ItemFn = parse_quote! {
+        fn k(n: u32) {
+            let mut i = 0u32;
+            #[unroll]
+            #[llvm_unroll(4)]
+            while i < n { i += 1; }
+        }
+    };
+    let error = expect_loop_unroll_error(func);
+    assert!(
+        error.contains("cannot be combined"),
+        "the two mechanisms must not silently coexist: {error}"
+    );
+}
+
+#[test]
+fn llvm_unroll_rejects_a_factor_of_one() {
+    let func: ItemFn = parse_quote! {
+        fn k(n: u32) {
+            let mut i = 0u32;
+            #[llvm_unroll(1)]
+            while i < n { i += 1; }
+        }
+    };
+    let error = expect_loop_unroll_error(func);
+    assert!(
+        error.contains("at least 2"),
+        "factor 1 is not a partial unroll: {error}"
+    );
+}
+
+#[test]
+fn llvm_unroll_and_unroll_on_neighbouring_loops_are_independent() {
+    let func: ItemFn = parse_quote! {
+        fn k(n: u32) {
+            let mut i = 0u32;
+            #[unroll]
+            while i < 4 { i += 1; }
+            let mut j = 0u32;
+            #[llvm_unroll(2)]
+            while j < n { j += 1; }
+        }
+    };
+    let out = run_loop_unroll_visitor(func);
+    assert!(
+        out.contains("cuda_device::thread::__unroll_config::<{0u32}>()"),
+        "the first loop keeps its own unroller:\n{out}"
+    );
+    assert!(
+        out.contains("cuda_device::thread::__llvm_unroll_config::<{2}>()"),
+        "the second loop goes to LLVM:\n{out}"
+    );
+}

@@ -45,6 +45,7 @@ fn helper(x: f32) -> f32 { x * x }
 | `#[kernel]`                                 | Mark a function as a GPU kernel entry point (`.entry` in PTX)       |
 | `#[device]`                                 | Mark a helper function or `extern "C"` block for device compilation |
 | `#[unroll]` / `#[unroll(N)]`               | Request full unrolling, or unrolling by a factor `N >= 2`            |
+| `#[llvm_unroll]` / `#[llvm_unroll(N)]`      | Request the same from LLVM's unroller instead, via `!llvm.loop` metadata |
 | `#[launch_bounds(max_threads, min_blocks)]` | Occupancy hints for register allocation                             |
 | `#[constant]`                               | Place a `ConstantMemory<T>` static in constant memory, with a host `set_<name>` |
 | `#[launch_contract(...)]`                   | Declare the launch shape a kernel requires, unlocking a safe (non-`unsafe`) launch |

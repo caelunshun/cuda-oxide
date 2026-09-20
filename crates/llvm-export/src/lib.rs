@@ -323,6 +323,51 @@ pub mod ops {
         }
     }
 
+    /// An LLVM loop-unroll request carried on a loop's latch branch
+    /// (`llvm.br` / `llvm.cond_br`), from `#[llvm_unroll]`.
+    ///
+    /// The exporter turns this into `!llvm.loop` metadata on that branch, which
+    /// is where LLVM's loop-unroll pass reads unroll pragmas. `factor == 0`
+    /// means `llvm.loop.unroll.full`; `factor >= 2` means
+    /// `llvm.loop.unroll.count`.
+    ///
+    /// `group` names the loop. Every latch of one loop must reference the same
+    /// `!llvm.loop` node, so the exporter allocates one metadata id per group
+    /// rather than per branch.
+    ///
+    /// This lives here, rather than in `dialect-mir`, because the branch ops it
+    /// rides on come from `pliron-llvm` and `llvm-export` does not depend on
+    /// `dialect-mir`. `mir-lower` translates the dialect-mir attribute into this
+    /// one while lowering the terminator, the same split [`AsmKind`] uses.
+    #[pliron_attr(
+        name = "llvm.loop_unroll",
+        format = "`<` $factor `, ` $group `>`",
+        verifier = "succ"
+    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct LoopUnrollAttr {
+        pub factor: u32,
+        pub group: u32,
+    }
+
+    /// Op-attribute key for the loop-unroll request on a latch branch.
+    const LOOP_UNROLL_KEY: &str = "cuda_oxide_loop_unroll";
+
+    /// Record a loop-unroll request on a latch branch operation.
+    pub fn set_loop_unroll(ctx: &mut Context, op: Ptr<Operation>, request: LoopUnrollAttr) {
+        let key = Identifier::try_new(LOOP_UNROLL_KEY.to_string()).expect("valid identifier");
+        op.deref_mut(ctx).attributes.set(key, request);
+    }
+
+    /// Query the loop-unroll request on a branch operation, if any.
+    pub fn loop_unroll(ctx: &Context, op: Ptr<Operation>) -> Option<LoopUnrollAttr> {
+        let key = Identifier::try_new(LOOP_UNROLL_KEY.to_string()).expect("valid identifier");
+        op.deref(ctx)
+            .attributes
+            .get::<LoopUnrollAttr>(&key)
+            .copied()
+    }
+
     /// Query the [`AsmKind`] stored on an `InlineAsmOp`, if present.
     ///
     /// Returns `None` for ops that were not built with [`InlineAsmOpExt::build`]

@@ -7,6 +7,7 @@
 //!
 //! This module defines assertions, terminators, and branches for the MIR dialect.
 
+use pliron::identifier::Identifier;
 use pliron::{
     builtin::{
         op_interfaces::{
@@ -29,7 +30,7 @@ use pliron::{
 use pliron_derive::pliron_op;
 
 use super::function::MirFuncOp;
-use crate::attributes::UnrollAttr;
+use crate::attributes::{LLVM_LOOP_UNROLL_ATTR_KEY, LlvmLoopUnrollAttr, UnrollAttr};
 
 // ============================================================================
 // MirReturnOp
@@ -484,6 +485,84 @@ impl Verify for MirUnrollHintOp {
     }
 }
 
+/// A per-loop request to let *LLVM* unroll a loop, planted inside the loop body
+/// by the `#[llvm_unroll]` frontend.
+///
+/// The shape mirrors [`MirUnrollHintOp`], and for the same reason: sitting
+/// physically inside the loop is what lets a pass map the request back to its
+/// loop. What differs is the consumer. Nothing in cuda-oxide unrolls this loop;
+/// `mir_transforms::llvm_unroll` moves the request onto the loop's latch as a
+/// [`LlvmLoopUnrollAttr`] and deletes the hint, and the request finally becomes
+/// `!llvm.loop` metadata that LLVM's own loop-unroll pass reads during
+/// `opt -O2`. That route has a stronger trip-count analysis (SCEV) than the
+/// unroll pass does, at the cost of depending on `opt` running at all.
+///
+/// It has no operands or results: it carries only the `factor` attribute
+/// (`0` = `llvm.loop.unroll.full`, `n >= 2` = `llvm.loop.unroll.count`).
+#[pliron_op(
+    name = "mir.llvm_unroll_hint",
+    format,
+    interfaces = [
+        pliron::builtin::op_interfaces::NOpdsInterface<0>,
+        pliron::builtin::op_interfaces::NResultsInterface<0>,
+    ],
+    attributes = (llvm_factor: UnrollAttr)
+)]
+pub struct MirLlvmUnrollHintOp;
+
+impl MirLlvmUnrollHintOp {
+    /// Create a hint requesting an LLVM unroll of `factor` (`0` = full).
+    ///
+    /// The attribute is named `llvm_factor` rather than `factor` because
+    /// pliron's attribute-name registry is global and `mir.unroll_hint` already
+    /// declares `factor`.
+    pub fn new(ctx: &mut Context, factor: u32) -> Self {
+        let op = Operation::new(ctx, Self::get_concrete_op_info(), vec![], vec![], vec![], 0);
+        let hint = MirLlvmUnrollHintOp { op };
+        hint.set_attr_llvm_factor(ctx, UnrollAttr(factor));
+        hint
+    }
+
+    /// The requested unroll factor (`0` = full unroll).
+    pub fn factor(&self, ctx: &Context) -> u32 {
+        self.get_attr_llvm_factor(ctx).map(|a| a.0).unwrap_or(0)
+    }
+}
+
+impl Verify for MirLlvmUnrollHintOp {
+    fn verify(&self, _ctx: &Context) -> pliron::result::Result<()> {
+        Ok(())
+    }
+}
+
+/// Record an LLVM loop-unroll request on a loop's latch terminator
+/// (`mir.goto` or `mir.cond_br`).
+///
+/// The request is keyed rather than declared as an op attribute because both
+/// terminators can carry it, and pliron's attribute-name registry is global: one
+/// name may be declared by one op only. This mirrors how
+/// [`CompilerResultBundleAttr`](crate::attributes::CompilerResultBundleAttr) is
+/// attached.
+pub fn set_llvm_loop_unroll(
+    ctx: &mut Context,
+    terminator: Ptr<Operation>,
+    request: LlvmLoopUnrollAttr,
+) {
+    let key = Identifier::try_from(LLVM_LOOP_UNROLL_ATTR_KEY)
+        .expect("valid llvm loop unroll attribute key");
+    terminator.deref_mut(ctx).attributes.set(key, request);
+}
+
+/// Read the LLVM loop-unroll request from a terminator, if it carries one.
+pub fn llvm_loop_unroll(ctx: &Context, terminator: Ptr<Operation>) -> Option<LlvmLoopUnrollAttr> {
+    let key = Identifier::try_from(LLVM_LOOP_UNROLL_ATTR_KEY).ok()?;
+    terminator
+        .deref(ctx)
+        .attributes
+        .get::<LlvmLoopUnrollAttr>(&key)
+        .copied()
+}
+
 /// Register control flow operations into the given context.
 pub fn register(ctx: &mut Context) {
     MirReturnOp::register(ctx);
@@ -492,4 +571,5 @@ pub fn register(ctx: &mut Context) {
     MirAssertOp::register(ctx);
     MirUnreachableOp::register(ctx);
     MirUnrollHintOp::register(ctx);
+    MirLlvmUnrollHintOp::register(ctx);
 }

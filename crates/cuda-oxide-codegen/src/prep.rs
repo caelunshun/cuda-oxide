@@ -154,6 +154,18 @@ pub fn prepare_mir_module(
     )?;
     verify_operation(ctx, module, "module post-unroll")?;
 
+    // Strictly after the unroll pass and its cleanup: that cleanup runs
+    // `simplify_cfg`, which can merge the very latch block a request would be
+    // pinned to. Tagging afterwards means what we tag is what lowering sees.
+    mir_transforms::llvm_unroll::attach_llvm_loop_metadata(module, ctx, &mut analyses).map_err(
+        |error| PipelineError::Verification {
+            name: "llvm-loop-metadata".to_string(),
+            message: error.disp(ctx).to_string(),
+            operation: None,
+        },
+    )?;
+    verify_operation(ctx, module, "module post-llvm-loop-metadata")?;
+
     run_optional_mir_passes(
         ctx,
         module,

@@ -185,6 +185,7 @@ pub(crate) fn convert_cond_branch(
 
     let llvm_br = llvm::CondBrOp::new(ctx, cond, true_block, true_args, false_block, false_args);
     crate::convert::preserve_location(ctx, op, llvm_br.get_operation());
+    crate::convert::preserve_loop_metadata(ctx, op, llvm_br.get_operation());
     rewriter.insert_operation(ctx, llvm_br.get_operation());
     rewriter.erase_operation(ctx, op);
 
@@ -305,6 +306,7 @@ pub(crate) fn convert_goto(
 
     let llvm_br = llvm::BrOp::new(ctx, dest, final_args);
     crate::convert::preserve_location(ctx, op, llvm_br.get_operation());
+    crate::convert::preserve_loop_metadata(ctx, op, llvm_br.get_operation());
     rewriter.insert_operation(ctx, llvm_br.get_operation());
     rewriter.erase_operation(ctx, op);
 
@@ -750,6 +752,89 @@ mod tests {
             })
             .expect("expected an llvm.br into `next`");
         assert_eq!(br.successor_operands(&ctx, 0).len(), 1);
+    }
+
+    // --- LLM-generated --- //
+
+    /// An `#[llvm_unroll]` request recorded on a MIR latch must survive the hop
+    /// into the LLVM dialect: terminator conversion builds a fresh op, so
+    /// without explicit propagation the request would die at the boundary and
+    /// the exporter would emit no `!llvm.loop` metadata.
+    #[test]
+    fn convert_goto_carries_an_llvm_unroll_request_onto_the_llvm_br() {
+        let mut ctx = make_ctx();
+        let i32_ty: TypeHandle = IntegerType::get(&ctx, 32, Signedness::Signless).into();
+        let (module_ptr, entry) = build_kernel(&mut ctx, vec![i32_ty], vec![]);
+
+        let next = append_block(&mut ctx, entry, vec![]);
+        append_mir_return(&mut ctx, next, vec![]);
+
+        let goto = Operation::new(
+            &mut ctx,
+            mir::MirGotoOp::get_concrete_op_info(),
+            vec![],
+            vec![],
+            vec![next],
+            0,
+        );
+        goto.insert_at_back(entry, &ctx);
+        dialect_mir::ops::control_flow::set_llvm_loop_unroll(
+            &mut ctx,
+            goto,
+            dialect_mir::attributes::LlvmLoopUnrollAttr {
+                factor: 4,
+                group: 7,
+            },
+        );
+
+        crate::lower_mir_to_llvm(&mut ctx, module_ptr).expect("lowering failed");
+
+        let body = kernel_blocks(&ctx, module_ptr);
+        let br = find_all::<llvm::BrOp>(&ctx, &body)
+            .into_iter()
+            .find(|br| {
+                br.get_operation()
+                    .deref(&ctx)
+                    .successors()
+                    .any(|s| s == next)
+            })
+            .expect("expected an llvm.br into `next`");
+        let request = llvm_export::ops::loop_unroll(&ctx, br.get_operation())
+            .expect("the lowered branch must carry the unroll request");
+        assert_eq!(request.factor, 4);
+        assert_eq!(request.group, 7);
+    }
+
+    /// A branch with no request must lower byte-identically to before, so an
+    /// unannotated kernel gains no metadata.
+    #[test]
+    fn convert_goto_without_a_request_stays_untagged() {
+        let mut ctx = make_ctx();
+        let i32_ty: TypeHandle = IntegerType::get(&ctx, 32, Signedness::Signless).into();
+        let (module_ptr, entry) = build_kernel(&mut ctx, vec![i32_ty], vec![]);
+
+        let next = append_block(&mut ctx, entry, vec![]);
+        append_mir_return(&mut ctx, next, vec![]);
+
+        let goto = Operation::new(
+            &mut ctx,
+            mir::MirGotoOp::get_concrete_op_info(),
+            vec![],
+            vec![],
+            vec![next],
+            0,
+        );
+        goto.insert_at_back(entry, &ctx);
+
+        crate::lower_mir_to_llvm(&mut ctx, module_ptr).expect("lowering failed");
+
+        let body = kernel_blocks(&ctx, module_ptr);
+        for br in find_all::<llvm::BrOp>(&ctx, &body) {
+            assert!(
+                llvm_export::ops::loop_unroll(&ctx, br.get_operation()).is_none(),
+                "no request was recorded, so none may appear"
+            );
+        }
     }
 
     #[test]

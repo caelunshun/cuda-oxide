@@ -32,7 +32,10 @@ use super::{
     ExportedModule,
     config::{DebugKind, ExportBackendConfig, NvvmIrDialect},
     externs::{DeviceExternDecl, DeviceExternType},
-    metadata::{emit_nvvm_annotations, emit_nvvmir_version, needs_nvvm_annotations},
+    metadata::{
+        emit_loop_unroll_metadata, emit_nvvm_annotations, emit_nvvmir_version,
+        needs_nvvm_annotations,
+    },
     state::{DebugSharedFunctionScope, GlobalSourceInfo, GlobalSymbolInfo, ModuleExportState},
 };
 
@@ -736,6 +739,13 @@ pub(super) fn export_module_with_externs_impl(
         state.emit_debug_metadata(&mut output);
     }
 
+    // 10. `!llvm.loop` nodes for `#[llvm_unroll]` requests. Their ids were
+    // already referenced from branch instructions, so this is unconditional.
+    if !state.loop_unroll_requests.is_empty() {
+        writeln!(&mut output).unwrap();
+        emit_loop_unroll_metadata(&mut output, &mut state);
+    }
+
     verify_legacy_text(&output, &state)?;
     Ok(ExportedModule {
         llvm_ir: output,
@@ -882,6 +892,12 @@ pub(super) fn export_module_to_string_with_config(
     if state.has_debug_metadata() {
         writeln!(&mut output).unwrap();
         state.emit_debug_metadata(&mut output);
+    }
+
+    // Emit the `!llvm.loop` nodes that `#[llvm_unroll]` branches reference.
+    if !state.loop_unroll_requests.is_empty() {
+        writeln!(&mut output).unwrap();
+        emit_loop_unroll_metadata(&mut output, &mut state);
     }
 
     verify_legacy_text(&output, &state)?;

@@ -669,16 +669,36 @@ impl<'a> ModuleExportState<'a> {
     }
 
     fn emit_br(
-        &self,
+        &mut self,
         op: &ops::BrOp,
         block_labels: &FxHashMap<Ptr<BasicBlock>, String>,
         output: &mut String,
     ) -> Result<(), String> {
-        let op_ref = op.get_operation().deref(self.ctx);
-        let dest = op_ref.successors().next().unwrap();
+        let operation = op.get_operation();
+        let dest = {
+            let op_ref = operation.deref(self.ctx);
+            op_ref.successors().next().unwrap()
+        };
         let label = block_labels.get(&dest).ok_or("Missing block label")?;
-        writeln!(output, "  br label %{label}").unwrap();
+        write!(output, "  br label %{label}").unwrap();
+        self.emit_loop_metadata_suffix(operation, output);
+        writeln!(output).unwrap();
         Ok(())
+    }
+
+    /// Append `, !llvm.loop !N` when this branch closes a loop that carries an
+    /// `#[llvm_unroll]` request.
+    ///
+    /// One metadata id per request group, so a loop with several latches points
+    /// all of them at the same node, as LLVM requires. `!dbg` is attached to the
+    /// finished line afterwards by `attach_debug_to_last_line`; LLVM accepts
+    /// metadata attachments in any order, so the two do not need to coordinate.
+    fn emit_loop_metadata_suffix(&mut self, operation: Ptr<Operation>, output: &mut String) {
+        let Some(request) = crate::ops::loop_unroll(self.ctx, operation) else {
+            return;
+        };
+        let id = self.loop_unroll_metadata_id(request.group, request.factor);
+        write!(output, ", !llvm.loop !{id}").unwrap();
     }
 
     fn emit_cond_br(
@@ -698,7 +718,9 @@ impl<'a> ModuleExportState<'a> {
 
         write!(output, "  br i1 ").unwrap();
         self.export_value(cond, value_names, output)?;
-        writeln!(output, ", label %{true_label}, label %{false_label}").unwrap();
+        write!(output, ", label %{true_label}, label %{false_label}").unwrap();
+        self.emit_loop_metadata_suffix(op.get_operation(), output);
+        writeln!(output).unwrap();
         Ok(())
     }
 

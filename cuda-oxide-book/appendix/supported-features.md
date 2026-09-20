@@ -132,6 +132,7 @@ Anonymous promoted allocations remain unsupported.
 | While Loops / If-Else | **Full** | Baseline control flow fully supported. |
 | Break and Continue | **Full** | `break` and `continue` in for/while loops, including early exit. |
 | Loop Unroll Annotations | **Partial** | `#[unroll]` and `#[unroll(N)]` request unrolling of explicit counted `while` loops. Nested loops and multiple `continue` paths work; full unrolling preserves `break` paths and multiple exit targets, while partial unrolling requires a positive-step `<`/`<=` loop with an invariant limit and only the normal header exit. Requests are capped at 1,024 copies, 8,192 cloned blocks, and 65,536 cloned operations. |
+| LLVM Loop Unroll Annotations | **Full** | `#[llvm_unroll]` and `#[llvm_unroll(N)]` emit `!llvm.loop` unroll metadata instead of unrolling in cuda-oxide, so LLVM's own trip-count analysis decides. Recognizes any loop LLVM does, including range-based `for`. A bare request maps to `llvm.loop.unroll.full` and still needs an exact trip count; `(N)` maps to `llvm.loop.unroll.count` and applies to runtime trip counts. Inert in builds that skip `opt` (`CUDA_OXIDE_NO_OPT=1`, full variable debug), which warn. |
 | Monomorphization-Dead Branches | **Partial** | Branches that become dead after generic specialization (e.g. the const-false arm of `if M::ENABLED`) are ignored by symbol collection, panic checks, and pointer address-space inference, so panic-only hooks in dead arms compile. Only switches rustc itself folds are pruned: a constant discriminant operand or a direct single-assignment constant. Multi-step constant copy chains keep both arms, matching rustc's host monomorphization; this is deliberate, not a general constant-propagation pass. |
 
 ## Compiler: Arithmetic and Casting
@@ -166,7 +167,7 @@ Anonymous promoted allocations remain unsupported.
 | Feature | Status | Description |
 |:--------|:-------|:------------|
 | Unified Single-Source Compilation | **Full** | Host and device code in the same file. Custom rustc codegen backend intercepts codegen. No `#[cfg]` needed. |
-| PTX Output | **Full** | Default output: Rust MIR → `dialect-mir` → `mem2reg` → annotated loop unroll → LLVM dialect → LLVM IR → `llc` → PTX. Targets sm_80 through sm_100a. |
+| PTX Output | **Full** | Default output: Rust MIR → `dialect-mir` → `mem2reg` → annotated loop unroll → LLVM loop metadata → LLVM dialect → LLVM IR → `opt -O2` → `llc` → PTX. Targets sm_80 through sm_100a. |
 | NVVM IR Output | **Full** | Selects LLVM 7 typed-pointer syntax for pre-Blackwell GPUs and opaque-pointer syntax for Blackwell and newer GPUs. The generated module is verified by libNVVM, and unsupported legacy operations produce a compile error. |
 | LTOIR Linking | **Full** | Device-side LTO via libNVVM and nvJitLink. |
 | Float Math Intrinsics (libdevice) | **Full** | Rust `f32`/`f64` math methods (`sin`, `cos`, `exp`, `pow`, `sqrt`, ...) lower to CUDA libdevice (`__nv_*`) on pre-Blackwell and Blackwell GPUs. cuda-oxide selects the matching NVVM IR syntax automatically. On Blackwell, the runtime can also JIT PTX produced from a standard pre-Blackwell target such as `sm_86`. |

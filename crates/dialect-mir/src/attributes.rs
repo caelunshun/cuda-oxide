@@ -122,6 +122,45 @@ pub struct VariantIndexAttr(pub u32);
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub struct UnrollAttr(pub u32);
 
+/// An LLVM loop-unroll request recorded on a loop's latch terminator
+/// ([`MirGotoOp`](crate::ops::MirGotoOp) or
+/// [`MirCondBranchOp`](crate::ops::MirCondBranchOp)).
+///
+/// `#[llvm_unroll]` / `#[llvm_unroll(N)]` makes the frontend plant a
+/// `mir.llvm_unroll_hint` op inside the loop body; `mir-transforms` maps that
+/// hint back to its loop and moves the request onto the latch, where lowering
+/// can turn it into `!llvm.loop` metadata. cuda-oxide does no unrolling of its
+/// own for this attribute -- LLVM's loop-unroll pass reads the metadata.
+///
+/// * `factor == 0` -- `llvm.loop.unroll.full`.
+/// * `factor >= 2` -- `llvm.loop.unroll.count`, which applies to runtime trip
+///   counts too.
+///
+/// `group` identifies the loop the latch belongs to. A loop with several
+/// latches must reference one shared `!llvm.loop` node, so every latch of one
+/// loop carries the same group.
+#[pliron_attr(
+    name = "mir.llvm_loop_unroll",
+    format = "`<` $factor `, ` $group `>`",
+    verifier = "succ"
+)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
+pub struct LlvmLoopUnrollAttr {
+    pub factor: u32,
+    pub group: u32,
+}
+
+/// Operation attribute key carrying [`LlvmLoopUnrollAttr`] on a latch
+/// terminator.
+///
+/// Both `mir.goto` and `mir.cond_br` can be a latch, and pliron's
+/// attribute-name registry is global -- one name may be declared by one op only
+/// -- so the request is keyed rather than declared per op. Use
+/// [`set_llvm_loop_unroll`](crate::ops::control_flow::set_llvm_loop_unroll) and
+/// [`llvm_loop_unroll`](crate::ops::control_flow::llvm_loop_unroll) instead of
+/// the key directly.
+pub const LLVM_LOOP_UNROLL_ATTR_KEY: &str = "llvm_loop_unroll";
+
 /// Marks an aggregate that exists only to adapt one compiler-owned
 /// multi-result operation to a Rust aggregate return ABI.
 ///
@@ -203,6 +242,7 @@ pub fn register(ctx: &mut Context) {
     FieldIndexAttr::register(ctx);
     VariantIndexAttr::register(ctx);
     UnrollAttr::register(ctx);
+    LlvmLoopUnrollAttr::register(ctx);
     CompilerResultBundleAttr::register(ctx);
     MirFP16Attr::register(ctx);
 }

@@ -216,6 +216,12 @@ pub(super) struct ModuleExportState<'a> {
     pub(super) debug_declare_used: bool,
     /// Whether any function emitted `llvm.dbg.value`.
     pub(super) debug_value_used: bool,
+    /// Metadata id of the `!llvm.loop` node for each loop-unroll group, so
+    /// every latch of one loop references the same node (LLVM requires this).
+    pub(super) loop_unroll_nodes: FxHashMap<u32, usize>,
+    /// The unroll property of each allocated group, in allocation order:
+    /// `(loop node id, factor)`, with `0` meaning a full unroll.
+    pub(super) loop_unroll_requests: Vec<(usize, u32)>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -284,6 +290,8 @@ impl<'a> ModuleExportState<'a> {
             debug_nodes: Vec::new(),
             debug_declare_used: false,
             debug_value_used: false,
+            loop_unroll_nodes: FxHashMap::default(),
+            loop_unroll_requests: Vec::new(),
         }
     }
 
@@ -301,6 +309,20 @@ impl<'a> ModuleExportState<'a> {
 
     pub(super) fn device_extern(&self, name: &str) -> Option<&DeviceExternDecl> {
         self.device_externs.get(name)
+    }
+
+    /// The `!llvm.loop` metadata id for `group`, allocating one on first use.
+    ///
+    /// `factor` is recorded with the node so the module-end metadata section
+    /// can emit the matching `llvm.loop.unroll.*` property.
+    pub(super) fn loop_unroll_metadata_id(&mut self, group: u32, factor: u32) -> usize {
+        if let Some(id) = self.loop_unroll_nodes.get(&group) {
+            return *id;
+        }
+        let id = self.alloc_metadata_id();
+        self.loop_unroll_nodes.insert(group, id);
+        self.loop_unroll_requests.push((id, factor));
+        id
     }
 
     pub(super) fn alloc_metadata_id(&mut self) -> usize {

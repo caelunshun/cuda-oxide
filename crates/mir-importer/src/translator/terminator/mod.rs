@@ -68,8 +68,8 @@ use crate::translator::rvalue;
 use crate::translator::values::{ValueMap, maybe_ptr_coerce};
 use dialect_mir::attributes::{MirCastKindAttr, MirPointerKindAuthorityAttr};
 use dialect_mir::ops::{
-    MirAssertOp, MirCondBranchOp, MirConstantOp, MirEqOp, MirGotoOp, MirNotOp, MirReturnOp,
-    MirUnrollHintOp,
+    MirAssertOp, MirCondBranchOp, MirConstantOp, MirEqOp, MirGotoOp, MirLlvmUnrollHintOp, MirNotOp,
+    MirReturnOp, MirUnrollHintOp,
 };
 use pliron::basic_block::BasicBlock;
 use pliron::builtin::op_interfaces::OperandSegmentInterface;
@@ -1067,8 +1067,15 @@ fn translate_call(
     // Match both the full path (`cuda_device::thread::__unroll_config`) and the
     // re-exported short path (`cuda_device::__unroll_config`), mirroring the
     // robust suffix match in `body::detect_unroll_config`.
-    if is_cuda_device_const_marker(func, "__unroll_config") {
-        let Some(factor) = extract_unroll_factor(func) else {
+    //
+    // `#[llvm_unroll]` takes the same route through `__llvm_unroll_config`,
+    // differing only in the hint op it plants: that request is forwarded to
+    // LLVM as `!llvm.loop` metadata instead of being unrolled here.
+    for marker in ["__unroll_config", "__llvm_unroll_config"] {
+        if !is_cuda_device_const_marker(func, marker) {
+            continue;
+        }
+        let Some(factor) = extract_unroll_factor(func, marker) else {
             return input_err!(
                 loc,
                 TranslationErr::invalid_op(
@@ -1090,7 +1097,11 @@ fn translate_call(
                 TranslationErr::invalid_op("an unroll marker call has no return target")
             );
         };
-        let hint = MirUnrollHintOp::new(ctx, factor).get_operation();
+        let hint = if marker == "__unroll_config" {
+            MirUnrollHintOp::new(ctx, factor).get_operation()
+        } else {
+            MirLlvmUnrollHintOp::new(ctx, factor).get_operation()
+        };
         hint.deref_mut(ctx).set_loc(loc.clone());
         match prev_op {
             Some(prev) => hint.insert_after(ctx, prev),
@@ -2211,12 +2222,13 @@ fn extract_closure_body_target(
     })
 }
 
-/// Read the const-generic `FACTOR` from a `__unroll_config::<FACTOR>()` callee
-/// (`0` = full unroll).
+/// Read the const-generic `FACTOR` from a `<marker>::<FACTOR>()` callee
+/// (`0` = full unroll), where `marker` is `__unroll_config` or
+/// `__llvm_unroll_config`.
 ///
 /// Returns `None` when the callee is malformed instead of silently turning the
 /// request into a full unroll.
-fn extract_unroll_factor(func: &mir::Operand) -> Option<u32> {
+fn extract_unroll_factor(func: &mir::Operand, marker: &str) -> Option<u32> {
     use rustc_public::ty::{RigidTy, TyConstKind, TyKind};
     let mir::Operand::Constant(constant) = func else {
         return None;
@@ -2226,7 +2238,7 @@ fn extract_unroll_factor(func: &mir::Operand) -> Option<u32> {
     };
     let definition_name = definition.name();
     if definition.krate().name.as_str() != "cuda_device"
-        || (definition_name != "__unroll_config" && !definition_name.ends_with("::__unroll_config"))
+        || (definition_name != marker && !definition_name.ends_with(&format!("::{marker}")))
         || args.0.len() != 1
     {
         return None;

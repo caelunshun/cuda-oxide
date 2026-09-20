@@ -42,6 +42,34 @@ pub(crate) fn preserve_location(
     lowered
 }
 
+/// Carry an `#[llvm_unroll]` request from a MIR latch terminator to the LLVM
+/// branch it lowered to.
+///
+/// `mir-transforms` records the request on the latch; the exporter turns it into
+/// `!llvm.loop` metadata on the branch. Terminator conversion builds a fresh
+/// LLVM op, so without this the request would stop at the dialect boundary.
+///
+/// The two attribute types are deliberately separate: `llvm-export` owns the
+/// one that rides on `pliron-llvm`'s branch ops and does not depend on
+/// `dialect-mir`, so this is where the translation happens.
+pub(crate) fn preserve_loop_metadata(
+    ctx: &mut Context,
+    source: Ptr<Operation>,
+    lowered: Ptr<Operation>,
+) {
+    let request = dialect_mir::ops::control_flow::llvm_loop_unroll(ctx, source);
+    if let Some(request) = request {
+        llvm_export::ops::set_loop_unroll(
+            ctx,
+            lowered,
+            llvm_export::ops::LoopUnrollAttr {
+                factor: request.factor,
+                group: request.group,
+            },
+        );
+    }
+}
+
 pub(crate) mod enum_payload_storage;
 mod generated_intrinsics;
 pub mod interface_impls;

@@ -360,6 +360,57 @@ Unrolling trades larger generated code for fewer branches and more
 optimization opportunities. Use it for small or performance-critical loops,
 and measure the result.
 
+(llvm-unroll)=
+
+### `#[llvm_unroll]` -- let LLVM unroll instead
+
+`#[unroll]` is carried out by cuda-oxide's own pass, using its own trip-count
+analysis. `#[llvm_unroll]` and `#[llvm_unroll(N)]` do no unrolling here at all:
+they record `!llvm.loop` metadata on the loop, and LLVM's unroller acts on it
+during `opt -O2`.
+
+Reach for it when the loop shape is one cuda-oxide does not recognize, such as
+a range-based `for`:
+
+```rust
+let mut acc = 0u32;
+#[llvm_unroll]
+for i in 0..8u32 {
+    acc += i & 3;
+}
+
+#[llvm_unroll(4)]
+for i in 0..n {
+    process(i);
+}
+```
+
+LLVM derives trip counts with a much stronger analysis, so it often succeeds
+where `#[unroll]` reports an unrecognized loop. Three things are worth knowing
+before choosing it:
+
+- **A bare `#[llvm_unroll]` is not a runtime-unroll request.** It maps to
+  `llvm.loop.unroll.full`, which LLVM applies only when it can derive an exact
+  trip count. For a genuinely dynamic loop, use `#[llvm_unroll(N)]`.
+- **LLVM already unrolls loops at `-O2`.** The annotation's value is choosing
+  the factor, or forcing an unroll past the threshold LLVM would otherwise
+  respect -- not enabling unrolling that would not happen at all.
+- **It is inert where `opt` does not run.** `CUDA_OXIDE_NO_OPT=1` builds and
+  full variable-debug builds never run the middle-end. The compiler warns in
+  that case rather than leaving the annotation to look effective.
+
+Because LLVM owns the decision, it is also LLVM that reports the outcome. Build
+with `CUDA_OXIDE_VERBOSE=1` to see its loop-unroll remarks:
+
+```text
+llvm loop-unroll: remark: completely unrolled loop with 8 iterations
+llvm loop-unroll: remark: unrolled loop by a factor of 4 with run-time trip count
+```
+
+The two attributes are mutually exclusive on one loop: writing both is a
+compile error, not a precedence rule. Annotating neighbouring loops differently
+is fine.
+
 :::{seealso}
 For how the compiler analyzes and rewrites annotated loops, including the
 stage-index peephole, see [Compiler Optimizations](../compiler/compiler-optimizations.md).

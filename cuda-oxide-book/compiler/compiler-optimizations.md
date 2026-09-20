@@ -266,7 +266,8 @@ The source attribute travels through the compiler in six stages:
 
 The unroll pass leaves functions without an unroll hint untouched. If it cannot
 prove a requested rewrite is safe, it prints a warning and does not apply the
-unroll; the loop continues with the same behavior.
+unroll; the loop continues with the same behavior. A loop annotated
+`#[llvm_unroll]` instead takes the route described below.
 
 ---
 
@@ -304,6 +305,49 @@ copies, 8,192 cloned basic blocks, and 65,536 cloned operations. A request over
 one of those limits warns and is not unrolled.
 
 For the complete kernel-author reference, see {ref}`Loop unrolling <loop-unrolling>`.
+
+---
+
+## The other route: handing the loop to LLVM
+
+Everything above describes what happens for `#[unroll]`. A loop can instead ask
+LLVM to do the unrolling, with `#[llvm_unroll]` / `#[llvm_unroll(N)]`.
+
+That request travels almost the same road, and diverges at the transform:
+
+1. The macro plants a different marker, which `mir-importer` turns into a
+   `mir.llvm_unroll_hint` operation.
+2. `mir_transforms::llvm_unroll` maps the hint to its loop with the same
+   `LoopInfo` analysis, then moves the request onto the loop's **latch** -- the
+   branch that closes the loop -- and deletes the hint. It rewrites nothing
+   else; the loop is still a loop.
+3. Lowering carries the request onto the LLVM branch, and the exporter emits it
+   as `!llvm.loop` metadata:
+
+   ```llvm
+   br label %header, !llvm.loop !0
+   !0 = distinct !{!0, !1}
+   !1 = !{!"llvm.loop.unroll.count", i32 4}
+   ```
+
+4. `opt -O2` runs `LoopUnrollPass`, which reads that metadata.
+
+A loop with several latches gets one shared metadata node, which is what LLVM
+requires to recognize them as one loop.
+
+The pass runs after the unroll pass and its cleanup, deliberately: that cleanup
+simplifies the CFG, and a latch tagged beforehand could be merged away along
+with its request.
+
+The tradeoff is where the analysis lives. LLVM's SCEV derives trip counts the
+induction analysis above cannot, so the request works on loop shapes this pass
+declines -- but the request only exists as metadata, so it does nothing in a
+build that skips `opt`, and LLVM rather than cuda-oxide decides the outcome.
+Both facts are reported: an inert build warns, and `CUDA_OXIDE_VERBOSE=1`
+forwards LLVM's own loop-unroll remarks.
+
+For the kernel-author reference, see
+{ref}`#[llvm_unroll] -- let LLVM unroll instead <llvm-unroll>`.
 
 ---
 

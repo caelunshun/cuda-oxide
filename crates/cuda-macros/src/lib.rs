@@ -435,6 +435,31 @@ pub fn cuda_module(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// at most 1,024 body copies, 8,192 cloned basic blocks, and 65,536 cloned
 /// operations. Factors above 1,024 are rejected; unsupported loop shapes warn
 /// and are not unrolled.
+///
+/// # LLVM loop unrolling
+///
+/// `#[llvm_unroll]` and `#[llvm_unroll(N)]` take the same arguments but do no
+/// unrolling here: they emit `!llvm.loop` metadata and let LLVM's unroller act
+/// on it during `opt -O2`. LLVM's trip-count analysis is stronger, so this
+/// works on loops the pass above declines, range-based `for` loops included.
+///
+/// ```ignore
+/// #[kernel]
+/// pub fn example(n: u32) {
+///     #[llvm_unroll]
+///     for i in 0..8u32 { work(i); }
+///
+///     #[llvm_unroll(4)]
+///     for i in 0..n { work(i); }
+/// }
+/// ```
+///
+/// A bare `#[llvm_unroll]` maps to `llvm.loop.unroll.full`, which LLVM applies
+/// only when it can derive an exact trip count; `#[llvm_unroll(N)]` maps to
+/// `llvm.loop.unroll.count`, which applies to runtime trip counts too. The
+/// request is inert in builds that skip `opt` (`CUDA_OXIDE_NO_OPT=1` and full
+/// variable-debug builds), which warn rather than ignore it. Writing both
+/// `#[unroll]` and `#[llvm_unroll]` on one loop is a compile error.
 #[proc_macro_attribute]
 pub fn kernel(attr: TokenStream, item: TokenStream) -> TokenStream {
     kernel::kernel_entry(attr, item)
@@ -812,7 +837,8 @@ pub fn cooperative_launch(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// - Return values (unlike kernels which must return `()`)
 /// - Be called from kernels and other device functions
 /// - Use generics (each monomorphization becomes a separate device function)
-/// - Use per-loop `#[unroll]` and `#[unroll(N)]` annotations
+/// - Use per-loop `#[unroll]` / `#[unroll(N)]` and `#[llvm_unroll]` /
+///   `#[llvm_unroll(N)]` annotations
 ///
 /// # Loop unrolling
 ///
@@ -826,6 +852,10 @@ pub fn cooperative_launch(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// One annotation may create at most 1,024 body copies, 8,192 cloned basic
 /// blocks, and 65,536 cloned operations. Factors above 1,024 are rejected;
 /// unsupported loop shapes warn and are not unrolled.
+///
+/// `#[llvm_unroll]` / `#[llvm_unroll(N)]` work here too, and hand the loop to
+/// LLVM's unroller instead: no loop shape restrictions, but nothing happens in
+/// a build that skips `opt`. See [`macro@kernel`] for the details.
 ///
 /// # Example: Device Function Definition
 ///

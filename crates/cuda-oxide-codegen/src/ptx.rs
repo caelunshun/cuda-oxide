@@ -144,6 +144,35 @@ fn reject_dropped_debug_info(
     ))
 }
 
+/// Whether the module about to reach `opt` carries an `#[llvm_unroll]`
+/// request.
+///
+/// Read from the IR text rather than tracked through the pipeline: this is a
+/// diagnostic-only question asked once per compilation, and the text is the
+/// same thing `opt` would have read. An unreadable file answers "no" -- the
+/// tools below report a missing or malformed input far better than a warning
+/// about unroll metadata would.
+fn module_requests_llvm_unroll(ll_path: &Path) -> bool {
+    std::fs::read_to_string(ll_path)
+        .map(|ir| ir.contains("llvm.loop.unroll"))
+        .unwrap_or(false)
+}
+
+/// Collect LLVM's loop-unroll optimization remarks from `opt`'s stderr.
+///
+/// Only emitted when the remark flags were requested (verbose builds), and only
+/// `loop-unroll` remarks are asked for, so every line here is about a loop the
+/// author annotated. A remark is reported verbatim: LLVM names the source
+/// location and says whether it unrolled the loop and by how much, which is more
+/// than the request site itself can know.
+fn loop_unroll_remarks(stderr: &[u8]) -> Vec<String> {
+    String::from_utf8_lossy(stderr)
+        .lines()
+        .filter(|line| line.contains("remark:"))
+        .map(|line| format!("llvm loop-unroll: {}", line.trim()))
+        .collect()
+}
+
 fn optimize_ll(
     ll_path: &Path,
     public_symbols: &[String],
@@ -166,7 +195,7 @@ fn optimize_ll(
         return Ok((None, Vec::new()));
     };
 
-    let optimization_args = optimization_args(public_symbols)?;
+    let optimization_args = optimization_args(public_symbols, opts.verbose)?;
 
     let opt_ll = ll_path.with_extension("opt.ll");
     match std::process::Command::new(&opt.path)
@@ -180,7 +209,7 @@ fn optimize_ll(
         Ok(output) if output.status.success() => {
             reject_dropped_debug_info(&format!("opt ({})", opt.path), &output.stderr, debug_kind)
                 .map_err(PipelineError::Optimization)?;
-            let diagnostics = opts
+            let mut diagnostics: Vec<String> = opts
                 .verbose
                 .then(|| {
                     format!(
@@ -192,6 +221,7 @@ fn optimize_ll(
                 })
                 .into_iter()
                 .collect();
+            diagnostics.extend(loop_unroll_remarks(&output.stderr));
             Ok((Some(opt_ll), diagnostics))
         }
         Ok(output) => {
@@ -378,12 +408,27 @@ fn ptx_isa_with_debug_floor(
 /// Once ordinary inlining has copied a non-root helper into every caller,
 /// internalization lets GlobalDCE remove it instead of asking `llc` to emit an
 /// unreachable `.visible .func` body.
-fn optimization_args(public_symbols: &[String]) -> Result<Vec<String>, PipelineError> {
+fn optimization_args(
+    public_symbols: &[String],
+    loop_unroll_remarks: bool,
+) -> Result<Vec<String>, PipelineError> {
+    // `#[llvm_unroll]` hands the decision to LLVM, so LLVM is the only place
+    // that knows whether the loop was unrolled. Asking for both the hit and the
+    // miss remarks keeps the request from becoming a silent no-op the way an
+    // unrecognized `#[unroll]` never is.
+    let remark_args = if loop_unroll_remarks {
+        vec![
+            "-pass-remarks=loop-unroll".to_string(),
+            "-pass-remarks-missed=loop-unroll".to_string(),
+        ]
+    } else {
+        Vec::new()
+    };
+
     if public_symbols.is_empty() {
-        return Ok(vec![
-            "-O2".to_string(),
-            DISABLE_SWITCH_LOOKUP_TABLES.to_string(),
-        ]);
+        let mut args = vec!["-O2".to_string(), DISABLE_SWITCH_LOOKUP_TABLES.to_string()];
+        args.extend(remark_args);
+        return Ok(args);
     }
 
     if let Some(symbol) = public_symbols.iter().find(|symbol| symbol.contains(',')) {
@@ -392,11 +437,13 @@ fn optimization_args(public_symbols: &[String]) -> Result<Vec<String>, PipelineE
         )));
     }
 
-    Ok(vec![
+    let mut args = vec![
         "-passes=internalize,default<O2>".to_string(),
         format!("-internalize-public-api-list={}", public_symbols.join(",")),
         DISABLE_SWITCH_LOOKUP_TABLES.to_string(),
-    ])
+    ];
+    args.extend(remark_args);
+    Ok(args)
 }
 
 /// Legacy rustc-pipeline result, including messages the CLI should print.
@@ -652,6 +699,22 @@ fn generate_ptx_impl(
     // turning most in-scope locals into `<optimized out>` under cuda-gdb. So we
     // feed the unoptimized IR straight to llc when variable info is requested,
     // matching nvcc `-G`. (llc itself uses `-O0` for these builds below.)
+    //
+    // Either skip also silences `#[llvm_unroll]`, whose whole mechanism is
+    // metadata that only LLVM's middle-end reads. Say so rather than let the
+    // annotation look like it worked.
+    if (debug_kind.variables_enabled() || opts.no_opt)
+        && module_requests_llvm_unroll(post_link_input)
+    {
+        record_diagnostic(
+            &mut diagnostics,
+            diagnostic_sink,
+            "warning: #[llvm_unroll] was requested, but this build skips opt, so LLVM never sees \
+             the unroll metadata and no loop is unrolled"
+                .to_string(),
+        );
+    }
+
     let optimized = if debug_kind.variables_enabled() {
         if opts.verbose {
             record_diagnostic(
@@ -1145,7 +1208,7 @@ mod tests {
     fn ptx_optimization_internalizes_helpers_but_preserves_public_roots() {
         let symbols = vec!["constant_data".into(), "first_kernel".into()];
         assert_eq!(
-            optimization_args(&symbols).unwrap(),
+            optimization_args(&symbols, false).unwrap(),
             [
                 "-passes=internalize,default<O2>",
                 "-internalize-public-api-list=constant_data,first_kernel",
@@ -1157,7 +1220,7 @@ mod tests {
     #[test]
     fn modules_without_public_roots_keep_the_existing_optimization_pipeline() {
         assert_eq!(
-            optimization_args(&[]).unwrap(),
+            optimization_args(&[], false).unwrap(),
             ["-O2", "-switch-to-lookup=false"]
         );
     }
@@ -1330,7 +1393,7 @@ mod tests {
 
     #[test]
     fn unrepresentable_public_root_is_rejected() {
-        let error = optimization_args(&["invalid,root".into()]).unwrap_err();
+        let error = optimization_args(&["invalid,root".into()], false).unwrap_err();
         assert!(matches!(error, PipelineError::Optimization(_)));
         assert!(error.to_string().contains("invalid,root"));
     }

@@ -1356,6 +1356,48 @@ pub fn __unroll_config<const FACTOR: u32>() {
     // No runtime code is generated.
 }
 
+/// Compile-time LLVM loop-unroll request marker (internal, do not call
+/// directly).
+///
+/// The `#[kernel]` and `#[device]` macros insert this marker at the start of a
+/// loop annotated with `#[llvm_unroll]`. The MIR importer turns it into a
+/// `mir.llvm_unroll_hint` operation, which becomes `!llvm.loop` unroll metadata
+/// on the loop's latch in the generated LLVM IR. Unlike `__unroll_config`,
+/// cuda-oxide performs no unrolling itself: LLVM's own loop-unroll pass reads
+/// the metadata during `opt -O2`. It generates no runtime code.
+///
+/// # Usage
+///
+/// ```rust,ignore
+/// #[kernel]
+/// pub fn my_kernel(mut output: DisjointSlice<u32>, n: u32) {
+///     let mut i = 0;
+///     #[llvm_unroll]
+///     while i < n {
+///         i += 1;
+///     }
+/// }
+/// ```
+///
+/// LLVM derives the trip count itself, so this often succeeds where
+/// `#[unroll]` reports an unrecognized loop shape. The request is inert in
+/// builds that skip `opt` (`CUDA_OXIDE_NO_OPT=1` and full variable-debug
+/// builds).
+///
+/// # Parameters
+///
+/// - `FACTOR = 0` requests `llvm.loop.unroll.full`. LLVM still needs to derive
+///   an exact trip count for this to take effect.
+/// - `FACTOR >= 2` requests `llvm.loop.unroll.count`, which applies to loops
+///   with a runtime trip count too.
+#[inline(never)]
+pub fn __llvm_unroll_config<const FACTOR: u32>() {
+    const { validate_unroll_factor(FACTOR) }
+    // This function is detected at compile time and removed.
+    // The const generic FACTOR is extracted to set the LLVM unroll request.
+    // No runtime code is generated.
+}
+
 const fn validate_unroll_factor(factor: u32) {
     assert!(
         factor == 0 || (factor >= 2 && factor <= 1024),

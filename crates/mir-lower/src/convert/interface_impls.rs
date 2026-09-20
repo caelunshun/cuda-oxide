@@ -31,10 +31,11 @@ use dialect_mir::ops::{
     MirConstructEnumOp, MirConstructSliceOp, MirConstructStructOp, MirConstructTupleOp,
     MirDbgValueListOp, MirDbgValueOp, MirDivOp, MirEnumPayloadOp, MirEqOp,
     MirExtractArrayElementOp, MirExtractFieldOp, MirFieldAddrOp, MirFloatConstantOp, MirGeOp,
-    MirGetDiscriminantOp, MirGotoOp, MirGtOp, MirInsertFieldOp, MirLeOp, MirLoadOp, MirLtOp,
-    MirMemcpyOp, MirMemmoveOp, MirMulOp, MirNeOp, MirNegOp, MirNotOp, MirPtrOffsetOp, MirRefOp,
-    MirRemOp, MirReturnOp, MirSetDiscriminantOp, MirShlOp, MirShrOp, MirStorageDeadOp,
-    MirStorageLiveOp, MirStoreOp, MirSubOp, MirUndefOp, MirUnreachableOp, MirUnrollHintOp,
+    MirGetDiscriminantOp, MirGotoOp, MirGtOp, MirInsertFieldOp, MirLeOp, MirLlvmUnrollHintOp,
+    MirLoadOp, MirLtOp, MirMemcpyOp, MirMemmoveOp, MirMulOp, MirNeOp, MirNegOp, MirNotOp,
+    MirPtrOffsetOp, MirRefOp, MirRemOp, MirReturnOp, MirSetDiscriminantOp, MirShlOp, MirShrOp,
+    MirStorageDeadOp, MirStorageLiveOp, MirStoreOp, MirSubOp, MirUndefOp, MirUnreachableOp,
+    MirUnrollHintOp,
 };
 use dialect_nvvm::ops::{
     AssertFailOp, CvtaGenericToSharedOffsetOp, InlinePtxOp, NvvmAtomicCmpxchgOp, NvvmAtomicFenceOp,
@@ -926,6 +927,22 @@ impl MirToLlvmConversion for MirStorageDeadOp {
 // conversion: it carries no runtime semantics, only a request to unroll.
 #[op_interface_impl]
 impl MirToLlvmConversion for MirUnrollHintOp {
+    fn convert(
+        &self,
+        ctx: &mut Context,
+        rewriter: &mut DialectConversionRewriter,
+        _operands_info: &OperandsInfo,
+    ) -> Result<()> {
+        rewriter.erase_operation(ctx, self.get_operation());
+        Ok(())
+    }
+}
+
+// Same safety net for `mir.llvm_unroll_hint`: `attach_llvm_loop_metadata`
+// consumes it, and a build that skips that pass (full variable debug) is also a
+// build where `opt` never runs, so the request would have been inert anyway.
+#[op_interface_impl]
+impl MirToLlvmConversion for MirLlvmUnrollHintOp {
     fn convert(
         &self,
         ctx: &mut Context,

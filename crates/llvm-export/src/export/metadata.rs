@@ -196,6 +196,59 @@ pub(super) fn emit_nvvmir_version(
     .unwrap();
 }
 
+/// Emit the `!llvm.loop` nodes referenced by branches carrying an
+/// `#[llvm_unroll]` request.
+///
+/// A loop node is `distinct` (two loops must never share one node) and names
+/// itself as its first operand, which is how LLVM recognizes a loop id:
+///
+/// ```llvm
+/// !7 = distinct !{!7, !8}
+/// !8 = !{!"llvm.loop.unroll.full"}
+/// ```
+///
+/// Unlike the DWARF section, this one is not gated on debug info: the ids were
+/// already written into branch instructions while the function bodies were
+/// emitted, so a missing definition here would be invalid IR.
+pub(super) fn emit_loop_unroll_metadata(output: &mut String, state: &mut ModuleExportState) {
+    let requests = std::mem::take(&mut state.loop_unroll_requests);
+
+    // One property node per distinct request, shared by every loop asking for
+    // it. `full` is one node module-wide; each `count` factor gets its own.
+    let mut property_ids: Vec<(u32, usize)> = Vec::new();
+    let mut nodes = Vec::new();
+    for (loop_id, factor) in &requests {
+        let property_id = match property_ids.iter().find(|(f, _)| f == factor) {
+            Some((_, id)) => *id,
+            None => {
+                let id = state.alloc_metadata_id();
+                property_ids.push((*factor, id));
+                id
+            }
+        };
+        nodes.push((*loop_id, property_id));
+    }
+
+    for (loop_id, property_id) in nodes {
+        writeln!(
+            output,
+            "!{loop_id} = distinct !{{!{loop_id}, !{property_id}}}"
+        )
+        .unwrap();
+    }
+    for (factor, property_id) in property_ids {
+        if factor == 0 {
+            writeln!(output, "!{property_id} = !{{!\"llvm.loop.unroll.full\"}}").unwrap();
+        } else {
+            writeln!(
+                output,
+                "!{property_id} = !{{!\"llvm.loop.unroll.count\", i32 {factor}}}"
+            )
+            .unwrap();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

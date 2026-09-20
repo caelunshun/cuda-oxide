@@ -390,7 +390,7 @@ impl Parse for UnrollArgs {
                 match factor.literal_value {
                     Some(0 | 1) => Err(syn::Error::new_spanned(
                         &factor.expr,
-                        "partial unroll factor must be at least 2; use #[unroll] for full unrolling",
+                        "partial unroll factor must be at least 2; drop the argument for full unrolling",
                     )),
                     Some(value) if value > 1024 => Err(syn::Error::new_spanned(
                         &factor.expr,
@@ -401,14 +401,38 @@ impl Parse for UnrollArgs {
             }
             _ => Err(syn::Error::new(
                 input.span(),
-                "unroll expects no argument (full unroll) or one factor: #[unroll] or #[unroll(N)]",
+                "an unroll attribute expects no argument (full unroll) or one factor, as in #[unroll] or #[unroll(N)]",
             )),
         }
     }
 }
 
-/// `VisitMut` pass that consumes `#[unroll]` / `#[unroll(N)]` attributes written
-/// directly on loops inside a `#[kernel]` (or `#[device]`) function body.
+/// Which unrolling mechanism a per-loop annotation asks for.
+///
+/// Both spellings share the same argument grammar ([`UnrollArgs`]) and both
+/// lower to a hidden marker call at the top of the loop body; they differ only
+/// in which marker, and therefore in who does the unrolling.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum UnrollKind {
+    /// `#[unroll]` -- cuda-oxide's own `mir-transforms` loop-unroll pass.
+    Oxide,
+    /// `#[llvm_unroll]` -- `!llvm.loop` metadata for LLVM's unroller.
+    Llvm,
+}
+
+impl UnrollKind {
+    /// The attribute spelling, for diagnostics and attribute lookup.
+    pub(crate) fn attr_name(self) -> &'static str {
+        match self {
+            UnrollKind::Oxide => "unroll",
+            UnrollKind::Llvm => "llvm_unroll",
+        }
+    }
+}
+
+/// `VisitMut` pass that consumes the per-loop unroll attributes -- `#[unroll]` /
+/// `#[unroll(N)]` and `#[llvm_unroll]` / `#[llvm_unroll(N)]` -- written directly
+/// on loops inside a `#[kernel]` (or `#[device]`) function body.
 ///
 /// This mirrors how CubeCL's `#[cube]` macro handles per-loop `#[unroll]`: the
 /// enclosing function macro owns the whole body AST, so it can strip the inner
@@ -419,18 +443,23 @@ impl Parse for UnrollArgs {
 /// For every `for` / `while` / `loop` expression carrying an outer `#[unroll]`
 /// attribute, the visitor:
 ///
-/// 1. removes the `unroll` attribute from the loop expr's `attrs`, and
-/// 2. inserts `cuda_device::thread::__unroll_config::<FACTOR>();` as the FIRST
-///    statement of that loop's body block.
+/// 1. removes the attribute from the loop expr's `attrs`, and
+/// 2. inserts the matching marker call -- `__unroll_config::<FACTOR>()` or
+///    `__llvm_unroll_config::<FACTOR>()` -- as the FIRST statement of that
+///    loop's body block.
 ///
-/// `FACTOR` follows [`UnrollArgs`]: bare `#[unroll]` => `0` (full unroll),
-/// `#[unroll(N)]` => `N`. The importer reads the marker from the block it lands
-/// in, so the request applies to that loop only.
+/// `FACTOR` follows [`UnrollArgs`]: a bare attribute => `0` (full unroll),
+/// `(N)` => `N`. The importer reads the marker from the block it lands in, so
+/// the request applies to that loop only.
+///
+/// The two spellings are mutually exclusive on one loop: `#[unroll]` asks
+/// cuda-oxide's own pass to unroll, `#[llvm_unroll]` asks LLVM to, and
+/// requesting both is a compile error rather than a silent precedence rule.
 ///
 /// The visitor recurses through nested blocks/loops/ifs via the default
 /// `visit_mut` traversal, so an annotated loop anywhere in the function is
-/// handled. Loops without an `#[unroll]` attribute are left untouched, so a
-/// kernel with no per-loop annotations expands byte-identically to before.
+/// handled. Unannotated loops are left untouched, so a kernel with no per-loop
+/// annotations expands byte-identically to before.
 #[derive(Default)]
 pub(crate) struct LoopUnrollAttrVisitor {
     /// First parse error encountered (e.g. a malformed `#[unroll(...)]`). The
@@ -440,17 +469,48 @@ pub(crate) struct LoopUnrollAttrVisitor {
 }
 
 impl LoopUnrollAttrVisitor {
-    /// If `attrs` contains an outer `#[unroll]` / `#[unroll(N)]`, remove it and
-    /// return the parsed factor. Returns `None` when no `unroll` attribute is
-    /// present (leaving `attrs` untouched). Records a parse error and returns
-    /// `None` if the attribute is malformed.
-    fn take_unroll_factor(&mut self, attrs: &mut Vec<syn::Attribute>) -> Option<ConstU32Expr> {
-        let idx = attrs
-            .iter()
-            .position(|attr| attr.path().is_ident("unroll"))?;
-        let attr = attrs.remove(idx);
+    /// If `attrs` carries one of the unroll attributes, remove it and return
+    /// the requested mechanism plus the parsed factor. Returns `None` when the
+    /// loop carries neither (leaving `attrs` untouched). Records an error and
+    /// returns `None` if the attribute is malformed or if both spellings are
+    /// present.
+    fn take_unroll_request(
+        &mut self,
+        attrs: &mut Vec<syn::Attribute>,
+    ) -> Option<(UnrollKind, ConstU32Expr)> {
+        let position = |kind: UnrollKind, attrs: &Vec<syn::Attribute>| {
+            attrs
+                .iter()
+                .position(|attr| attr.path().is_ident(kind.attr_name()))
+        };
+        let oxide_idx = position(UnrollKind::Oxide, attrs);
+        let llvm_idx = position(UnrollKind::Llvm, attrs);
 
-        // `#[unroll]` (bare) is `Meta::Path`; `#[unroll(N)]` is `Meta::List`.
+        // Both mean "unroll this loop", but by different mechanisms and with
+        // different fallbacks. Picking one silently would hide the other.
+        if let (Some(oxide_idx), Some(llvm_idx)) = (oxide_idx, llvm_idx) {
+            if self.error.is_none() {
+                self.error = Some(syn::Error::new_spanned(
+                    &attrs[oxide_idx.min(llvm_idx)],
+                    "#[unroll] and #[llvm_unroll] cannot be combined on one loop: \
+                     #[unroll] unrolls in cuda-oxide, #[llvm_unroll] asks LLVM to",
+                ));
+            }
+            // Remove the later index first so the earlier one stays valid.
+            attrs.remove(oxide_idx.max(llvm_idx));
+            attrs.remove(oxide_idx.min(llvm_idx));
+            return None;
+        }
+
+        let (kind, idx) = match (oxide_idx, llvm_idx) {
+            (Some(idx), None) => (UnrollKind::Oxide, idx),
+            (None, Some(idx)) => (UnrollKind::Llvm, idx),
+            _ => return None,
+        };
+        let attr = attrs.remove(idx);
+        let name = kind.attr_name();
+
+        // A bare attribute is `Meta::Path`; one with a factor is `Meta::List`.
         let factor = match &attr.meta {
             syn::Meta::Path(_) => ConstU32Expr::literal(0),
             syn::Meta::List(list) => match list.parse_args::<UnrollArgs>() {
@@ -466,7 +526,10 @@ impl LoopUnrollAttrVisitor {
                 if self.error.is_none() {
                     self.error = Some(syn::Error::new_spanned(
                         &attr,
-                        "unroll expects no argument (full unroll) or one factor: #[unroll] or #[unroll(N)]",
+                        format!(
+                            "{name} expects no argument (full unroll) or one factor: \
+                             #[{name}] or #[{name}(N)]"
+                        ),
                     ));
                 }
                 return None;
@@ -475,14 +538,19 @@ impl LoopUnrollAttrVisitor {
         if factor.literal_value.is_none() {
             self.const_expressions.push(factor.clone());
         }
-        Some(factor)
+        Some((kind, factor))
     }
 
-    /// Build the `__unroll_config::<FACTOR>()` marker statement.
-    fn marker_stmt(factor: &ConstU32Expr) -> Stmt {
+    /// Build the marker statement for the requested unroll mechanism.
+    fn marker_stmt(kind: UnrollKind, factor: &ConstU32Expr) -> Stmt {
         let expr = &factor.expr;
-        parse_quote! {
-            cuda_device::thread::__unroll_config::<{ #expr }>();
+        match kind {
+            UnrollKind::Oxide => parse_quote! {
+                cuda_device::thread::__unroll_config::<{ #expr }>();
+            },
+            UnrollKind::Llvm => parse_quote! {
+                cuda_device::thread::__llvm_unroll_config::<{ #expr }>();
+            },
         }
     }
 }
@@ -494,18 +562,27 @@ impl VisitMut for LoopUnrollAttrVisitor {
         // else falls through to the default recursion below.
         match expr {
             Expr::ForLoop(for_loop) => {
-                if let Some(factor) = self.take_unroll_factor(&mut for_loop.attrs) {
-                    for_loop.body.stmts.insert(0, Self::marker_stmt(&factor));
+                if let Some((kind, factor)) = self.take_unroll_request(&mut for_loop.attrs) {
+                    for_loop
+                        .body
+                        .stmts
+                        .insert(0, Self::marker_stmt(kind, &factor));
                 }
             }
             Expr::While(while_loop) => {
-                if let Some(factor) = self.take_unroll_factor(&mut while_loop.attrs) {
-                    while_loop.body.stmts.insert(0, Self::marker_stmt(&factor));
+                if let Some((kind, factor)) = self.take_unroll_request(&mut while_loop.attrs) {
+                    while_loop
+                        .body
+                        .stmts
+                        .insert(0, Self::marker_stmt(kind, &factor));
                 }
             }
             Expr::Loop(loop_expr) => {
-                if let Some(factor) = self.take_unroll_factor(&mut loop_expr.attrs) {
-                    loop_expr.body.stmts.insert(0, Self::marker_stmt(&factor));
+                if let Some((kind, factor)) = self.take_unroll_request(&mut loop_expr.attrs) {
+                    loop_expr
+                        .body
+                        .stmts
+                        .insert(0, Self::marker_stmt(kind, &factor));
                 }
             }
             _ => {}
