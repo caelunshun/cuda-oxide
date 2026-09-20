@@ -34,6 +34,13 @@
 //! answer is used by `body::emit_entry_allocas` via
 //! [`align_pointer_addr_space`] to pick an alloca pointee that matches what
 //! actually gets stored.
+//!
+//! Narrowing is suppressed for a local whose slot address itself escapes
+//! through a bare-local borrow (`&_p` / `&raw mut _p`): such a borrow hands
+//! out the slot pointer retyped to the reference type rustc declared, and
+//! that declared type is structural -- its nested pointee addrspace comes
+//! from `translate_type`, never from this analysis. See
+//! [`SlotAddrSpaceMap::effective`].
 
 use super::facts;
 use super::facts::self_ty_is_shared_array;
@@ -474,6 +481,9 @@ enum WriteClass {
 /// per non-ZST local to decide the alloca pointee's addrspace.
 pub struct SlotAddrSpaceMap {
     classes: Vec<SlotAddrSpace>,
+    /// Locals whose alloca address is handed to a bare-local borrow. Their
+    /// slots keep the Rust-declared lowering regardless of `classes`.
+    address_escapes: Vec<bool>,
 }
 
 impl SlotAddrSpaceMap {
@@ -484,6 +494,8 @@ impl SlotAddrSpaceMap {
     /// classifies the RHS, and merges observations into the destination
     /// local's state. Unclassified pointer writes contribute the pointer's
     /// declared lowering; only temporarily unresolved copy chains are skipped.
+    /// A final pass records which locals have their address taken, so
+    /// [`Self::effective`] can hold those slots at their declared lowering.
     ///
     /// Convergence: each local can transition at most
     /// `Uninit → Known(n) → Generic` (two steps). Propagation chains
@@ -560,17 +572,28 @@ impl SlotAddrSpaceMap {
             }
         }
 
-        Self { classes }
+        let address_escapes = collect_address_escapes(body, reachable, num_locals);
+
+        Self {
+            classes,
+            address_escapes,
+        }
     }
 
     /// Effective address space for `local`'s slot pointee.
     ///
+    /// - address-escaped → `rust_declared`, whatever the classifier inferred
+    ///   (see [`collect_address_escapes`]).
     /// - `Known(n)` → `n` (the inferred addrspace).
     /// - `Generic`  → `address_space::GENERIC` (writes disagreed or were
     ///   unclassified).
     /// - `Uninit`   → `rust_declared` (no classified writes seen; keep
     ///   whatever `translate_type` produced).
     pub fn effective(&self, local: mir::Local, rust_declared: u32) -> u32 {
+        if self.address_escapes.get(local).copied().unwrap_or(false) {
+            return rust_declared;
+        }
+
         match self
             .classes
             .get(local)
@@ -582,6 +605,60 @@ impl SlotAddrSpaceMap {
             SlotAddrSpace::Generic => address_space::GENERIC,
         }
     }
+}
+
+/// Locals whose alloca address is handed out by a bare-local borrow.
+///
+/// `&_p` / `&raw mut _p` on a bare local lower to the local's alloca pointer
+/// retyped to the reference type rustc declared for the borrow
+/// (`rvalue::expr`, `Rvalue::Ref` case 1). That declared type is structural:
+/// `translate_type` derives its *nested* pointee addrspace from the borrowed
+/// local's Rust type, so it is generic for every ordinary `&mut f32` /
+/// `*mut T` and concrete only for the pointer stand-in types. Narrowing such
+/// a slot leaves the borrow boundary with a nested-pointee mismatch that
+/// `cast_to_declared_rust_pointer_type_if_needed` is not allowed to bridge;
+/// the unretyped slot pointer then flows into the borrow's destination slot
+/// and trips `MirStoreOp`'s "value type must match pointer element type".
+///
+/// Bridging it instead would be worse than the verifier error: a `PtrToPtr`
+/// between `*(*T addrspace(3))` and `*(*T addrspace(0))` is a no-op bitcast
+/// (both carriers are generic), so a later read through the borrow would take
+/// the stored shared-window address for a generic one and skip the
+/// `cvta.shared` the hardware needs. Keeping the declared lowering costs an
+/// addrspacecast per store into the slot -- which is what `maybe_ptr_coerce`
+/// already emits -- and keeps every consumer typed the way rustc declared it.
+///
+/// Only an empty projection escapes the slot. `&(*_p)` borrows the *pointee*:
+/// the address walker loads `_p` and casts the loaded value, which is exactly
+/// the narrowing this analysis exists to enable, so it must stay eligible.
+fn collect_address_escapes(
+    body: &mir::Body,
+    reachable: &std::collections::BTreeSet<usize>,
+    num_locals: usize,
+) -> Vec<bool> {
+    let mut escapes = vec![false; num_locals];
+
+    for &block_idx in reachable {
+        let block = &body.blocks[block_idx];
+        for stmt in &block.statements {
+            let mir::StatementKind::Assign(_, rvalue) = &stmt.kind else {
+                continue;
+            };
+            let (mir::Rvalue::Ref(_, _, source) | mir::Rvalue::AddressOf(_, source)) = rvalue
+            else {
+                continue;
+            };
+            if !source.projection.is_empty() {
+                continue;
+            }
+            let local_idx: usize = source.local;
+            if let Some(escaped) = escapes.get_mut(local_idx) {
+                *escaped = true;
+            }
+        }
+    }
+
+    escapes
 }
 
 /// Turn a [`WriteClass`] into a [`SlotAddrSpace`] observation. An unknown
@@ -1131,5 +1208,56 @@ mod tests {
         assert_eq!(aligned.address_space, address_space::SHARED);
         assert_eq!(aligned.kind, MirPointerKind::UniqueRef);
         assert!(aligned.is_mutable);
+    }
+
+    /// `mir::Body` only exists inside a rustc driver, so the escape rule is
+    /// tested at the decision table `analyze` feeds: inferred class crossed
+    /// with "the local's address was borrowed".
+    fn map_with(classes: Vec<SlotAddrSpace>, address_escapes: Vec<bool>) -> SlotAddrSpaceMap {
+        SlotAddrSpaceMap {
+            classes,
+            address_escapes,
+        }
+    }
+
+    #[test]
+    fn unborrowed_slot_narrows_to_the_inferred_address_space() {
+        let map = map_with(
+            vec![SlotAddrSpace::Known(address_space::SHARED)],
+            vec![false],
+        );
+
+        assert_eq!(
+            map.effective(mir::Local::from(0usize), address_space::GENERIC),
+            address_space::SHARED
+        );
+    }
+
+    #[test]
+    fn borrowed_slot_keeps_the_rust_declared_address_space() {
+        let map = map_with(
+            vec![SlotAddrSpace::Known(address_space::SHARED)],
+            vec![true],
+        );
+
+        assert_eq!(
+            map.effective(mir::Local::from(0usize), address_space::GENERIC),
+            address_space::GENERIC,
+            "a borrowed slot must stay typed the way `translate_type` typed it: \
+             the borrow's declared referent carries the declared addrspace"
+        );
+    }
+
+    #[test]
+    fn borrowed_slot_pins_to_declared_rather_than_to_generic() {
+        // Pointer stand-in types (`&mut SharedArray<_>`) are *declared* in a
+        // concrete address space, so pinning must reinstate the declared
+        // lowering, not blanket-demote to generic.
+        let map = map_with(vec![SlotAddrSpace::Generic], vec![true]);
+
+        assert_eq!(
+            map.effective(mir::Local::from(0usize), address_space::SHARED),
+            address_space::SHARED
+        );
     }
 }

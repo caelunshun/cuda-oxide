@@ -1782,8 +1782,9 @@ fn emit_entry_allocas(
         .collect();
 
     // Pre-scan only rustc-reachable writes. A slot is narrowed to a concrete
-    // address space only when every reachable write agrees; unknown writes
-    // retain their declared lowering (normally generic address space zero).
+    // address space only when every reachable write agrees AND the local's
+    // address is never borrowed; unknown writes retain their declared
+    // lowering (normally generic address space zero).
     let slot_addr_spaces =
         SlotAddrSpaceMap::analyze(body, reachable, num_args, &declared_addr_spaces);
 
