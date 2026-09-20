@@ -599,6 +599,14 @@ only) > backend feature-based default. `cargo oxide build` and
 `cargo oxide pipeline` deliberately skip the host-CC step so they remain
 usable for cross-compilation.
 
+The resolved architecture is also exported to rustc as the `cuda_arch*`
+`#[cfg]` values (see
+{ref}`Conditional compilation <conditional-compilation>`). Because the host-CC
+step is only a hint, target selection may still move past it when a kernel's
+features demand a newer architecture — and the `#[cfg]` arms were already
+resolved against the hint by then. The backend warns when that happens rather
+than silently emitting code whose conditional arms describe another GPU.
+
 If the lowered module calls CUDA libdevice, cuda-oxide switches from `llc` to
 the NVVM path automatically. It resolves the target with the same precedence
 before choosing typed- or opaque-pointer NVVM IR. Explicit NVVM/LTOIR commands

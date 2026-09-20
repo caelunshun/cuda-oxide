@@ -28,7 +28,7 @@ use crate::prep::{MirPreparation, prepare_mir_module};
 use crate::ptx::{
     PtxModule, discover_llvm_toolchain, generate_ptx_discovered, generate_ptx_with_toolchain,
 };
-use crate::target::detect_features_in_llvm_text;
+use crate::target::{CfgConsistency, check_cfg_arch_consistency, detect_features_in_llvm_text};
 use crate::verify::verify_operation;
 use llvm_export::export::{DebugKind, FunctionLocalStaticPlacement, NvvmIrDialect};
 use pliron::context::{Context, Ptr};
@@ -388,6 +388,24 @@ pub fn compile_translated_module(
             automatic_features,
             &generated_requirements,
         )?;
+        // The NVVM selector returns no provenance label, but the distinction
+        // this check needs is exactly whether the explicit pin was present:
+        // with one, it always wins, so the label is the explicit source.
+        let target_source = if backend.target_arch.is_some() {
+            backend.target_arch_source
+        } else {
+            "feature requirement"
+        };
+        match check_cfg_arch_consistency(
+            backend.cfg_arch.as_deref(),
+            &target,
+            target_source,
+            backend.target_arch_source,
+        ) {
+            CfgConsistency::Consistent => {}
+            CfgConsistency::Warn(message) => request.trace.emit(message),
+            CfgConsistency::Reject(error) => return Err(error),
+        }
         let dialect = if target.uses_legacy_llvm() {
             NvvmIrDialect::LegacyLlvm7
         } else {

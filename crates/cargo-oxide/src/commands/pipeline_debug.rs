@@ -112,6 +112,7 @@ pub fn codegen_show_pipeline(
         ctx,
         CodegenProfilePolicy::ReleaseLike,
         &[],
+        cfg_arch_or_exit(ctx, arch, None).as_ref(),
         &fingerprint,
     );
 
@@ -184,6 +185,7 @@ pub fn codegen_debug(
     };
 
     let detected_device_arch = detect_run_target_arch(target_arch, materialization.enabled());
+    warn_for_undetected_run_arch(ctx, arch, detected_device_arch.as_deref());
 
     if let Some(bin) = bin {
         println!("Building {} (bin: {}) with debug info...", example, bin);
@@ -225,6 +227,7 @@ pub fn codegen_debug(
         ctx,
         CodegenProfilePolicy::ReleaseLikeWithDebugInfo,
         &[],
+        cfg_arch_or_exit(ctx, arch, detected_device_arch.as_deref()).as_ref(),
         &fingerprint,
     );
     cmd.env("CARGO_PROFILE_RELEASE_DEBUG", "2");

@@ -152,6 +152,23 @@ jobs:
             fi
           }
 
+          assert_packages_rebuilt() {
+            local log="$1"
+            shift
+            local package
+            for package in "$@"; do
+              if ! grep -Eq "^[[:space:]]*Compiling ${package}([[:space:]]|$)" "${log}"; then
+                echo "Expected ${package} to rebuild, but it stayed fresh" >&2
+                return 1
+              fi
+            done
+          }
+
+          # Use this only across builds that share one architecture. An
+          # architecture is part of the global rustflags (it supplies the
+          # `cuda_arch*` cfgs any dependency may test), so switching `--arch`
+          # legitimately rebuilds the dependency tree; only an output-mode
+          # change is expected to stay scoped to the device-owning package.
           assert_only_expected_rebuilt() {
             local log="$1"
             local allowed="$2"
@@ -168,21 +185,20 @@ jobs:
               echo "${unexpected}" >&2
               return 1
             fi
-            local package
-            for package in "$@"; do
-              if ! grep -Eq "^[[:space:]]*Compiling ${package}([[:space:]]|$)" "${log}"; then
-                echo "Expected ${package} to rebuild, but it stayed fresh" >&2
-                return 1
-              fi
-            done
+            assert_packages_rebuilt "${log}" "$@"
           }
 
+          # Establish the sm_86 rustflag baseline. The smoketest above ended
+          # on some other architecture, so this first build is an arch switch
+          # and is allowed to rebuild the tree; the mode-only assertions that
+          # follow all run at this one fixed architecture.
           cargo oxide build vecadd --arch sm_86 2>&1 \
             | tee "${RUNNER_TEMP}/vecadd-ptx-build.log"
-          assert_only_expected_rebuilt \
-            "${RUNNER_TEMP}/vecadd-ptx-build.log" '^vecadd$' vecadd
+          assert_packages_rebuilt "${RUNNER_TEMP}/vecadd-ptx-build.log" vecadd
           assert_embedded_artifact "${CARGO_TARGET_DIR}/release/vecadd" 1 256 sm_86
 
+          # The claim under test: changing only the artifact mode must not
+          # invalidate a single shared dependency.
           cargo oxide build vecadd --materialize-cubin --arch sm_86 2>&1 \
             | tee "${RUNNER_TEMP}/vecadd-cubin-build.log"
           assert_only_expected_rebuilt \
@@ -191,39 +207,43 @@ jobs:
           # payload kind is what must change from PTX (256) to cubin (512).
           assert_embedded_artifact "${CARGO_TARGET_DIR}/release/vecadd" 1 512 sm_86
 
-          # IKET metadata is consumed by the profiler rather than device code.
-          # Guard the complete libNVVM + nvJitLink path: an IR-only assertion
-          # would miss internalization dropping these globals from the cubin.
-          cargo oxide build iket_trace --materialize-cubin --arch sm_120 2>&1 \
-            | tee "${RUNNER_TEMP}/iket-trace-cubin-build.log"
-          assert_only_expected_rebuilt \
-            "${RUNNER_TEMP}/iket-trace-cubin-build.log" '^iket_trace$' iket_trace
-          assert_embedded_artifact \
-            "${CARGO_TARGET_DIR}/release/iket_trace" 1 512 sm_120 \
-            __iket_meta_info \
-            vecadd.completed.with.a.name.longer.than.thirty.one.bytes
-
           # Switching back must invalidate vecadd's device artifact without
-          # throwing away the shared host dependency cache.
+          # throwing away the shared host dependency cache. Still sm_86, so
+          # the scoped assertion still applies.
           cargo oxide build vecadd --arch sm_86 2>&1 \
             | tee "${RUNNER_TEMP}/vecadd-ptx-return-build.log"
           assert_only_expected_rebuilt \
             "${RUNNER_TEMP}/vecadd-ptx-return-build.log" '^vecadd$' vecadd
           assert_embedded_artifact "${CARGO_TARGET_DIR}/release/vecadd" 1 256 sm_86
 
-          # A kernel-producing path dependency must be invalidated too, while
-          # ordinary CUDA/host dependencies remain reusable.
+          # IKET metadata is consumed by the profiler rather than device code.
+          # Guard the complete libNVVM + nvJitLink path: an IR-only assertion
+          # would miss internalization dropping these globals from the cubin.
+          # This is an arch switch (sm_86 -> sm_120), so the dependency tree
+          # rebuilding is expected; only the artifact contents are asserted.
+          cargo oxide build iket_trace --materialize-cubin --arch sm_120 2>&1 \
+            | tee "${RUNNER_TEMP}/iket-trace-cubin-build.log"
+          assert_packages_rebuilt \
+            "${RUNNER_TEMP}/iket-trace-cubin-build.log" iket_trace
+          assert_embedded_artifact \
+            "${CARGO_TARGET_DIR}/release/iket_trace" 1 512 sm_120 \
+            __iket_meta_info \
+            vecadd.completed.with.a.name.longer.than.thirty.one.bytes
+
+          # A kernel-producing path dependency must be invalidated by an arch
+          # change too. Both of these are arch switches, so they assert that
+          # the two device-owning packages rebuild, not that nothing else did.
           cargo oxide build cross_crate_kernel --arch sm_86 2>&1 \
             | tee "${RUNNER_TEMP}/cross-crate-sm86-build.log"
-          assert_only_expected_rebuilt \
+          assert_packages_rebuilt \
             "${RUNNER_TEMP}/cross-crate-sm86-build.log" \
-            '^(kernel-lib|cross_crate_kernel)$' kernel-lib cross_crate_kernel
+            kernel-lib cross_crate_kernel
 
           cargo oxide build cross_crate_kernel --arch sm_90 2>&1 \
             | tee "${RUNNER_TEMP}/cross-crate-sm90-build.log"
-          assert_only_expected_rebuilt \
+          assert_packages_rebuilt \
             "${RUNNER_TEMP}/cross-crate-sm90-build.log" \
-            '^(kernel-lib|cross_crate_kernel)$' kernel-lib cross_crate_kernel
+            kernel-lib cross_crate_kernel
 
       - name: Upload failure logs
         if: failure()

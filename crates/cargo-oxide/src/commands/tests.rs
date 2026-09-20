@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use super::*;
+use cuda_target_spec::CudaArch;
 use std::ffi::OsStr;
 
 /// The concatenated sources of every module under `commands/`, standing in
@@ -1157,6 +1158,7 @@ fn interop_build_keeps_debug_assertions_and_device_debug_independent() {
                 options.codegen_profile(),
                 &[],
                 &[],
+                &[],
                 None,
                 None,
             );
@@ -1217,6 +1219,7 @@ fn sanitize_interop_codegen_defaults_to_line_tables_and_forwards_no_fmad() {
         &ctx,
         CodegenProfilePolicy::ReleaseLike,
         &[],
+        None,
         &fingerprint,
     )
     .unwrap();
@@ -1874,6 +1877,7 @@ fn test_passthrough_defers_profile_flags_to_cargo_and_keeps_invariants() {
         CargoPassthroughSubcommand::Test.codegen_profile(false),
         &[],
         &["--cfg".to_string(), "device_test".to_string()],
+        &[],
         None,
         None,
     );
@@ -1942,6 +1946,7 @@ fn build_passthrough_retains_release_profile_and_required_flags() {
         CargoPassthroughSubcommand::Build.codegen_profile(false),
         &[],
         &[],
+        &[],
         Some("-Lnative=/nix/store/cuda-cudart/lib\u{1f}-Copt-level=0\u{1f}-Zcodegen-backend=llvm"),
         Some("-L native=/nix/store/cuda-cudart/lib"),
     );
@@ -1969,6 +1974,7 @@ fn build_debug_assertions_keep_release_optimization_without_overflow_checks() {
     let rustflags = build_encoded_rustflags_with_existing(
         Path::new("/tmp/librustc_codegen_cuda.so"),
         CargoPassthroughSubcommand::Build.codegen_profile(true),
+        &[],
         &[],
         &[],
         Some("-Cdebug-assertions=off\u{1f}-Coverflow-checks=on\u{1f}-Copt-level=0"),
@@ -2004,6 +2010,7 @@ fn encoded_rustflags_preserve_configured_flag_boundaries_and_spaces() {
         Path::new("/tmp/backend path/librustc_codegen_cuda.so"),
         CodegenProfilePolicy::ReleaseLike,
         &["--cfg".to_string(), "model=\"alpha beta\"".to_string()],
+        &[],
         &[],
         None,
         Some("-L native=/nix/store/cuda-cudart/lib"),
@@ -2054,6 +2061,7 @@ fn encoded_rustflags_remove_wrapper_owned_codegen_cfgs() {
             "--cfg".to_string(),
             "keep_explicit".to_string(),
         ],
+        &[],
         Some(&encoded),
         None,
     );
@@ -2089,6 +2097,7 @@ fn debug_profile_retains_release_defaults_and_adds_debuginfo() {
     let rustflags = build_encoded_rustflags_with_existing(
         Path::new("/tmp/librustc_codegen_cuda.so"),
         CodegenProfilePolicy::ReleaseLikeWithDebugInfo,
+        &[],
         &[],
         &[],
         None,
@@ -2557,8 +2566,15 @@ fn passthrough_command_accepts_empty_cargo_args() {
     );
 }
 
+/// The two cache boundaries pull in opposite directions, so assert both.
+///
+/// Architecture *is* global now: `#[cfg(cuda_arch_min = ..)]` can appear in
+/// any dependency, and rustc resolves it in the crate that wrote it, so the
+/// values have to reach the whole tree. Output mode is still device-owner
+/// scoped, and must stay that way -- otherwise switching PTX/NVVM output
+/// would rebuild the dependency tree for no reason.
 #[test]
-fn architecture_and_output_mode_do_not_change_global_rustflags() {
+fn architecture_changes_global_rustflags_but_output_mode_does_not() {
     let ctx = test_context(OxideConfig::default());
     let base = CargoPassthroughOptions {
         verbose: false,
@@ -2574,31 +2590,38 @@ fn architecture_and_output_mode_do_not_change_global_rustflags() {
         device_debug: DeviceDebug::Off,
         debug_assertions: false,
     };
-    let base_cmd =
-        passthrough_command_for_test(&ctx, CargoPassthroughSubcommand::Build, &base, &[]).unwrap();
-    let different_mode = CargoPassthroughOptions {
-        emit_nvvm_ir: true,
+    let command_for = |opts: &CargoPassthroughOptions<'_>| {
+        passthrough_command_for_test(&ctx, CargoPassthroughSubcommand::Build, opts, &[]).unwrap()
+    };
+    let base_cmd = command_for(&base);
+    let different_arch = CargoPassthroughOptions {
         arch: Some("sm_90"),
         ..base
     };
-    let different_cmd = passthrough_command_for_test(
-        &ctx,
-        CargoPassthroughSubcommand::Build,
-        &different_mode,
-        &[],
-    )
-    .unwrap();
+    let arch_cmd = command_for(&different_arch);
+    let different_output = CargoPassthroughOptions {
+        emit_nvvm_ir: true,
+        ..base
+    };
+    let output_cmd = command_for(&different_output);
 
+    assert_ne!(
+        command_env(&base_cmd, "CARGO_ENCODED_RUSTFLAGS"),
+        command_env(&arch_cmd, "CARGO_ENCODED_RUSTFLAGS"),
+        "arch-conditional device code needs the `cuda_arch*` cfgs tree-wide"
+    );
     assert_eq!(
         command_env(&base_cmd, "CARGO_ENCODED_RUSTFLAGS"),
-        command_env(&different_cmd, "CARGO_ENCODED_RUSTFLAGS"),
-        "architecture/output switches must not invalidate every dependency"
+        command_env(&output_cmd, "CARGO_ENCODED_RUSTFLAGS"),
+        "an output-mode switch alone must not invalidate every dependency"
     );
-    assert_ne!(
-        command_env(&base_cmd, CODEGEN_FINGERPRINT_ENV),
-        command_env(&different_cmd, CODEGEN_FINGERPRINT_ENV),
-        "device owners still need a distinct Cargo identity"
-    );
+    for other in [&arch_cmd, &output_cmd] {
+        assert_ne!(
+            command_env(&base_cmd, CODEGEN_FINGERPRINT_ENV),
+            command_env(other, CODEGEN_FINGERPRINT_ENV),
+            "device owners still need a distinct Cargo identity"
+        );
+    }
 }
 
 #[test]
@@ -2735,13 +2758,17 @@ device-owner = { path = "../device-owner" }
     assert_eq!(warm.get("device_owner"), Some(&true));
     assert_eq!(warm.get("device-consumer"), Some(&true));
 
+    // An architecture switch changes global rustflags (the `cuda_arch*` cfg
+    // set), so unlike every other switch below it does rebuild the whole tree.
+    // That is the accepted price of letting any dependency write
+    // `#[cfg(cuda_arch_min = ..)]`.
     let different_arch = CargoPassthroughOptions {
         arch: Some("sm_90"),
         ..base
     };
     let arch_switch = cargo_artifact_freshness(&ctx, &different_arch, None);
-    assert_eq!(arch_switch.get("shared_dep"), Some(&true));
-    assert_eq!(arch_switch.get("tracked_macro"), Some(&true));
+    assert_eq!(arch_switch.get("shared_dep"), Some(&false));
+    assert_eq!(arch_switch.get("tracked_macro"), Some(&false));
     assert_eq!(arch_switch.get("device_owner"), Some(&false));
     assert_eq!(arch_switch.get("device-consumer"), Some(&false));
 
@@ -3002,6 +3029,7 @@ fn global_backend_identity_tracks_rebuild_at_same_path() {
         &ctx,
         CodegenProfilePolicy::ReleaseLike,
         &[],
+        None,
         &fingerprint,
     )
     .unwrap();
@@ -3024,6 +3052,7 @@ fn global_backend_identity_tracks_rebuild_at_same_path() {
         &ctx,
         CodegenProfilePolicy::ReleaseLike,
         &[],
+        None,
         &fingerprint,
     )
     .unwrap();
@@ -3186,6 +3215,199 @@ fn apply_output_mode_leaves_auto_detect_ptx_unset() {
     assert_eq!(command_env(&cmd, "CUDA_OXIDE_EMIT_NVVM_IR"), None);
 }
 
+/// Collect the values of one `--cfg NAME="VALUE"` name out of decoded flags.
+fn cfg_values<'a>(flags: &[&'a str], name: &str) -> Vec<&'a str> {
+    let prefix = format!("{name}=\"");
+    flags
+        .windows(2)
+        .filter(|pair| pair[0] == "--cfg" && pair[1].starts_with(&prefix))
+        .map(|pair| {
+            pair[1][prefix.len()..]
+                .strip_suffix('"')
+                .expect("a rendered cfg value is quoted")
+        })
+        .collect()
+}
+
+fn check_cfg_specs_in<'a>(flags: &[&'a str]) -> Vec<&'a str> {
+    flags
+        .windows(2)
+        .filter(|pair| pair[0] == "--check-cfg")
+        .map(|pair| pair[1])
+        .collect()
+}
+
+fn passthrough_opts_for_arch(arch: Option<&str>) -> CargoPassthroughOptions<'_> {
+    CargoPassthroughOptions {
+        verbose: false,
+        emit_nvvm_ir: false,
+        arch,
+        features: None,
+        cargo_target_dir: None,
+        device_codegen_crate: None,
+        device_cfgs: &[],
+        no_fmad: false,
+        unchecked_indexing: false,
+        materialize_cubin: false,
+        device_debug: DeviceDebug::Off,
+        debug_assertions: false,
+    }
+}
+
+#[test]
+fn pinned_arch_exports_the_full_cfg_vocabulary_and_its_check_cfg_universe() {
+    let ctx = test_context(OxideConfig::default());
+    let opts = passthrough_opts_for_arch(Some("sm_90a"));
+    let cmd =
+        passthrough_command_for_test(&ctx, CargoPassthroughSubcommand::Build, &opts, &[]).unwrap();
+    let encoded = command_env(&cmd, "CARGO_ENCODED_RUSTFLAGS").unwrap();
+    let flags = decoded_rustflags(&encoded);
+
+    assert_eq!(cfg_values(&flags, "cuda_arch"), ["90"]);
+    assert_eq!(cfg_values(&flags, "cuda_arch_target"), ["sm_90a"]);
+    assert_eq!(cfg_values(&flags, "cuda_arch_specific"), ["90"]);
+    assert_eq!(cfg_values(&flags, "cuda_arch_family_specific"), ["90"]);
+    let min = cfg_values(&flags, "cuda_arch_min");
+    assert_eq!(min.first(), Some(&"70"));
+    assert_eq!(min.last(), Some(&"90"));
+    assert!(!min.contains(&"100"));
+
+    // Every name is declared, so a valid use is silent and only a typo warns.
+    let specs = check_cfg_specs_in(&flags);
+    assert_eq!(specs.len(), 5);
+    assert!(
+        specs
+            .iter()
+            .any(|spec| spec.starts_with("cfg(cuda_arch_min, values(") && spec.contains("\"90\""))
+    );
+
+    assert_eq!(command_env(&cmd, CFG_ARCH_ENV).as_deref(), Some("sm_90a"));
+}
+
+#[test]
+fn unpinned_arch_exports_no_cfgs_no_check_cfgs_and_no_report() {
+    let ctx = test_context(OxideConfig::default());
+    let opts = passthrough_opts_for_arch(None);
+    let cmd =
+        passthrough_command_for_test(&ctx, CargoPassthroughSubcommand::Build, &opts, &[]).unwrap();
+    let encoded = command_env(&cmd, "CARGO_ENCODED_RUSTFLAGS").unwrap();
+    let flags = decoded_rustflags(&encoded);
+
+    // Silence here is the mechanism, not an omission: with no `--check-cfg`
+    // declaring these names, rustc reports each `#[cfg(cuda_arch..)]` use as
+    // an unexpected cfg condition name.
+    assert!(!flags.iter().any(|flag| flag.starts_with("cuda_arch")));
+    assert!(check_cfg_specs_in(&flags).is_empty());
+    assert_eq!(command_env(&cmd, CFG_ARCH_ENV), None);
+}
+
+/// An inherited `cuda_arch*` setting must not survive alongside the wrapper's
+/// own: `#[cfg]` is set membership, so two live `cuda_arch` values would make
+/// two mutually exclusive arms compile at once.
+#[test]
+fn inherited_arch_cfgs_and_check_cfgs_are_stripped_before_the_wrappers_own() {
+    let inherited = [
+        "--cfg",
+        "cuda_arch=\"70\"",
+        "--cfg=cuda_arch_min=\"70\"",
+        "--check-cfg",
+        "cfg(cuda_arch, values(\"70\"))",
+        "--check-cfg=cfg(cuda_arch_target, values(\"sm_70\"))",
+        "--cfg",
+        "cuda_arch_lookalike=\"70\"",
+        "--cfg",
+        "keep_inherited",
+    ]
+    .join(&ENCODED_RUSTFLAGS_SEPARATOR.to_string());
+    let arch = "sm_86".parse::<CudaArch>().unwrap();
+    let rustflags = build_encoded_rustflags_with_existing(
+        Path::new("/tmp/librustc_codegen_cuda.so"),
+        CodegenProfilePolicy::ReleaseLike,
+        &[],
+        &[],
+        &arch_cfg_rustflags(&arch),
+        Some(&inherited),
+        None,
+    );
+    let flags = decoded_rustflags(&rustflags);
+
+    assert_eq!(cfg_values(&flags, "cuda_arch"), ["86"]);
+    assert_eq!(cfg_values(&flags, "cuda_arch_target"), ["sm_86"]);
+    assert_eq!(
+        cfg_values(&flags, "cuda_arch_min"),
+        ["70", "72", "75", "80", "86"]
+    );
+    assert!(!flags.contains(&"cfg(cuda_arch, values(\"70\"))"));
+    assert!(!flags.contains(&"--check-cfg=cfg(cuda_arch_target, values(\"sm_70\"))"));
+    // A name that merely starts with an owned one is the user's, not ours.
+    assert_eq!(cfg_values(&flags, "cuda_arch_lookalike"), ["70"]);
+    assert!(flags.contains(&"keep_inherited"));
+}
+
+#[test]
+fn cfg_arch_precedence_runs_cli_then_env_then_config_then_detection() {
+    let configured = test_context(OxideConfig {
+        default_arch: Some("sm_80".to_string()),
+        ..OxideConfig::default()
+    });
+    let bare = test_context(OxideConfig::default());
+    let label = |arch: Option<CudaArch>| arch.map(|arch| arch.sm());
+
+    assert_eq!(
+        label(
+            cfg_arch_with_env(
+                &configured,
+                Some("sm_90"),
+                Some("sm_86".to_string()),
+                Some("sm_75")
+            )
+            .unwrap()
+        ),
+        Some("sm_90".to_string())
+    );
+    assert_eq!(
+        label(
+            cfg_arch_with_env(&configured, None, Some("sm_86".to_string()), Some("sm_75")).unwrap()
+        ),
+        Some("sm_86".to_string())
+    );
+    assert_eq!(
+        label(cfg_arch_with_env(&configured, None, None, Some("sm_75")).unwrap()),
+        Some("sm_80".to_string())
+    );
+    assert_eq!(
+        label(cfg_arch_with_env(&bare, None, None, Some("sm_75")).unwrap()),
+        Some("sm_75".to_string())
+    );
+    assert_eq!(
+        label(cfg_arch_with_env(&bare, None, None, None).unwrap()),
+        None
+    );
+}
+
+#[test]
+fn cfg_arch_normalizes_every_accepted_spelling_and_rejects_unrecorded_targets() {
+    let ctx = test_context(OxideConfig::default());
+    for spelling in ["sm_86", "compute_86", "86"] {
+        assert_eq!(
+            cfg_arch_with_env(&ctx, Some(spelling), None, None)
+                .unwrap()
+                .map(|arch| arch.sm()),
+            Some("sm_86".to_string()),
+            "{spelling}"
+        );
+    }
+
+    // `sm_99` parses fine but has no recorded PTX floor, so it also has no
+    // `--check-cfg` value universe -- failing here beats emitting a cfg value
+    // the same build would then reject.
+    let error = cfg_arch_with_env(&ctx, Some("sm_99"), None, None).unwrap_err();
+    assert!(error.contains("sm_99"), "{error}");
+    assert!(error.contains("no recorded PTX ISA floor"), "{error}");
+    assert!(error.contains("sm_86"), "{error}");
+    assert!(cfg_arch_with_env(&ctx, Some("gfx90a"), None, None).is_err());
+}
+
 #[test]
 fn apply_device_arch_hint_sets_hint_when_no_explicit_arch() {
     let mut cmd = Command::new("cargo");
@@ -3233,6 +3455,44 @@ fn debug_output_mode_forwards_detected_gpu_hint() {
     );
     assert_eq!(command_env(&cmd, "CUDA_OXIDE_TARGET"), None);
     assert_eq!(command_env(&cmd, "CUDA_OXIDE_EMIT_NVVM_IR"), None);
+}
+
+/// `run` resolves the GPU once and that answer has to reach two places: the
+/// backend's advisory `CUDA_OXIDE_DEVICE_ARCH`, and the `cuda_arch*` cfgs
+/// rustc evaluates. Mirrors the ordering in `codegen_run`.
+#[test]
+fn run_detected_gpu_becomes_both_the_backend_hint_and_the_cfg_set() {
+    let ctx = test_context(OxideConfig::default());
+    let mut cmd = Command::new("cargo");
+    let detected = Some("sm_120a");
+    let cfg_arch = cfg_arch_with_env(&ctx, None, None, detected).unwrap();
+
+    apply_codegen_configuration(
+        &mut cmd,
+        &ctx,
+        CodegenProfilePolicy::ReleaseLike,
+        &[],
+        cfg_arch.as_ref(),
+        &"42".repeat(32),
+    )
+    .unwrap();
+    apply_output_mode(&mut cmd, false, None, &MaterializationMode::default());
+    apply_device_arch_hint(&mut cmd, None, detected);
+
+    assert_eq!(
+        command_env(&cmd, "CUDA_OXIDE_DEVICE_ARCH").as_deref(),
+        Some("sm_120a")
+    );
+    // Still a hint, not an override.
+    assert_eq!(command_env(&cmd, "CUDA_OXIDE_TARGET"), None);
+    assert_eq!(command_env(&cmd, CFG_ARCH_ENV).as_deref(), Some("sm_120a"));
+
+    let encoded = command_env(&cmd, "CARGO_ENCODED_RUSTFLAGS").unwrap();
+    let flags = decoded_rustflags(&encoded);
+    assert_eq!(cfg_values(&flags, "cuda_arch"), ["120"]);
+    assert_eq!(cfg_values(&flags, "cuda_arch_target"), ["sm_120a"]);
+    assert_eq!(cfg_values(&flags, "cuda_arch_specific"), ["120"]);
+    assert!(cfg_values(&flags, "cuda_arch_min").contains(&"100"));
 }
 
 #[test]
@@ -3584,6 +3844,7 @@ fn build_arch_warning_is_emitted_when_arch_is_unconfigured_and_local_gpu_exists(
     assert!(warning.contains("backend default"));
     assert!(warning.contains("first GPU reported by `nvidia-smi`"));
     assert!(warning.contains("sm_121a"));
+    assert!(warning.contains("`cuda_arch*` cfgs"));
     assert!(warning.contains("--arch <sm_XX>"));
 }
 
@@ -3592,9 +3853,19 @@ fn build_arch_warning_is_suppressed_when_arch_is_configured() {
     assert_eq!(build_arch_warning(true, Some("sm_121a")), None);
 }
 
+/// With no GPU to name, the backend-default sentence loses its example but
+/// the cfg consequence is unchanged -- so this case warns rather than staying
+/// silent, which is the behaviour change that makes unpinned arch-conditional
+/// builds visible on GPU-less CI runners.
 #[test]
-fn build_arch_warning_is_suppressed_when_no_local_gpu_is_detected() {
-    assert_eq!(build_arch_warning(false, None), None);
+fn build_arch_warning_still_reports_missing_cfgs_without_a_local_gpu() {
+    let warning = build_arch_warning(false, None)
+        .expect("an unconfigured build must warn even with no GPU to name");
+
+    assert!(warning.contains("backend default"));
+    assert!(!warning.contains("nvidia-smi"));
+    assert!(warning.contains("`cuda_arch*` cfgs"));
+    assert!(warning.contains("--arch <sm_XX>"));
 }
 
 fn write_list_example(
@@ -4815,6 +5086,7 @@ fn non_full_codegen_profiles_do_not_activate_the_targeted_debug_cfg() {
             let mut encoded = build_encoded_rustflags_with_existing(
                 Path::new("/tmp/librustc_codegen_cuda.so"),
                 profile,
+                &[],
                 &[],
                 &[],
                 None,

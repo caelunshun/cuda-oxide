@@ -1,0 +1,26 @@
+[package]
+name = "arch_cfg"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace]
+
+# `cargo oxide` declares the `cuda_arch*` names itself, with a `--check-cfg`
+# per name, for every build that has an architecture. A plain `cargo clippy`
+# over this workspace -- which CI runs for every example -- goes through no
+# wrapper and so sees an undeclared name, which `-D warnings` turns into an
+# error. Declaring the one name this example tests keeps that lint-only pass
+# green.
+#
+# The trade-off, spelled out in the README: because the name is declared here,
+# an *unpinned* `cargo oxide build arch_cfg` no longer reports each use as an
+# unexpected cfg. A crate that declares nothing still gets that warning, which
+# is the default this example otherwise demonstrates.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(cuda_arch_min, values("80"))'] }
+
+[dependencies]
+cuda-device = { path = "../../../cuda-device" }
+cuda-host = { path = "../../../cuda-host" }
+cuda-core = "0.3.1"

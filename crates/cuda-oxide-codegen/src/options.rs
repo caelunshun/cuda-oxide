@@ -41,6 +41,13 @@ pub struct BackendOptions {
     pub target_arch_source: &'static str,
     /// Advisory local-GPU arch; used only when it satisfies detected features.
     pub device_arch_hint: Option<String>,
+    /// The architecture whose `cuda_arch*` cfgs the build wrapper injected,
+    /// spelled `sm_XX[a|f]`.
+    ///
+    /// Reported, never obeyed: rustc has already resolved those `#[cfg]`s, so
+    /// this only lets target selection notice that the arms it is about to
+    /// lower were chosen for a different GPU than the one being built for.
+    pub cfg_arch: Option<String>,
     /// Skip the `opt -O2` middle-end.
     pub no_opt: bool,
     /// Suppress `llc -fp-contract=fast` (fmul+fadd fusion to fma).
@@ -66,6 +73,7 @@ impl Default for BackendOptions {
             target_arch: None,
             target_arch_source: "CUDA_OXIDE_TARGET",
             device_arch_hint: None,
+            cfg_arch: None,
             no_opt: false,
             no_fma: false,
             verbose: false,
@@ -102,6 +110,7 @@ impl BackendOptions {
             target_arch: std::env::var("CUDA_OXIDE_TARGET").ok(),
             target_arch_source: "CUDA_OXIDE_TARGET",
             device_arch_hint: std::env::var("CUDA_OXIDE_DEVICE_ARCH").ok(),
+            cfg_arch: std::env::var(reserved_oxide_symbols::CFG_ARCH_ENV).ok(),
             no_opt: std::env::var("CUDA_OXIDE_NO_OPT").is_ok(),
             no_fma: std::env::var("CUDA_OXIDE_NO_FMA").is_ok(),
             verbose: std::env::var("CUDA_OXIDE_VERBOSE").is_ok(),

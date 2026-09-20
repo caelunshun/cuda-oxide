@@ -216,7 +216,8 @@ enum Commands {
         /// Comma-separated cuda-oxide owner crate filter for device codegen
         #[arg(long)]
         device_codegen_crate: Option<String>,
-        /// Repeatable cfg appended as `--cfg NAME` for passthrough device codegen
+        /// Repeatable arbitrary cfg appended as `--cfg NAME` for passthrough device
+        /// codegen. Independent of the `cuda_arch*` cfgs derived from `--arch`.
         #[arg(long = "device-cfg")]
         device_cfgs: Vec<String>,
         /// Cargo build arguments for passthrough mode. Use after `--`.
@@ -273,7 +274,8 @@ enum Commands {
         /// Comma-separated cuda-oxide owner crate filter for device codegen
         #[arg(long)]
         device_codegen_crate: Option<String>,
-        /// Repeatable cfg appended as `--cfg NAME` for device codegen
+        /// Repeatable arbitrary cfg appended as `--cfg NAME` for device codegen.
+        /// Independent of the `cuda_arch*` cfgs derived from `--arch`.
         #[arg(long = "device-cfg")]
         device_cfgs: Vec<String>,
         /// Show verbose compilation output
@@ -933,6 +935,7 @@ fn main() {
                 materialize_cubin,
                 arch.as_deref(),
             );
+            commands::warn_for_default_build_arch(&ctx, arch.as_deref());
             commands::codegen_cargo_passthrough(
                 &ctx,
                 commands::CargoPassthroughSubcommand::Test,
@@ -996,6 +999,7 @@ fn main() {
                 materialize_cubin,
                 arch.as_deref(),
             );
+            commands::warn_for_default_build_arch(&ctx, arch.as_deref());
             commands::codegen_show_pipeline(
                 &ctx,
                 &example,

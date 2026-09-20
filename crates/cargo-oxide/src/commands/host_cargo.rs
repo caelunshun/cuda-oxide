@@ -114,6 +114,7 @@ pub(super) fn codegen_build_host_binary(
         ctx,
         CodegenProfilePolicy::ReleaseLike,
         &[],
+        cfg_arch_or_exit(ctx, arch, detected_device_arch).as_ref(),
         &fingerprint,
     );
     apply_output_mode(&mut cmd, false, arch, materialization);

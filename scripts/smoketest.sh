@@ -185,6 +185,54 @@ nvvm_verify_arch() {
     printf '%s\n' "${arch}"
 }
 
+# Ordering hint: the architecture an example is built for in --compile-only
+# mode.
+#
+# Architecture is part of the global rustflags (it supplies the `cuda_arch*`
+# cfgs any dependency may test), so every change of `--arch` between two
+# consecutive examples invalidates the shared dependency tree. Sorting the run
+# by this key makes the number of those rebuilds the number of *distinct*
+# architectures instead of the number of alternations between pinned and
+# unpinned examples: 49 flips in alphabetical order, 7 grouped, across the 232
+# examples and 8 architectures present when this was added.
+#
+# This mirrors the `--arch` decisions `run_cargo` makes rather than driving
+# them, and examples built at several architectures report their first. That
+# duplication is deliberate and safe: the worst a stale entry can do is leave
+# one extra dependency rebuild in the run. Nothing here changes what is built.
+compile_only_arch_hint() {
+    local ex="$1" cat="$2"
+    # Examples with their own compile-only branch, in that branch's order.
+    case "${ex}" in
+        device_ffi_test)      printf 'sm_90\n';   return ;;
+        arch_cfg)             printf 'sm_75\n';   return ;;
+        tcgen05)              printf 'sm_100a\n'; return ;;
+        generated_intrinsics) printf 'sm_86\n';   return ;;
+    esac
+    case "${cat}" in
+        blackwell-compile) printf 'sm_120a\n'; return ;;
+        sm100-compile)     printf 'sm_100a\n'; return ;;
+    esac
+    if verify_nvvm_in_compile_only "${ex}"; then
+        nvvm_verify_arch "${ex}"
+        return
+    fi
+    case "${ex}" in
+        cluster|interop_cubin_identity) printf 'sm_90\n'; return ;;
+    esac
+    case "${cat}" in
+        iket)            printf '%s\n' "${IKET_ARCH}" ;;
+        blackwell-mma)   printf 'sm_120a\n' ;;
+        ltoir|auto-nvvm) printf '%s\n' "${LTOIR_ARCH}" ;;
+        ltoir-modern)    printf '%s\n' "${LTOIR_MODERN_ARCH}" ;;
+        # Unpinned: the backend default, and no `cuda_arch*` cfgs at all.
+        # Spelled rather than left empty because the sort key is read back
+        # with a tab IFS, which would swallow a leading empty field; `default`
+        # also sorts ahead of every `sm_*`, putting the largest group first.
+        *)               printf 'default\n' ;;
+    esac
+}
+
 # ---- CLI -----------------------------------------------------------------
 
 usage() {
@@ -523,6 +571,22 @@ for ex in "${ALL_EXAMPLES[@]}"; do
     if [[ -n "${SKIP}" ]] &&   [[ "${ex}" =~ ${SKIP} ]]; then continue; fi
     selected+=("${ex}")
 done
+
+# Group the compile-only run by target architecture; see
+# `compile_only_arch_hint`. Order within a group stays alphabetical because the
+# name is the sort's second key, so a run remains reproducible.
+if [[ ${COMPILE_ONLY} -eq 1 && ${#selected[@]} -gt 1 ]]; then
+    grouped=()
+    while IFS=$'\t' read -r _arch_key example_name; do
+        grouped+=("${example_name}")
+    done < <(
+        for ex in "${selected[@]}"; do
+            printf '%s\t%s\n' \
+                "$(compile_only_arch_hint "${ex}" "$(classify "${ex}")")" "${ex}"
+        done | LC_ALL=C sort
+    )
+    selected=("${grouped[@]}")
+fi
 
 total=${#selected[@]}
 if [[ ${total} -eq 0 ]]; then
@@ -1297,6 +1361,37 @@ run_cargo() {
             fi
             if ! bash "${shape_check}" >>"${log}" 2>&1; then
                 printf '%s failed its char ABI shape assertions for %s\n' "${ex}" "${arch}" >>"${log}"
+                CARGO_EC=1
+                return
+            fi
+        done
+        return
+    fi
+    # The whole point of this example is that the two architectures produce
+    # different code, so one build cannot demonstrate it. Build both and check
+    # the shape after each; the second build overwrites the first artifact, so
+    # the check has to run in between rather than at the end.
+    #
+    # Both builds are pinned deliberately: an unpinned build sets no
+    # `cuda_arch*` cfgs, which the shape check has no way to distinguish from
+    # cfg injection having broken.
+    if [[ ${COMPILE_ONLY} -eq 1 && "${ex}" == "arch_cfg" ]]; then
+        local shape_check="crates/rustc-codegen-cuda/examples/${ex}/verify-code-shape.sh"
+        local arch
+        for arch in sm_75 sm_86; do
+            local -a arch_cfg_args=("build" "${ex}" "--arch=${arch}")
+            if [[ ${VERBOSE} -eq 1 ]]; then
+                cargo oxide "${arch_cfg_args[@]}" 2>&1 | tee -a "${log}"
+                CARGO_EC=${PIPESTATUS[0]}
+            else
+                cargo oxide "${arch_cfg_args[@]}" >>"${log}" 2>&1
+                CARGO_EC=$?
+            fi
+            if [[ ${CARGO_EC} -ne 0 ]]; then
+                return
+            fi
+            if ! bash "${shape_check}" >>"${log}" 2>&1; then
+                printf '%s failed its arch-conditional shape assertions for %s\n' "${ex}" "${arch}" >>"${log}"
                 CARGO_EC=1
                 return
             fi

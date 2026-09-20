@@ -4,6 +4,8 @@
  */
 
 use crate::backend;
+use cuda_target_spec::cfg as arch_cfg;
+use cuda_target_spec::{CudaArch, RECORDED_PTX_FLOORS, recorded_ptx_floor};
 use std::path::Path;
 use std::process::Command;
 
@@ -52,6 +54,7 @@ fn build_encoded_rustflags(
     ctx: &Context,
     profile: CodegenProfilePolicy,
     device_cfgs: &[String],
+    wrapper_rustflags: &[String],
 ) -> String {
     let existing_encoded = std::env::var("CARGO_ENCODED_RUSTFLAGS").ok();
     let existing = std::env::var("RUSTFLAGS").ok();
@@ -65,16 +68,22 @@ fn build_encoded_rustflags(
         profile,
         &ctx.config.extra_rustflags,
         &explicit_rustflags,
+        wrapper_rustflags,
         existing_encoded.as_deref(),
         existing.as_deref(),
     )
 }
 
+/// `wrapper_rustflags` are added *after* the inherited-flag stripper, because
+/// the stripper's whole job is to remove user-supplied copies of flags the
+/// wrapper owns -- running it over the wrapper's own freshly derived
+/// `cuda_arch*` flags would delete them.
 pub(super) fn build_encoded_rustflags_with_existing(
     backend_so: &Path,
     profile: CodegenProfilePolicy,
     configured_rustflags: &[String],
     explicit_rustflags: &[String],
+    wrapper_rustflags: &[String],
     existing_encoded_rustflags: Option<&str>,
     existing_rustflags: Option<&str>,
 ) -> String {
@@ -97,6 +106,7 @@ pub(super) fn build_encoded_rustflags_with_existing(
     }
     flags.extend(explicit_rustflags.iter().cloned());
     strip_wrapper_owned_codegen_cfgs(&mut flags);
+    flags.extend(wrapper_rustflags.iter().cloned());
     flags.push(format!("-Zcodegen-backend={}", backend_so.display()));
     if matches!(
         profile,
@@ -140,6 +150,14 @@ pub(super) fn build_encoded_rustflags_with_existing(
     flags.join(&ENCODED_RUSTFLAGS_SEPARATOR.to_string())
 }
 
+/// Drop inherited copies of the `--cfg` and `--check-cfg` values cuda-oxide
+/// derives itself.
+///
+/// The `cuda_arch*` names matter most here: an ambient
+/// `RUSTFLAGS='--cfg cuda_arch="70"'` left over from another build would
+/// otherwise sit alongside the wrapper's own value, and `#[cfg]` is a set
+/// membership test -- both would be true at once and arch-conditional code
+/// would take two arms.
 fn strip_wrapper_owned_codegen_cfgs(flags: &mut Vec<String>) {
     fn is_wrapper_owned_cfg(value: &str) -> bool {
         [
@@ -148,10 +166,29 @@ fn strip_wrapper_owned_codegen_cfgs(flags: &mut Vec<String>) {
             FULL_DEBUG_GET_MUT_OUTLINE_CFG,
         ]
         .iter()
+        .copied()
+        .chain(arch_cfg::ALL_CFG_NAMES.iter().copied())
         .any(|name| {
+            // The `=`-or-end rule is what keeps `cuda_arch` from also matching
+            // `cuda_arch_min=...`, whose name merely starts with it.
             value
                 .strip_prefix(name)
                 .is_some_and(|suffix| suffix.is_empty() || suffix.starts_with('='))
+        })
+    }
+
+    /// A `--check-cfg` argument is `cfg(NAME, values(..))` or `cfg(NAME)`, so
+    /// the owned-name test is the same one shifted past the `cfg(`.
+    fn is_wrapper_owned_check_cfg(value: &str) -> bool {
+        let Some(rest) = value.strip_prefix("cfg(") else {
+            return false;
+        };
+        let rest = rest.trim_start();
+        arch_cfg::ALL_CFG_NAMES.iter().any(|name| {
+            rest.strip_prefix(name).is_some_and(|suffix| {
+                let suffix = suffix.trim_start();
+                suffix.starts_with(',') || suffix.starts_with(')')
+            })
         })
     }
 
@@ -159,11 +196,14 @@ fn strip_wrapper_owned_codegen_cfgs(flags: &mut Vec<String>) {
     let mut index = 0;
     while index < flags.len() {
         let flag = &flags[index];
-        if flag == "--cfg"
-            && flags
-                .get(index + 1)
-                .is_some_and(|value| is_wrapper_owned_cfg(value))
-        {
+        let separate_value = |predicate: fn(&str) -> bool| {
+            flags.get(index + 1).is_some_and(|value| predicate(value))
+        };
+        if flag == "--cfg" && separate_value(is_wrapper_owned_cfg) {
+            index += 2;
+            continue;
+        }
+        if flag == "--check-cfg" && separate_value(is_wrapper_owned_check_cfg) {
             index += 2;
             continue;
         }
@@ -174,10 +214,116 @@ fn strip_wrapper_owned_codegen_cfgs(flags: &mut Vec<String>) {
             index += 1;
             continue;
         }
+        if flag
+            .strip_prefix("--check-cfg=")
+            .is_some_and(is_wrapper_owned_check_cfg)
+        {
+            index += 1;
+            continue;
+        }
         retained.push(flag.clone());
         index += 1;
     }
     *flags = retained;
+}
+
+/// Render the `--cfg` / `--check-cfg` flags describing one resolved target.
+///
+/// Both halves travel together: the `--cfg` values are what device code tests,
+/// and the `--check-cfg` specs are what tell rustc those names exist, so a
+/// misspelled `#[cfg(cuda_arch_min = "8O")]` warns instead of silently
+/// evaluating false.
+pub(super) fn arch_cfg_rustflags(arch: &CudaArch) -> Vec<String> {
+    let mut flags = Vec::new();
+    for pair in arch_cfg::arch_cfgs(arch) {
+        flags.push("--cfg".to_string());
+        flags.push(pair.render());
+    }
+    for spec in arch_cfg::check_cfg_specs() {
+        flags.push("--check-cfg".to_string());
+        flags.push(spec);
+    }
+    flags
+}
+
+/// Resolve the architecture whose `cuda_arch*` cfgs this build should set, or
+/// `None` when no architecture is pinned anywhere.
+///
+/// # Precedence
+///
+/// 1. `--arch <sm_XX>`
+/// 2. `CUDA_OXIDE_TARGET` inherited from the environment
+/// 3. `default-arch` in cuda-oxide config, or a project `[env]`
+///    `CUDA_OXIDE_TARGET`
+/// 4. the auto-detected local GPU, where the command detects one at all
+///    (`run`, `sanitize`, `debug`)
+///
+/// This deliberately uses [`configured_arch_label`] rather than
+/// [`configured_arch`]: the latter reports `None` when `CUDA_OXIDE_TARGET` is
+/// inherited (it has nothing to *add* to the child environment in that case),
+/// but the cfgs still have to describe that inherited target.
+///
+/// Slot 4 is the one advisory entry: the backend may still build for a newer
+/// architecture if a kernel's features require it, and then the cfgs describe
+/// a different target than the emitted code. That mismatch is reported by the
+/// backend's consistency check rather than guessed at here.
+pub(super) fn cfg_arch(
+    ctx: &Context,
+    cli_arch: Option<&str>,
+    detected_device_arch: Option<&str>,
+) -> Result<Option<CudaArch>, String> {
+    cfg_arch_with_env(
+        ctx,
+        cli_arch,
+        std::env::var("CUDA_OXIDE_TARGET").ok(),
+        detected_device_arch,
+    )
+}
+
+/// `cfg_arch` with the inherited `CUDA_OXIDE_TARGET` injected; see
+/// [`configured_arch_label_with_env`] for why.
+pub(super) fn cfg_arch_with_env(
+    ctx: &Context,
+    cli_arch: Option<&str>,
+    env_target: Option<String>,
+    detected_device_arch: Option<&str>,
+) -> Result<Option<CudaArch>, String> {
+    let Some(label) = configured_arch_label_with_env(ctx, cli_arch, env_target)
+        .or_else(|| detected_device_arch.map(str::to_string))
+    else {
+        return Ok(None);
+    };
+    cfg_arch_from_label(&label).map(Some)
+}
+
+/// Parse and validate one architecture label for cfg derivation.
+///
+/// Accepts the same spellings `--arch` does elsewhere (`sm_86`, `compute_86`,
+/// a bare `86`) and then insists on a recorded target, because a capability
+/// with no [`RECORDED_PTX_FLOORS`] entry has no `--check-cfg` value universe
+/// either -- its own `cuda_arch` value would be rejected by the checks this
+/// build emits.
+fn cfg_arch_from_label(label: &str) -> Result<CudaArch, String> {
+    let arch = parse_nvvm_arch(label).map_err(|error| error.to_string())?;
+    if recorded_ptx_floor(&arch).is_err() {
+        return Err(format!(
+            "CUDA target `{arch}` has no recorded PTX ISA floor, so no `cuda_arch*` \
+             conditional-compilation values can be derived for it. Recorded targets: {}",
+            recorded_target_list()
+        ));
+    }
+    Ok(arch)
+}
+
+fn recorded_target_list() -> String {
+    RECORDED_PTX_FLOORS
+        .iter()
+        .map(|entry| match entry.suffix {
+            Some(suffix) => format!("sm_{}{suffix}", entry.capability),
+            None => format!("sm_{}", entry.capability),
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// Report the debug policy `CUDA_OXIDE_DEBUG` selects in this environment,
@@ -280,8 +426,9 @@ fn apply_codegen_rustflags(
     ctx: &Context,
     profile: CodegenProfilePolicy,
     device_cfgs: &[String],
+    wrapper_rustflags: &[String],
 ) {
-    let mut encoded = build_encoded_rustflags(ctx, profile, device_cfgs);
+    let mut encoded = build_encoded_rustflags(ctx, profile, device_cfgs, wrapper_rustflags);
     let inherited_debug = std::env::var("CUDA_OXIDE_DEBUG").ok();
     append_full_debug_rustflags(&mut encoded, cmd, inherited_debug.as_deref());
 
@@ -291,14 +438,25 @@ fn apply_codegen_rustflags(
 
 /// Apply the two deliberately different Cargo cache boundaries:
 ///
-/// - the exact backend binary is global because it compiles every crate;
-/// - mode/architecture/tool settings are an env dependency recorded only by
-///   CUDA macros in crates that can own or instantiate device code.
+/// - the exact backend binary and the resolved architecture are global,
+///   because both change how every crate compiles;
+/// - mode/tool settings are an env dependency recorded only by CUDA macros in
+///   crates that can own or instantiate device code.
+///
+/// Architecture sits on the global side because `#[cfg(cuda_arch_min = ..)]`
+/// is resolved by rustc in whichever crate wrote it, which may be any
+/// dependency. The cost is that changing `--arch` changes global rustflags and
+/// so rebuilds the dependency tree.
+///
+/// `cfg_arch` of `None` emits neither `--cfg` nor `--check-cfg`, which is what
+/// makes an unconfigured-architecture build report every `#[cfg(cuda_arch..)]`
+/// use as an unexpected cfg rather than quietly taking the fallback arm.
 pub(super) fn apply_codegen_configuration(
     cmd: &mut Command,
     ctx: &Context,
     profile: CodegenProfilePolicy,
     user_device_cfgs: &[String],
+    cfg_arch: Option<&CudaArch>,
     codegen_fingerprint: &str,
 ) -> Result<(), String> {
     let backend_digest = backend_artifact_digest(&ctx.backend_so)?;
@@ -306,7 +464,11 @@ pub(super) fn apply_codegen_configuration(
     global_cfgs.push(format!("{BACKEND_IDENTITY_CFG}=\"{backend_digest}\""));
     global_cfgs.extend(user_device_cfgs.iter().cloned());
 
-    apply_codegen_rustflags(cmd, ctx, profile, &global_cfgs);
+    let wrapper_rustflags = cfg_arch.map(arch_cfg_rustflags).unwrap_or_default();
+    apply_codegen_rustflags(cmd, ctx, profile, &global_cfgs, &wrapper_rustflags);
+    if let Some(arch) = cfg_arch {
+        cmd.env(CFG_ARCH_ENV, arch.sm());
+    }
     cmd.env(CODEGEN_FINGERPRINT_ENV, codegen_fingerprint);
     Ok(())
 }
@@ -316,13 +478,38 @@ pub(super) fn apply_codegen_configuration_or_exit(
     ctx: &Context,
     profile: CodegenProfilePolicy,
     user_device_cfgs: &[String],
+    cfg_arch: Option<&CudaArch>,
     codegen_fingerprint: &str,
 ) {
-    apply_codegen_configuration(cmd, ctx, profile, user_device_cfgs, codegen_fingerprint)
-        .unwrap_or_else(|error| {
-            eprintln!("Error: {error}");
-            std::process::exit(1);
-        });
+    apply_codegen_configuration(
+        cmd,
+        ctx,
+        profile,
+        user_device_cfgs,
+        cfg_arch,
+        codegen_fingerprint,
+    )
+    .unwrap_or_else(|error| {
+        eprintln!("Error: {error}");
+        std::process::exit(1);
+    });
+}
+
+/// Resolve the cfg architecture or exit with the diagnostic.
+///
+/// Call sites treat an unrecorded or malformed target as fatal for the same
+/// reason `--arch` validation is fatal: continuing would build device code
+/// whose arch-conditional arms were selected by an architecture nothing can
+/// name.
+pub(super) fn cfg_arch_or_exit(
+    ctx: &Context,
+    cli_arch: Option<&str>,
+    detected_device_arch: Option<&str>,
+) -> Option<CudaArch> {
+    cfg_arch(ctx, cli_arch, detected_device_arch).unwrap_or_else(|error| {
+        eprintln!("Error: {error}");
+        std::process::exit(1);
+    })
 }
 
 /// Set environment variables for the codegen backend.
@@ -357,9 +544,22 @@ pub(super) fn configured_arch<'a>(ctx: &'a Context, cli_arch: Option<&'a str>) -
 }
 
 pub(super) fn configured_arch_label(ctx: &Context, cli_arch: Option<&str>) -> Option<String> {
+    configured_arch_label_with_env(ctx, cli_arch, std::env::var("CUDA_OXIDE_TARGET").ok())
+}
+
+/// `configured_arch_label` with the inherited `CUDA_OXIDE_TARGET` injected.
+///
+/// Injected so unit tests can exercise the precedence order without exporting
+/// the variable: `set_var` would be a data race against the `vars_os` reads
+/// the fingerprint helpers perform on other test threads.
+pub(super) fn configured_arch_label_with_env(
+    ctx: &Context,
+    cli_arch: Option<&str>,
+    env_target: Option<String>,
+) -> Option<String> {
     cli_arch
         .map(str::to_string)
-        .or_else(|| std::env::var("CUDA_OXIDE_TARGET").ok())
+        .or(env_target)
         .or_else(|| ctx.config.default_arch.clone())
         .or_else(|| project_config_env(ctx, "CUDA_OXIDE_TARGET").map(str::to_string))
 }

@@ -21,6 +21,8 @@
 //! pinned LLVM 23 NVPTX backend. They are not backend-independent CUDA facts;
 //! in particular, LLVM 21 does not accept every target recorded here.
 
+pub mod cfg;
+
 use std::fmt;
 use std::str::FromStr;
 

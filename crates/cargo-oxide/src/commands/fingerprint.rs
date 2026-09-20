@@ -75,6 +75,10 @@ pub(super) fn passthrough_codegen_fingerprint_with_env(
     effective_env.remove(CODEGEN_FINGERPRINT_ENV);
     effective_env.remove(MATERIALIZE_ENV);
     effective_env.remove(EXPECTED_PROVENANCE_ENV);
+    // Derived from the architecture, which this fingerprint already folds in
+    // via `CUDA_OXIDE_TARGET` and the detected-device hint. Keeping an
+    // inherited copy would only let a stale outer value split the identity.
+    effective_env.remove(CFG_ARCH_ENV);
     // Descriptor identity only accelerates verification; artifact identity is
     // already represented by the content-derived provenance above.
     effective_env.remove(MATERIALIZER_HANDSHAKE_ENV);

@@ -60,6 +60,7 @@ pub fn codegen_run(
     // another machine.
     let detected_device_arch =
         detect_run_target_arch(target_arch, emit_nvvm_ir || materialization.enabled());
+    warn_for_undetected_run_arch(ctx, arch, detected_device_arch.as_deref());
 
     if let Some(interop) = interop.filter(|config| !config.device_crates.is_empty()) {
         codegen_run_interop(
@@ -160,6 +161,7 @@ pub fn codegen_run(
         ctx,
         CodegenProfilePolicy::ReleaseLike,
         &[],
+        cfg_arch_or_exit(ctx, arch, detected_device_arch.as_deref()).as_ref(),
         &fingerprint,
     );
     apply_output_mode(&mut cmd, emit_nvvm_ir, target_arch, &materialization);
@@ -211,6 +213,7 @@ pub fn codegen_sanitize(
     let target_arch = configured_arch(ctx, arch);
     let materialization = prepare_materialization(ctx, materialize_cubin, arch, false);
     let detected_device_arch = detect_run_target_arch(target_arch, materialization.enabled());
+    warn_for_undetected_run_arch(ctx, arch, detected_device_arch.as_deref());
 
     if let Some(interop) = interop.filter(|config| !config.device_crates.is_empty()) {
         reject_interop_output_mode(false, &materialization);
@@ -291,6 +294,16 @@ pub fn codegen_sanitize(
     );
 }
 
+/// Describe what an unconfigured architecture costs this build.
+///
+/// Two independent consequences, so two sentences with different conditions:
+///
+/// - the backend picks its own target, which is worth naming the local GPU
+///   against -- but only when `nvidia-smi` actually reported one;
+/// - no `cuda_arch*` cfgs are injected, so every `#[cfg(cuda_arch..)]` in
+///   device code takes its fallback arm. That is true on a machine with no GPU
+///   at all, which is exactly where this used to stay silent, so the cfg
+///   sentence is deliberately not gated on detection succeeding.
 pub(super) fn build_arch_warning(
     arch_configured: bool,
     local_arch: Option<&str>,
@@ -299,14 +312,21 @@ pub(super) fn build_arch_warning(
         return None;
     }
 
-    let local_arch = local_arch?;
-
-    Some(format!(
-        "Warning: no target architecture is configured; \
-     `cargo oxide build` will use the backend default. \
-     The first GPU reported by `nvidia-smi` has architecture {local_arch}. \
-     Pass `--arch <sm_XX>` to target a specific architecture explicitly."
-    ))
+    let mut warning = String::from(
+        "Warning: no target architecture is configured; the backend default will be used.",
+    );
+    if let Some(local_arch) = local_arch {
+        warning.push_str(&format!(
+            " The first GPU reported by `nvidia-smi` has architecture {local_arch}."
+        ));
+    }
+    warning.push_str(
+        " No `cuda_arch*` cfgs are set either, so arch-conditional device code takes its \
+         `#[cfg(not(cuda_arch...))]` fallback arms and rustc reports each `cuda_arch*` use \
+         as an unexpected cfg condition name. \
+         Pass `--arch <sm_XX>` to target a specific architecture explicitly.",
+    );
+    Some(warning)
 }
 
 pub fn warn_for_default_build_arch(ctx: &Context, arch: Option<&str>) {
@@ -319,6 +339,21 @@ pub fn warn_for_default_build_arch(ctx: &Context, arch: Option<&str>) {
 
     if let Some(warning) = build_arch_warning(arch_configured, local_arch.as_deref()) {
         eprintln!("{warning}");
+    }
+}
+
+/// Warn about an unconfigured architecture for commands that auto-detect one.
+///
+/// `run`, `sanitize` and `debug` forward the detected GPU as a hint, which
+/// does produce `cuda_arch*` cfgs, so they only warn when detection came up
+/// empty and the build really is unpinned.
+pub(super) fn warn_for_undetected_run_arch(
+    ctx: &Context,
+    arch: Option<&str>,
+    detected_device_arch: Option<&str>,
+) {
+    if detected_device_arch.is_none() {
+        warn_for_default_build_arch(ctx, arch);
     }
 }
 
@@ -420,6 +455,7 @@ pub fn codegen_build(
         ctx,
         CodegenProfilePolicy::release_like(debug_assertions),
         &[],
+        cfg_arch_or_exit(ctx, arch, None).as_ref(),
         &fingerprint,
     );
     apply_output_mode(&mut cmd, emit_nvvm_ir, target_arch, &materialization);

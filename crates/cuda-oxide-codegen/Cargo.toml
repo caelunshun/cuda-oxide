@@ -12,6 +12,7 @@ readme = "README.md"
 
 [dependencies]
 cuda-target-spec = { workspace = true }
+reserved-oxide-symbols = { workspace = true }
 pliron = { workspace = true }
 ptx-parse = { workspace = true }
 thiserror = { workspace = true }

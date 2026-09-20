@@ -671,6 +671,8 @@ impl Compiler {
             target_arch: Some(options.target.sm()),
             target_arch_source: "the requested Target",
             device_arch_hint: None,
+            // The standalone API has no build wrapper and so no injected cfgs.
+            cfg_arch: None,
             no_opt: options.optimization == Optimization::None,
             no_fma: !options.fma_contraction,
             verbose: options.verbose,

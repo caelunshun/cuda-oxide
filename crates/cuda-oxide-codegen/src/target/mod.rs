@@ -11,6 +11,7 @@
 //! in `mir-importer`.
 
 mod arch;
+mod cfg_consistency;
 mod detect;
 mod features;
 mod generated_requirements;
@@ -19,6 +20,7 @@ mod select;
 mod tests;
 
 pub use arch::arch_satisfies;
+pub(crate) use cfg_consistency::{CfgConsistency, check as check_cfg_arch_consistency};
 pub use detect::{detect_features_in_llvm_text, detect_module_requirements_in_llvm_file};
 pub use features::{DetectedFeatures, ModuleRequirements};
 pub(crate) use generated_requirements::{

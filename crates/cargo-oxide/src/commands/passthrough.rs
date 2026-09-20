@@ -247,6 +247,7 @@ pub(super) fn cargo_passthrough_command_with_env(
         ctx,
         cargo_subcommand.codegen_profile(opts.debug_assertions),
         opts.device_cfgs,
+        cfg_arch(ctx, opts.arch, None)?.as_ref(),
         &fingerprint,
     )?;
 

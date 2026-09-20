@@ -413,6 +413,17 @@ without fighting the compiler driver's flag plumbing.
 then `cargo oxide run`'s host-CC auto-detect (only for `run`, not `build`
 or `pipeline`), and finally the backend's feature-based default.
 
+Whatever that chain resolves to is also exported to rustc as the `cuda_arch*`
+conditional-compilation values described in
+{ref}`Conditional compilation <conditional-compilation>`, and reported back to
+the backend on `CUDA_OXIDE_INTERNAL_CFG_ARCH`. The backend never selects a
+target from that report; it only compares the two. They can differ in one
+situation: `run`'s auto-detected GPU is advisory, so a kernel whose features
+need a newer architecture is built for that newer one instead, leaving the
+`#[cfg]` arms rustc already chose describing the detected GPU. The build stays
+valid and the backend warns, naming the `--arch` that would specialize for the
+target actually built.
+
 ```{note}
 `CUDA_OXIDE_VERBOSE=1 cargo oxide build` is your best friend when debugging
 the compiler. It shows exactly which functions were collected, which crates

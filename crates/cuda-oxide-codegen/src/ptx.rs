@@ -8,10 +8,11 @@ use crate::generated::GeneratedModuleRequirements;
 use crate::llvm_tools::LlvmToolchain;
 use crate::options::BackendOptions;
 use crate::target::{
-    ModuleRequirements, PtxIsaRequirement, detect_module_requirements_in_llvm_file,
-    merge_generated_module_requirements, merge_generated_module_requirements_for_target,
-    required_ptx_feature, resolve_ptx_target_with_generated, validate_ptx_isa_for_llvm_major,
-    validate_target_features, validate_target_for_llvm_major,
+    CfgConsistency, ModuleRequirements, PtxIsaRequirement, check_cfg_arch_consistency,
+    detect_module_requirements_in_llvm_file, merge_generated_module_requirements,
+    merge_generated_module_requirements_for_target, required_ptx_feature,
+    resolve_ptx_target_with_generated, validate_ptx_isa_for_llvm_major, validate_target_features,
+    validate_target_for_llvm_major,
 };
 use llvm_export::export::DebugKind;
 use ptx_parse::{Document, EditScript, split_top_level};
@@ -657,6 +658,21 @@ fn generate_ptx_impl(
             .map_err(PipelineError::PtxGeneration)?;
 
     let mut diagnostics = Vec::new();
+    // rustc already resolved every `#[cfg(cuda_arch..)]` against whichever
+    // architecture the wrapper picked. If selection just landed somewhere
+    // else, the arms in this module were chosen for a different GPU.
+    match check_cfg_arch_consistency(
+        opts.cfg_arch.as_deref(),
+        &target,
+        target_source,
+        opts.target_arch_source,
+    ) {
+        CfgConsistency::Consistent => {}
+        CfgConsistency::Warn(message) => {
+            record_diagnostic(&mut diagnostics, diagnostic_sink, message)
+        }
+        CfgConsistency::Reject(error) => return Err(error),
+    }
     if opts.verbose {
         record_diagnostic(
             &mut diagnostics,

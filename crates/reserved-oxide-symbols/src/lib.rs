@@ -63,6 +63,18 @@ pub const CODEGEN_FINGERPRINT_ENV: &str = "CUDA_OXIDE_INTERNAL_CODEGEN_FINGERPRI
 /// Internal cargo-oxide/backend opt-in for build-time cubin materialization.
 pub const MATERIALIZE_CUBIN_ENV: &str = "CUDA_OXIDE_MATERIALIZE_CUBIN";
 
+/// The CUDA target whose `cuda_arch*` cfgs cargo-oxide injected into global
+/// rustflags, spelled `sm_XX[a|f]`.
+///
+/// This is a report, not a control: the backend still selects its own target.
+/// It exists so the backend can notice when the two disagree -- an advisory
+/// GPU-detection hint can be overridden by a kernel's feature floor, and then
+/// the arch-conditional arms rustc already selected were chosen for a
+/// different architecture than the one being emitted.
+///
+/// The `CUDA_OXIDE_` prefix makes `fingerprint.rs` fold it automatically.
+pub const CFG_ARCH_ENV: &str = "CUDA_OXIDE_INTERNAL_CFG_ARCH";
+
 /// Exact CUDA compiler/linker provenance discovered by cargo-oxide and checked
 /// again by the codegen backend before materialization.
 pub const MATERIALIZER_PROVENANCE_ENV: &str = "CUDA_OXIDE_INTERNAL_MATERIALIZER_PROVENANCE";

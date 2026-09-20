@@ -229,6 +229,12 @@ pub struct PipelineConfig {
     ///
     /// Used only when no explicit target is provided.
     pub device_arch_hint: Option<String>,
+    /// Architecture whose `cuda_arch*` cfgs the build wrapper injected
+    /// (`CUDA_OXIDE_INTERNAL_CFG_ARCH`), spelled `sm_XX[a|f]`.
+    ///
+    /// Purely a report for the backend's consistency check; it never
+    /// participates in target selection.
+    pub cfg_arch: Option<String>,
     /// Device debug metadata tier.
     pub debug_kind: DebugKind,
     /// Source identities and semantic types for device statics,
@@ -260,6 +266,7 @@ impl Default for PipelineConfig {
             target_arch: None,
             target_arch_source: "PipelineConfig::target_arch",
             device_arch_hint: None,
+            cfg_arch: None,
             debug_kind: DebugKind::Off,
             debug_global_variables: BTreeMap::new(),
             allow_fma_contraction: true,
@@ -434,6 +441,9 @@ fn backend_options_for(config: &PipelineConfig) -> BackendOptions {
     }
     if config.device_arch_hint.is_some() {
         backend_options.device_arch_hint = config.device_arch_hint.clone();
+    }
+    if config.cfg_arch.is_some() {
+        backend_options.cfg_arch = config.cfg_arch.clone();
     }
     backend_options.verbose = backend_options.verbose || config.verbose;
     backend_options.no_fma = !config.allow_fma_contraction;
@@ -1291,6 +1301,7 @@ fn adversarial_export_name() -> u64 {
             target_arch: Some("sm_86".to_string()),
             target_arch_source: "PipelineConfig::target_arch",
             device_arch_hint: None,
+            cfg_arch: None,
             debug_kind: DebugKind::Off,
             debug_global_variables: BTreeMap::new(),
             allow_fma_contraction: true,
@@ -1344,6 +1355,7 @@ fn adversarial_export_name() -> u64 {
             target_arch: Some("sm_86".to_string()),
             target_arch_source: "PipelineConfig::target_arch",
             device_arch_hint: None,
+            cfg_arch: None,
             debug_kind: DebugKind::Off,
             debug_global_variables: BTreeMap::new(),
             allow_fma_contraction: true,
@@ -1435,6 +1447,7 @@ fn adversarial_export_name() -> u64 {
             target_arch: Some("sm_86".to_string()),
             target_arch_source: "PipelineConfig::target_arch",
             device_arch_hint: None,
+            cfg_arch: None,
             debug_kind: DebugKind::Off,
             debug_global_variables: BTreeMap::new(),
             allow_fma_contraction: true,

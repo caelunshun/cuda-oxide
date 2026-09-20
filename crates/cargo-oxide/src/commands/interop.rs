@@ -610,6 +610,7 @@ fn build_interop_device_crate(
         ctx,
         options.codegen_profile(),
         &[],
+        cfg_arch_or_exit(ctx, arch, detected_device_arch).as_ref(),
         &fingerprint,
     );
     // This is an internal artifact contract, so it must override a project

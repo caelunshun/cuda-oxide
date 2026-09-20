@@ -1193,6 +1193,10 @@ pub fn generate_device_code<'tcx>(
 
         let target_arch = std::env::var("CUDA_OXIDE_TARGET").ok();
         let device_arch_hint = std::env::var("CUDA_OXIDE_DEVICE_ARCH").ok();
+        // What `cargo oxide` derived the `cuda_arch*` cfgs from. Forwarded so
+        // the backend can tell the user when target selection then landed
+        // somewhere else; it is never used to choose a target.
+        let cfg_arch = std::env::var(reserved_oxide_symbols::CFG_ARCH_ENV).ok();
         let allow_fma_contraction = std::env::var_os("CUDA_OXIDE_NO_FMA").is_none();
 
         if verbose && !allow_fma_contraction {
@@ -1210,6 +1214,7 @@ pub fn generate_device_code<'tcx>(
             target_arch,
             target_arch_source: "CUDA_OXIDE_TARGET",
             device_arch_hint,
+            cfg_arch,
             debug_kind,
             debug_global_variables,
             allow_fma_contraction,

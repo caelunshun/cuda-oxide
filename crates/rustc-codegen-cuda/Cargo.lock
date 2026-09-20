@@ -217,6 +217,7 @@ dependencies = [
  "nvvm-transforms",
  "pliron",
  "ptx-parse",
+ "reserved-oxide-symbols",
  "rustc-demangle",
  "tempfile",
  "thiserror",

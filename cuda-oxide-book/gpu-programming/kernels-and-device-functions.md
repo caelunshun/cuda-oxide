@@ -230,30 +230,22 @@ clear error: `"CUDA-OXIDE: FORBIDDEN CRATE IN DEVICE CODE"` with a list of
 allowed crates (`core`, `alloc`, `cuda_device`, and your local crate).
 :::
 
+(conditional-compilation)=
+
 ## Conditional compilation
 
-`#[cfg(...)]` works in device code exactly as it does anywhere else in Rust.
-What is missing is anything to gate *on*: the compiler supplies no
-target-derived `cfg`, so a kernel has no way to ask which architecture it is
-being compiled for. Arch requirements live in doc comments and are enforced by
-the caller, which is why an example that needs `redux.sync` checks
-`ctx.compute_capability()` on the host and skips rather than specializing the
-kernel.
-
-`--device-cfg NAME` is how you supply one yourself. It is repeatable, and each
-occurrence becomes a `--cfg NAME` in the build's rustflags:
-
-```bash
-# From the crate directory, not with an example name -- see below.
-cargo oxide build --device-cfg ampere_up
-```
+`#[cfg(...)]` works in device code exactly as it does anywhere else in Rust,
+and `cargo oxide` supplies the thing worth gating on: the architecture the
+build is targeting. It derives a small vocabulary of `cfg`s from the resolved
+target and injects them as rustflags, so a kernel selects an implementation the
+same way portable Rust selects one per platform.
 
 ```rust
 // One instruction where the target allows it, a shuffle tree everywhere else.
-#[cfg(ampere_up)]
+#[cfg(cuda_arch_min = "80")]
 let total = warp::redux_sync_add(u32::MAX, value);
 
-#[cfg(not(ampere_up))]
+#[cfg(not(cuda_arch_min = "80"))]
 let total = {
     let mut acc = value;
     let mut offset = 16;
@@ -265,35 +257,107 @@ let total = {
 };
 ```
 
-Four things are worth knowing before reaching for it.
+```bash
+cargo oxide build my_example --arch sm_86   # redux.sync.add
+cargo oxide build my_example --arch sm_75   # shuffle butterfly
+```
 
-**It is not limited to device code.** The flag travels as a rustflag, so every
-crate cargo compiles for that build sees the `cfg`, host code included.
+rustc resolves `#[cfg]` before MIR exists, so the unselected arm is never
+collected and never reaches the codegen backend. On an sm_75 build the
+`redux_sync_add` call is not compiled and later removed — it is not compiled at
+all, which is why gating an intrinsic that cannot lower on the older target is
+safe rather than merely tidy.
+
+### The vocabulary
+
+For a resolved target such as `sm_90a`:
+
+| cfg | Set when | CUDA C++ analogue |
+|:--|:--|:--|
+| `cuda_arch = "<cap>"` | always (`"90"`, `"120"`) | `__CUDA_ARCH__ == N` |
+| `cuda_arch_min = "<cap>"` | once per supported capability at or below the target | `__CUDA_ARCH__ >= N` |
+| `cuda_arch_target = "<sm_XX[a\|f]>"` | always, normalized (`compute_90a` → `"sm_90a"`) | the exact `-arch` |
+| `cuda_arch_specific = "<cap>"` | the target has an `a` suffix | `__CUDA_ARCH_SPECIFIC__` |
+| `cuda_arch_family_specific = "<cap>"` | the target has an `a` or `f` suffix | `__CUDA_ARCH_FAMILY_SPECIFIC__` |
+
+`cuda_arch_min` is emitted once per capability rather than as a comparison,
+which is the shape rustc itself uses for `target_has_atomic`: `sm_86` sets
+`cuda_arch_min` for `"70"`, `"72"`, `"75"`, `"80"` and `"86"`, so
+`#[cfg(cuda_arch_min = "80")]` is one predicate, not a hand-written range.
+
+**Ordering is numeric, exactly as in CUDA.** Consumer `sm_120` satisfies
+`cuda_arch_min = "100"` even though it is not a datacenter Blackwell part and
+lacks `tcgen05`. That matches `__CUDA_ARCH__ >= 1000` in CUDA C++ and is the
+same trap there. Gate datacenter-only features on `cuda_arch_specific`,
+`cuda_arch_family_specific` or `cuda_arch_target` instead:
+
+```rust
+#[cfg(cuda_arch_specific = "100")]  // sm_100a only, not sm_120
+```
+
+### Typos warn; unconfigured builds warn
+
+`cargo oxide` emits a matching `--check-cfg` for every name it sets, so a
+correct `#[cfg(cuda_arch_min = "80")]` is silent while a misspelled
+`#[cfg(cuda_arch_min = "8O")]` — or a capability that is not a supported target
+— raises rustc's `unexpected cfg condition value`.
+
+A build with **no architecture configured** sets no `cuda_arch*` cfgs and no
+`--check-cfg` names at all. Every `#[cfg(cuda_arch...)]` then selects its
+fallback arm *and* warns as an `unexpected cfg condition name`; `cargo oxide`
+warns about the unconfigured architecture too. That is deliberate: silently
+compiling the conservative arm is worse than saying so. To make it fatal:
+
+```toml
+[lints.rust]
+unexpected_cfgs = "deny"
+```
+
+### Two consequences to plan for
+
+**Host code sees them too.** The cfgs travel as rustflags, so every crate in
+the build — host code included — can read `cfg!(cuda_arch_min = "80")`. That is
+useful for keeping a host-side expectation in step with the kernel it launches.
+
+**Changing `--arch` rebuilds the dependency tree.** Because any dependency may
+write `#[cfg(cuda_arch_min = ..)]`, the values have to reach the whole build,
+which makes them part of Cargo's global cache key. Switching architectures is
+therefore a full rebuild, not just a rebuild of the kernel crate.
+
+### Arbitrary user cfgs: `--device-cfg`
+
+`--device-cfg NAME` injects a `cfg` of your own. It is repeatable, and each
+occurrence becomes a `--cfg NAME` in the build's rustflags. It is independent
+of the architecture cfgs above:
+
+```bash
+# From the crate directory, not with an example name -- see below.
+cargo oxide build --device-cfg experimental_path
+```
+
+Three things are worth knowing before reaching for it.
+
+**It is not limited to device code.** Like the architecture cfgs, the flag
+travels as a rustflag, so every crate cargo compiles for that build sees it.
 
 **It switches `build` into passthrough mode.** Passing it means `build` no
 longer takes an example name, so
-`cargo oxide build my_example --device-cfg ampere_up` is rejected; run it from
-the crate's own directory instead. (`test` is passthrough already, flag or no
-flag.) If the gate can live in the crate's manifest, an ordinary Cargo feature
-(`#[cfg(feature = "ampere_up")]`) does the same job without giving up
-example-name invocations; `--device-cfg` earns its keep when you need a `cfg`
-injected without touching any Cargo.toml.
+`cargo oxide build my_example --device-cfg experimental_path` is rejected; run
+it from the crate's own directory instead. (`test` is passthrough already, flag
+or no flag.) If the gate can live in the crate's manifest, an ordinary Cargo
+feature (`#[cfg(feature = "experimental_path")]`) does the same job without
+giving up example-name invocations; `--device-cfg` earns its keep when you need
+a `cfg` injected without touching any Cargo.toml.
 
-**rustc warns about an undeclared `cfg` name.** The `unexpected_cfgs` lint
-checks every `#[cfg(...)]` against the declared set, and an injected
-`--cfg ampere_up` is not in it, so each use prints an
+**rustc warns about an undeclared `cfg` name.** cuda-oxide declares the
+`cuda_arch*` names for you, but it cannot know yours, so each use prints an
 `unexpected cfg condition name` warning. Declare it in the kernel crate's
 manifest to silence them:
 
 ```toml
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(ampere_up)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(experimental_path)"] }
 ```
-
-**Nothing ties it to `--arch`.** If the `cfg` name stands for an architecture,
-you are the one keeping the two in step -- passing `--device-cfg ampere_up`
-without the matching `--arch` will happily build the specialized path for
-whatever target was selected, and PTX that the assembler then rejects.
 
 (loop-unrolling)=
 
