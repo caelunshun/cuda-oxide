@@ -5,7 +5,7 @@
 
 use crate::model::{
     OverlayFile, OverlayIntrinsic, OverlayShardFile, RegisterMmaAccumulator, Tcgen05Operation,
-    TmaOperation,
+    TmaBulkDirection, TmaOperation,
 };
 use crate::util::sha256_bytes;
 use anyhow::{Context, Result, ensure};
@@ -19,7 +19,7 @@ use super::guards::*;
 
 pub(super) const OVERLAY_SCHEMA: u32 = 44;
 pub(super) const MINIMUM_OVERLAY_SHARD_SCHEMA: u32 = 26;
-pub(super) const OVERLAY_SHARD_SCHEMA: u32 = 63;
+pub(super) const OVERLAY_SHARD_SCHEMA: u32 = 64;
 pub(super) const REGISTER_MMA_F8F6F4_SHARD_SCHEMA: u32 = 46;
 pub(super) const REGISTER_MMA_F8F6F4_F16_SHARD_SCHEMA: u32 = 47;
 pub(super) const REGISTER_MMA_MXF8F6F4_SHARD_SCHEMA: u32 = 60;
@@ -41,6 +41,7 @@ pub(super) const CLUSTER_MEMORY_SHARD_SCHEMA: u32 = 39;
 pub(super) const CLC_SHARD_SCHEMA: u32 = 40;
 pub(super) const TMA_SHARD_SCHEMA: u32 = 61;
 pub(super) const TMA_REDUCTION_SHARD_SCHEMA: u32 = 62;
+pub(super) const TMA_BULK_SHARD_SCHEMA: u32 = 64;
 pub(super) const MBARRIER_EXTENDED_SHARD_SCHEMA: u32 = 40;
 pub(super) const WGMMA_CONTROL_SHARD_SCHEMA: u32 = 38;
 pub(super) const TCGEN05_SHARD_SCHEMA: u32 = 42;
@@ -633,6 +634,16 @@ pub(super) fn validate_overlay_shard_schema_with_max(
         );
     }
     ensure!(
+        shard.tma.as_ref().is_none_or(|admission| {
+            admission
+                .variants
+                .iter()
+                .all(|variant| variant.operation.bulk().is_none())
+        }) || shard.schema >= TMA_BULK_SHARD_SCHEMA,
+        "compact non-tensor bulk-copy TMA admission requires overlay shard schema {}",
+        TMA_BULK_SHARD_SCHEMA
+    );
+    ensure!(
         shard.tcgen05.as_ref().is_none_or(|admission| {
             admission.mma_variants.is_empty()
                 && admission.mma_llvm_evidence_profile.is_none()
@@ -713,6 +724,28 @@ pub(super) fn shares_tma_prefetch_tile_symbol(record: &OverlayIntrinsic, symbol:
             "llvm.nvvm.cp.async.bulk.tensor.prefetch.tile.gather4.2d"
         }
         _ => return false,
+    };
+    symbol == expected_symbol
+}
+
+/// The non-tensor bulk copies fold their optional qualifiers into `i1` flags,
+/// so several reviewed operations share one imported LLVM declaration.
+pub(super) fn shares_tma_bulk_symbol(record: &OverlayIntrinsic, symbol: &str) -> bool {
+    let Some(tma) = record.tma.as_ref() else {
+        return false;
+    };
+    let Some(bulk) = tma.operation.bulk() else {
+        return false;
+    };
+    let expected_symbol = match bulk.direction {
+        TmaBulkDirection::GlobalToCluster => "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        TmaBulkDirection::GlobalToCta => "llvm.nvvm.cp.async.bulk.global.to.shared.cta",
+        TmaBulkDirection::CtaToCluster => "llvm.nvvm.cp.async.bulk.shared.cta.to.cluster",
+        TmaBulkDirection::CtaToGlobal if bulk.byte_mask => {
+            "llvm.nvvm.cp.async.bulk.shared.cta.to.global.bytemask"
+        }
+        TmaBulkDirection::CtaToGlobal => "llvm.nvvm.cp.async.bulk.shared.cta.to.global",
+        TmaBulkDirection::PrefetchL2 => "llvm.nvvm.cp.async.bulk.prefetch.L2",
     };
     symbol == expected_symbol
 }
@@ -835,6 +868,7 @@ pub(super) fn validate_unique_overlay(
             let is_resolved = record.resolved_llvm_symbol.is_some();
             let shares_reviewed_symbol = shares_tma_2d_g2s_symbol(record, symbol)
                 || shares_tma_prefetch_tile_symbol(record, symbol)
+                || shares_tma_bulk_symbol(record, symbol)
                 || shares_tcgen05_mma_symbol(record, symbol)
                 || shares_tcgen05_ld_symbol(record, symbol)
                 || shares_tcgen05_st_symbol(record, symbol);

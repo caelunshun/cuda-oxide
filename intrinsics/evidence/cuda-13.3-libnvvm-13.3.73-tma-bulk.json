@@ -1,0 +1,849 @@
+{
+  "schema": 6,
+  "backend_profile": "cuda-13.3-libnvvm-13.3.73-tma-bulk",
+  "backend_kind": "lib_nvvm",
+  "llvm_revision": "cuda-13.3-libnvvm",
+  "backend_version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+  "backend_sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+  "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+  "build_id_prefix": "88b802",
+  "nvvm_ir_version": "2.0",
+  "debug_ir_version": "3.2",
+  "defaults": {
+    "llvm_results": [],
+    "target_triple": "nvptx64-nvidia-cuda",
+    "status": "validated",
+    "runtime_validation": "unexecuted"
+  },
+  "fixtures": [
+    {
+      "id": "tma_bulk_inline_sm90",
+      "coverage_count": 9,
+      "stages": [
+        {
+          "targets": [
+            "compute_90",
+            "ptx93"
+          ],
+          "representation": "one NVVM IR 2.0 module containing the nine PTX 8.0 inline-PTX forms",
+          "stage": "backend_codegen",
+          "mechanism": "inline_ptx",
+          "outcome": "succeeded",
+          "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 4,830-byte NVVM IR 2.0 source had SHA-256 50c0b11a748993a6ed8570d66105681a7e6d0261b9676f306f17b449ccd69bab; the 8,094-byte PTX had SHA-256 3455e3bb8693a51363b6a1badbaaa6286e2bd04eac73541b9cd5f8e45b3854be; the 6,336-byte LTOIR had SHA-256 55eda21dad988b5e80a5f3cc3ec2e2e4a423717ba68cee2ca9814528eb144e15."
+        },
+        {
+          "targets": [
+            "sm_90",
+            "ptx93"
+          ],
+          "representation": "linked cubin retaining every bulk-copy instruction",
+          "stage": "device_link",
+          "mechanism": "inline_ptx",
+          "outcome": "succeeded",
+          "artifact_kind": "cubin",
+          "detail": "CUDA 13.3 nvJitLink produced a 20,072-byte CUDA ELF cubin with SHA-256 cbd16bd7cdd1da08708d1e4b388bc1e710f84bb9348232345362e1fafe97e0d5; cuobjdump showed UBLKCP.G.S, UBLKCP.S.G, UBLKCP.S.G.MULTICAST, UBLKCP.S.S, and UBLKPF.L2 in its SASS.",
+          "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+          "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+          "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+        }
+      ]
+    },
+    {
+      "id": "tma_bulk_cta_inline_sm90",
+      "coverage_count": 2,
+      "stages": [
+        {
+          "targets": [
+            "compute_90",
+            "ptx93"
+          ],
+          "representation": "one NVVM IR 2.0 module containing both `.shared::cta` destination inline-PTX forms",
+          "stage": "backend_codegen",
+          "mechanism": "inline_ptx",
+          "outcome": "succeeded",
+          "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 1,398-byte NVVM IR 2.0 source had SHA-256 4a180111f63115c5c1bc8be75ec27f06aee08b9bc118e3d60207909e959877b9; the 2,134-byte PTX had SHA-256 86517a81efed98b992f8e648ec1183429680b6fbe00dfc4f1bdc774215adfd17; the 2,696-byte LTOIR had SHA-256 14bf6fbfc5daf035fc9568daa4ce6bf2835d110b58d4283fe020874072da1b07."
+        },
+        {
+          "targets": [
+            "sm_90",
+            "ptx93"
+          ],
+          "representation": "linked cubin retaining every bulk-copy instruction",
+          "stage": "device_link",
+          "mechanism": "inline_ptx",
+          "outcome": "succeeded",
+          "artifact_kind": "cubin",
+          "detail": "CUDA 13.3 nvJitLink produced a 6,312-byte CUDA ELF cubin with SHA-256 c0da1c7ad02bf7ea2060654f18dd2830b11bb1772d7773830a72444de5308d26; cuobjdump showed UBLKCP.S.G in its SASS.",
+          "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+          "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+          "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+        }
+      ]
+    },
+    {
+      "id": "tma_bulk_mask_inline_sm100",
+      "coverage_count": 2,
+      "stages": [
+        {
+          "targets": [
+            "compute_100",
+            "ptx93"
+          ],
+          "representation": "one NVVM IR 2.0 module containing both `.cp_mask` inline-PTX forms",
+          "stage": "backend_codegen",
+          "mechanism": "inline_ptx",
+          "outcome": "succeeded",
+          "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 1,268-byte NVVM IR 2.0 source had SHA-256 26f26df44b9c773f07ec2cd25f3a3325e1909ed1c7280b5108fc3d02f58ce5ff; the 2,207-byte PTX had SHA-256 c4aa3cba2c6997e3c327b40e4ba6fbad278c74d829665910fb8ce38f1d98ea29; the 3,136-byte LTOIR had SHA-256 0af7b497f637233b99076881bed275c8198ec0deed46e95e67baec6d181dafa9."
+        },
+        {
+          "targets": [
+            "sm_100",
+            "ptx93"
+          ],
+          "representation": "linked cubin retaining every bulk-copy instruction",
+          "stage": "device_link",
+          "mechanism": "inline_ptx",
+          "outcome": "succeeded",
+          "artifact_kind": "cubin",
+          "detail": "CUDA 13.3 nvJitLink produced a 8,824-byte CUDA ELF cubin with SHA-256 8664e4a382cf731b40f5cf0c1e75e7b7f86f1cf52c483bd86fa9c2bf659cb0e5; cuobjdump showed UBLKCP.G.S.DST in its SASS.",
+          "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+          "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+          "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+        }
+      ]
+    }
+  ],
+  "matrices": [
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "global",
+            "mbarrier::complete_tx::bytes"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "global",
+            "mbarrier::complete_tx::bytes",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_multicast"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "global",
+            "mbarrier::complete_tx::bytes",
+            "multicast::cluster"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_multicast_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "global",
+            "mbarrier::complete_tx::bytes",
+            "multicast::cluster",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_cta"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_cta_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cta",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cta",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cta",
+            "global",
+            "mbarrier::complete_tx::bytes"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_cta_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_cta_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cta",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cta",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cta",
+            "global",
+            "mbarrier::complete_tx::bytes",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_s2g"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_global",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.global",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "global",
+            "shared::cta",
+            "bulk_group"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "shared_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_s2g_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_global",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.global",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "global",
+            "shared::cta",
+            "bulk_group",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "shared_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_s2g_byte_mask"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_mask_inline_sm100"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_global_bytemask",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.global.bytemask",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "global",
+            "shared::cta",
+            "bulk_group",
+            "cp_mask"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "shared_ptr",
+            "i32",
+            "i64",
+            "i1",
+            "i16"
+          ],
+          "gpu_target": "compute_100",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_s2g_byte_mask_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_mask_inline_sm100"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_global_bytemask",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.global.bytemask",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "global",
+            "shared::cta",
+            "bulk_group",
+            "L2::cache_hint",
+            "cp_mask"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "shared_ptr",
+            "i32",
+            "i64",
+            "i1",
+            "i16"
+          ],
+          "gpu_target": "compute_100",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_cta_to_cluster"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "shared::cta",
+            "mbarrier::complete_tx::bytes"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "shared_ptr",
+            "i32"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_prefetch_l2"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_prefetch_L2",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.prefetch.L2",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "prefetch",
+            "L2",
+            "global"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_prefetch_l2_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_inline_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_prefetch_L2",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.prefetch.L2",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "prefetch",
+            "L2",
+            "global",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "compute_90",
+          "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3"
+        }
+      }
+    }
+  ]
+}

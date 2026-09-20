@@ -773,6 +773,56 @@ pub(super) fn validate_renderable(catalog: &CatalogFile) -> Result<()> {
                                         && record.semantics.memory == "read_write"
                                         && tma.reduction.is_some()
                                 }
+                                (
+                                    TmaOperation::BulkG2s | TmaOperation::BulkG2sCta,
+                                    TmaAdapter::BulkCopyBarrierInjectDefaults,
+                                )
+                                | (
+                                    TmaOperation::BulkG2sCacheHint
+                                    | TmaOperation::BulkG2sCtaCacheHint,
+                                    TmaAdapter::BulkCopyBarrierCacheHintInjectFlag,
+                                )
+                                | (
+                                    TmaOperation::BulkG2sMulticast,
+                                    TmaAdapter::BulkCopyBarrierMaskInjectFlag,
+                                )
+                                | (
+                                    TmaOperation::BulkG2sMulticastCacheHint,
+                                    TmaAdapter::BulkCopyBarrierMaskCacheHintInjectFlags,
+                                )
+                                | (
+                                    TmaOperation::BulkCtaToCluster,
+                                    TmaAdapter::BulkCopyBarrierDirect,
+                                )
+                                | (TmaOperation::BulkS2g, TmaAdapter::BulkCopyInjectDefaults)
+                                | (
+                                    TmaOperation::BulkS2gCacheHint,
+                                    TmaAdapter::BulkCopyCacheHintInjectFlag,
+                                )
+                                | (
+                                    TmaOperation::BulkS2gByteMask,
+                                    TmaAdapter::BulkCopyByteMaskInjectDefaults,
+                                )
+                                | (
+                                    TmaOperation::BulkS2gByteMaskCacheHint,
+                                    TmaAdapter::BulkCopyCacheHintByteMaskInjectFlag,
+                                ) => {
+                                    !record.rust.safe
+                                        && record.semantics.convergent
+                                        && record.semantics.memory == "read_write"
+                                }
+                                (
+                                    TmaOperation::BulkPrefetchL2,
+                                    TmaAdapter::BulkPrefetchInjectDefaults,
+                                )
+                                | (
+                                    TmaOperation::BulkPrefetchL2CacheHint,
+                                    TmaAdapter::BulkPrefetchCacheHintInjectFlag,
+                                ) => {
+                                    !record.rust.safe
+                                        && record.semantics.convergent
+                                        && record.semantics.memory == "read"
+                                }
                                 (TmaOperation::CommitGroup, TmaAdapter::NoOperands) => {
                                     record.rust.safe
                                         && !record.semantics.convergent

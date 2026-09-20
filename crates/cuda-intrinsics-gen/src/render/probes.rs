@@ -10,8 +10,9 @@ use crate::model::{
     MbarrierBasicOperation, MbarrierExtendedAdapter, PackedAtomicFormat,
     PackedConversionSourceFormat, ReduxAdapter, RegisterMmaAdapter, SparseMmaAccumulator,
     SpecialRegisterObservation, Tcgen05LdShape, Tcgen05Mma, Tcgen05MmaBUsage, Tcgen05MmaForm,
-    Tcgen05MmaKind, Tcgen05Operation, TmaOperation, VoteAdapter, VoteMode, WarpBarrierAdapter,
-    WarpMatchMode, WarpShuffleAdapter, WarpShuffleMode, WarpShuffleValueKind, WgmmaControlMode,
+    Tcgen05MmaKind, Tcgen05Operation, TmaBulkDirection, TmaOperation, VoteAdapter, VoteMode,
+    WarpBarrierAdapter, WarpMatchMode, WarpShuffleAdapter, WarpShuffleMode, WarpShuffleValueKind,
+    WgmmaControlMode,
 };
 use crate::render::common::{backend_label, llvm, llvm_header};
 use crate::render::families::{
@@ -80,7 +81,118 @@ fn render_tma_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, hash: &str
     let symbol = llvm.resolved_symbol.as_ref().unwrap_or(&llvm.symbol);
     let mut output = llvm_header(catalog, hash);
     output.push_str("target triple = \"nvptx64-nvidia-cuda\"\n\n");
-    if let Some(dimensions) = tma.dimensions() {
+    if let Some(bulk) = operation.bulk() {
+        // One generic incoming pointer per address the copy names, cast into
+        // the state space the typed declaration demands.
+        let (destination, source) = match bulk.direction {
+            TmaBulkDirection::GlobalToCluster => (Some("ptr addrspace(7)"), "ptr addrspace(1)"),
+            TmaBulkDirection::GlobalToCta => (Some("ptr addrspace(3)"), "ptr addrspace(1)"),
+            TmaBulkDirection::CtaToCluster => (Some("ptr addrspace(7)"), "ptr addrspace(3)"),
+            TmaBulkDirection::CtaToGlobal => (Some("ptr addrspace(1)"), "ptr addrspace(3)"),
+            TmaBulkDirection::PrefetchL2 => (None, "ptr addrspace(1)"),
+        };
+        let barrier = bulk.uses_barrier().then_some("ptr addrspace(3)");
+
+        let mut declared = Vec::new();
+        declared.extend(destination);
+        declared.extend(barrier);
+        declared.push(source);
+        declared.push("i32");
+        match bulk.direction {
+            TmaBulkDirection::GlobalToCluster => declared.extend(["i16", "i64", "i1", "i1"]),
+            TmaBulkDirection::GlobalToCta
+            | TmaBulkDirection::CtaToGlobal
+            | TmaBulkDirection::PrefetchL2 => declared.extend(["i64", "i1"]),
+            TmaBulkDirection::CtaToCluster => {}
+        }
+        if bulk.byte_mask {
+            declared.push("i16");
+        }
+        writeln!(
+            output,
+            "declare void @{symbol}({}) #0\n",
+            declared.join(", ")
+        )
+        .unwrap();
+
+        let mut parameters = Vec::new();
+        if destination.is_some() {
+            parameters.push("ptr %dst_generic".to_owned());
+        }
+        parameters.push("ptr %src_generic".to_owned());
+        parameters.push("i32 %size".to_owned());
+        if barrier.is_some() {
+            parameters.push("ptr %barrier_generic".to_owned());
+        }
+        if bulk.multicast {
+            parameters.push("i16 %cta_mask".to_owned());
+        }
+        if bulk.cache_hint {
+            parameters.push("i64 %cache_hint".to_owned());
+        }
+        if bulk.byte_mask {
+            parameters.push("i16 %byte_mask".to_owned());
+        }
+        writeln!(
+            output,
+            "define void @probe_{}({}) #0 {{",
+            record.id,
+            parameters.join(", ")
+        )
+        .unwrap();
+        if let Some(destination) = destination {
+            writeln!(
+                output,
+                "  %dst = addrspacecast ptr %dst_generic to {destination}"
+            )
+            .unwrap();
+        }
+        if let Some(barrier) = barrier {
+            writeln!(
+                output,
+                "  %barrier = addrspacecast ptr %barrier_generic to {barrier}"
+            )
+            .unwrap();
+        }
+        writeln!(
+            output,
+            "  %src = addrspacecast ptr %src_generic to {source}"
+        )
+        .unwrap();
+
+        let mut arguments = Vec::new();
+        if let Some(destination) = destination {
+            arguments.push(format!("{destination} %dst"));
+        }
+        if let Some(barrier) = barrier {
+            arguments.push(format!("{barrier} %barrier"));
+        }
+        arguments.push(format!("{source} %src"));
+        arguments.push("i32 %size".to_owned());
+        if bulk.direction == TmaBulkDirection::GlobalToCluster {
+            arguments.push(if bulk.multicast {
+                "i16 %cta_mask".to_owned()
+            } else {
+                "i16 0".to_owned()
+            });
+        }
+        if bulk.direction != TmaBulkDirection::CtaToCluster {
+            arguments.push(if bulk.cache_hint {
+                "i64 %cache_hint".to_owned()
+            } else {
+                "i64 0".to_owned()
+            });
+            if bulk.direction == TmaBulkDirection::GlobalToCluster {
+                arguments.push(format!("i1 {}", bulk.multicast));
+            }
+            arguments.push(format!("i1 {}", bulk.cache_hint));
+        }
+        if bulk.byte_mask {
+            arguments.push("i16 %byte_mask".to_owned());
+        }
+        writeln!(output, "  call void @{symbol}({}) #0", arguments.join(", ")).unwrap();
+        output.push_str("  ret void\n}\n\nattributes #0 = { convergent }\n");
+    } else if let Some(dimensions) = tma.dimensions() {
         let is_g2s = matches!(
             operation,
             TmaOperation::G2sTile1d

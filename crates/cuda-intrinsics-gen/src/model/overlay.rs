@@ -324,6 +324,10 @@ pub struct TmaAdmission {
     pub reduce_llvm_evidence_profile: Option<String>,
     #[serde(default)]
     pub reduce_libnvvm_evidence_profile: Option<String>,
+    #[serde(default)]
+    pub bulk_llvm_evidence_profile: Option<String>,
+    #[serde(default)]
+    pub bulk_libnvvm_evidence_profile: Option<String>,
     pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<TmaAdmissionVariant>,

@@ -6,7 +6,8 @@
 use crate::model::{
     BackendLoweringMechanism, CpAsyncControlOperation, DotProductAdapter,
     ExecutionControlOperation, IntrinsicBackend, OverlayIntrinsic, Tcgen05CpGroup,
-    Tcgen05MmaBUsage, Tcgen05MmaKind, Tcgen05SourceContract, TmaOperation, WgmmaControlMode,
+    Tcgen05MmaBUsage, Tcgen05MmaKind, Tcgen05SourceContract, TmaBulkDirection, TmaOperation,
+    WgmmaControlMode,
 };
 use crate::ptx::OperandPattern;
 use anyhow::{Result, ensure};
@@ -351,6 +352,58 @@ pub(super) fn selection_matches_tma_policy(
             "TMA_TENSOR_S2G_TILE_5D",
             "cp.async.bulk.tensor.5d.global.shared::cta.tile.bulk_group [$tmap, {{$d0, $d1, $d2, $d3, $d4}}], [$src];",
         ),
+        TmaOperation::BulkG2s => (
+            "CP_ASYNC_BULK_G2S",
+            "cp.async.bulk.shared::cluster.global.mbarrier::complete_tx::bytes [$dst], [$src], $size, [$mbar];",
+        ),
+        TmaOperation::BulkG2sCacheHint => (
+            "CP_ASYNC_BULK_G2S_CH",
+            "cp.async.bulk.shared::cluster.global.mbarrier::complete_tx::bytes.L2::cache_hint [$dst], [$src], $size, [$mbar], $ch;",
+        ),
+        TmaOperation::BulkG2sMulticast => (
+            "CP_ASYNC_BULK_G2S_MC",
+            "cp.async.bulk.shared::cluster.global.mbarrier::complete_tx::bytes.multicast::cluster [$dst], [$src], $size, [$mbar], $mask;",
+        ),
+        TmaOperation::BulkG2sMulticastCacheHint => (
+            "CP_ASYNC_BULK_G2S_CH_MC",
+            "cp.async.bulk.shared::cluster.global.mbarrier::complete_tx::bytes.multicast::cluster.L2::cache_hint [$dst], [$src], $size, [$mbar], $mask, $ch;",
+        ),
+        TmaOperation::BulkG2sCta => (
+            "CP_ASYNC_BULK_G2S_CTA",
+            "cp.async.bulk.shared::cta.global.mbarrier::complete_tx::bytes [$dst], [$src], $size, [$mbar];",
+        ),
+        TmaOperation::BulkG2sCtaCacheHint => (
+            "CP_ASYNC_BULK_G2S_CTA_CH",
+            "cp.async.bulk.shared::cta.global.mbarrier::complete_tx::bytes.L2::cache_hint [$dst], [$src], $size, [$mbar], $ch;",
+        ),
+        TmaOperation::BulkS2g => (
+            "CP_ASYNC_BULK_S2G",
+            "cp.async.bulk.global.shared::cta.bulk_group [$dst], [$src], $size;",
+        ),
+        TmaOperation::BulkS2gCacheHint => (
+            "CP_ASYNC_BULK_S2G_CH",
+            "cp.async.bulk.global.shared::cta.bulk_group.L2::cache_hint [$dst], [$src], $size, $ch;",
+        ),
+        TmaOperation::BulkS2gByteMask => (
+            "CP_ASYNC_BULK_S2G_BM",
+            "cp.async.bulk.global.shared::cta.bulk_group.cp_mask [$dst], [$src], $size, $mask;",
+        ),
+        TmaOperation::BulkS2gByteMaskCacheHint => (
+            "CP_ASYNC_BULK_S2G_CH_BM",
+            "cp.async.bulk.global.shared::cta.bulk_group.L2::cache_hint.cp_mask [$dst], [$src], $size, $ch, $mask;",
+        ),
+        TmaOperation::BulkCtaToCluster => (
+            "CP_ASYNC_BULK_CTA_TO_CLUSTER",
+            "cp.async.bulk.shared::cluster.shared::cta.mbarrier::complete_tx::bytes [$dst], [$src], $size, [$mbar];",
+        ),
+        TmaOperation::BulkPrefetchL2 => (
+            "CP_ASYNC_BULK_PREFETCH",
+            "cp.async.bulk.prefetch.L2.global [$src], $size;",
+        ),
+        TmaOperation::BulkPrefetchL2CacheHint => (
+            "CP_ASYNC_BULK_PREFETCH_CH",
+            "cp.async.bulk.prefetch.L2.global.L2::cache_hint [$src], $size, $ch;",
+        ),
         TmaOperation::CommitGroup => ("CP_ASYNC_BULK_COMMIT_GROUP", "cp.async.bulk.commit_group;"),
         TmaOperation::WaitGroup => ("CP_ASYNC_BULK_WAIT_GROUP", "cp.async.bulk.wait_group \t$n;"),
         TmaOperation::WaitGroupRead => (
@@ -500,6 +553,42 @@ pub(super) fn selection_matches_tma_policy(
                 0
             },
         });
+    } else if let Some(bulk) = operation.bulk() {
+        // Each bulk selection is picked out by the trailing `i1` flags LLVM
+        // folds into the instruction: the CTA mask first, then the cache hint.
+        let flag = |enabled: bool| if enabled { -1 } else { 0 };
+        match bulk.direction {
+            TmaBulkDirection::GlobalToCluster => {
+                immediate_bindings.push(crate::model::ImportedImmediateBinding {
+                    argument_index: 6,
+                    value: flag(bulk.multicast),
+                });
+                immediate_bindings.push(crate::model::ImportedImmediateBinding {
+                    argument_index: 7,
+                    value: flag(bulk.cache_hint),
+                });
+            }
+            TmaBulkDirection::GlobalToCta => {
+                immediate_bindings.push(crate::model::ImportedImmediateBinding {
+                    argument_index: 5,
+                    value: flag(bulk.cache_hint),
+                });
+            }
+            TmaBulkDirection::CtaToGlobal => {
+                immediate_bindings.push(crate::model::ImportedImmediateBinding {
+                    argument_index: 4,
+                    value: flag(bulk.cache_hint),
+                });
+            }
+            TmaBulkDirection::PrefetchL2 => {
+                immediate_bindings.push(crate::model::ImportedImmediateBinding {
+                    argument_index: 3,
+                    value: flag(bulk.cache_hint),
+                });
+            }
+            // The CTA-to-cluster copy has no optional qualifier to fold.
+            TmaBulkDirection::CtaToCluster => {}
+        }
     }
 
     selection.source_record == source_record

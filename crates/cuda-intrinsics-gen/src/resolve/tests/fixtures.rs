@@ -1510,6 +1510,8 @@ pub(super) fn test_tma_admission() -> TmaAdmission {
         libnvvm_evidence_profile: "libnvvm-tma-test".into(),
         reduce_llvm_evidence_profile: Some("llvm-tma-reduce-test".into()),
         reduce_libnvvm_evidence_profile: Some("libnvvm-tma-reduce-test".into()),
+        bulk_llvm_evidence_profile: Some("llvm-tma-bulk-test".into()),
+        bulk_libnvvm_evidence_profile: Some("libnvvm-tma-bulk-test".into()),
         runtime_validation: RuntimeValidation::Unexecuted,
         variants: TMA_OPERATIONS
             .into_iter()

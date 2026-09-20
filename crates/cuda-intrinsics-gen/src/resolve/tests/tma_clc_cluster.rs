@@ -238,6 +238,19 @@ fn compact_tma_admission_matches_llvm_and_fails_closed() {
                 "i0922",
                 "cp_async_bulk_prefetch_tensor_gather4_2d_l2_cache_hint"
             ),
+            ("i1026", "cp_async_bulk_g2s"),
+            ("i1027", "cp_async_bulk_g2s_cache_hint"),
+            ("i1028", "cp_async_bulk_g2s_multicast"),
+            ("i1029", "cp_async_bulk_g2s_multicast_cache_hint"),
+            ("i1030", "cp_async_bulk_g2s_cta"),
+            ("i1031", "cp_async_bulk_g2s_cta_cache_hint"),
+            ("i1032", "cp_async_bulk_s2g"),
+            ("i1033", "cp_async_bulk_s2g_cache_hint"),
+            ("i1034", "cp_async_bulk_s2g_byte_mask"),
+            ("i1035", "cp_async_bulk_s2g_byte_mask_cache_hint"),
+            ("i1036", "cp_async_bulk_cta_to_cluster"),
+            ("i1037", "cp_async_bulk_prefetch_l2"),
+            ("i1038", "cp_async_bulk_prefetch_l2_cache_hint"),
         ]
     );
 
@@ -324,10 +337,15 @@ fn compact_tma_admission_matches_llvm_and_fails_closed() {
 
 #[test]
 fn tma_compact_schema_is_reserved_for_aggregation() {
-    let shard = |schema: u32, include_reductions: bool| {
+    let shard = |schema: u32, include_reductions: bool, include_bulk: bool| {
         let mut admission = test_tma_admission();
         if !include_reductions {
             admission.reduce_variants.clear();
+        }
+        if !include_bulk {
+            admission
+                .variants
+                .retain(|variant| variant.operation.bulk().is_none());
         }
         OverlayShardFile {
             schema,
@@ -369,14 +387,14 @@ fn tma_compact_schema_is_reserved_for_aggregation() {
     let path = Path::new("intrinsics/overlay/tma.toml");
 
     validate_overlay_shard_schema_with_max(
-        &shard(TMA_SHARD_SCHEMA, false),
+        &shard(TMA_SHARD_SCHEMA, false, false),
         path,
         TMA_REDUCTION_SHARD_SCHEMA,
     )
     .unwrap();
     assert!(
         validate_overlay_shard_schema_with_max(
-            &shard(TMA_SHARD_SCHEMA - 1, false),
+            &shard(TMA_SHARD_SCHEMA - 1, false, false),
             path,
             TMA_REDUCTION_SHARD_SCHEMA,
         )
@@ -386,20 +404,37 @@ fn tma_compact_schema_is_reserved_for_aggregation() {
     );
 
     validate_overlay_shard_schema_with_max(
-        &shard(TMA_REDUCTION_SHARD_SCHEMA, true),
+        &shard(TMA_REDUCTION_SHARD_SCHEMA, true, false),
         path,
         TMA_REDUCTION_SHARD_SCHEMA,
     )
     .unwrap();
     assert!(
         validate_overlay_shard_schema_with_max(
-            &shard(TMA_REDUCTION_SHARD_SCHEMA - 1, true),
+            &shard(TMA_REDUCTION_SHARD_SCHEMA - 1, true, false),
             path,
             TMA_REDUCTION_SHARD_SCHEMA,
         )
         .unwrap_err()
         .to_string()
         .contains("compact TMA reduction admission requires overlay shard schema 62")
+    );
+
+    validate_overlay_shard_schema_with_max(
+        &shard(TMA_BULK_SHARD_SCHEMA, true, true),
+        path,
+        TMA_BULK_SHARD_SCHEMA,
+    )
+    .unwrap();
+    assert!(
+        validate_overlay_shard_schema_with_max(
+            &shard(TMA_BULK_SHARD_SCHEMA - 1, true, true),
+            path,
+            TMA_BULK_SHARD_SCHEMA,
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("compact non-tensor bulk-copy TMA admission requires overlay shard schema 64")
     );
 }
 

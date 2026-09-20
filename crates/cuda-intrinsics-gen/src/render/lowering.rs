@@ -10,8 +10,8 @@ use crate::model::{
     ExecutionControlOperation, IntrinsicBackend, MbarrierBasicAdapter, MbarrierBasicOperation,
     MbarrierExtendedAdapter, PackedConversionAdapter, PackedConversionSourceFormat, PrmtAdapter,
     PrmtMode, ReduxAdapter, ScalarArithmeticFormat, ScalarMathFormat, StmatrixLayout,
-    Tcgen05Operation, TmaOperation, TmaReductionLoadMode, TmaReductionOperation, VoteAdapter,
-    WarpBarrierAdapter, WarpMatchAdapter, WarpShuffleAdapter, WarpShuffleMode,
+    Tcgen05Operation, TmaBulkDirection, TmaOperation, TmaReductionLoadMode, TmaReductionOperation,
+    VoteAdapter, WarpBarrierAdapter, WarpMatchAdapter, WarpShuffleAdapter, WarpShuffleMode,
     WarpShuffleValueKind, WgmmaControlMode,
 };
 use crate::render::common::{rust_header, uses_identifier};
@@ -1565,6 +1565,37 @@ fn tma_impls(catalog: &CatalogFile) -> String {
                 )
                     .unwrap();
             }
+            TmaOperation::BulkG2s
+            | TmaOperation::BulkG2sCacheHint
+            | TmaOperation::BulkG2sMulticast
+            | TmaOperation::BulkG2sMulticastCacheHint
+            | TmaOperation::BulkG2sCta
+            | TmaOperation::BulkG2sCtaCacheHint
+            | TmaOperation::BulkS2g
+            | TmaOperation::BulkS2gCacheHint
+            | TmaOperation::BulkS2gByteMask
+            | TmaOperation::BulkS2gByteMaskCacheHint
+            | TmaOperation::BulkCtaToCluster
+            | TmaOperation::BulkPrefetchL2
+            | TmaOperation::BulkPrefetchL2CacheHint => {
+                let bulk = operation.bulk().expect("non-tensor bulk contract");
+                let direction = match bulk.direction {
+                    TmaBulkDirection::GlobalToCluster => "g2s_cluster",
+                    TmaBulkDirection::GlobalToCta => "g2s_cta",
+                    TmaBulkDirection::CtaToCluster => "cta_to_cluster",
+                    TmaBulkDirection::CtaToGlobal => "s2g",
+                    TmaBulkDirection::PrefetchL2 => "prefetch",
+                };
+                writeln!(
+                    output,
+                    "        convert_bulk(ctx, rewriter, self.get_operation(), operands_info, BulkConfig::new({direction:?}, {}, {}, {}, {:?}))",
+                    bulk.multicast,
+                    bulk.cache_hint,
+                    bulk.byte_mask,
+                    record.resolved_llvm_identifier()
+                )
+                .unwrap();
+            }
             TmaOperation::CommitGroup | TmaOperation::WaitGroup | TmaOperation::WaitGroupRead => {
                 let operation_name = match operation {
                     TmaOperation::CommitGroup => "commit_group",
@@ -2095,8 +2126,10 @@ const LOWERING_INTRINSIC_HELPERS: &[(&str, &str)] = &[
         "convert_generated_scalar_math",
         "scalar_math::convert_generated_scalar_math",
     ),
+    ("BulkConfig", "tma::BulkConfig"),
     ("PrefetchTileConfig", "tma::PrefetchTileConfig"),
     ("ReduceConfig", "tma::ReduceConfig"),
+    ("convert_bulk", "tma::convert_bulk"),
     ("convert_control", "tma::convert_control"),
     ("convert_g2s", "tma::convert_g2s"),
     (

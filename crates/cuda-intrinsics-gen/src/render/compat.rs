@@ -929,9 +929,24 @@ pub(super) fn render_compat_tma(catalog: &CatalogFile, hash: &str) -> String {
                 | TmaOperation::S2gTile5d
         );
         let is_reduction = operation == TmaOperation::Reduce;
+        let bulk = operation.bulk();
         if !record.rust.safe {
             output.push_str("///\n/// # Safety\n");
-            if is_g2s {
+            if let Some(bulk) = bulk {
+                if bulk.is_prefetch() {
+                    output.push_str(
+                        "/// `src` must be sixteen-byte aligned and `size` bytes of it must stay inside one live global allocation.\n",
+                    );
+                } else if bulk.uses_barrier() {
+                    output.push_str(
+                        "/// `dst`, `src`, and `barrier` must be sixteen-byte-aligned live objects in the state spaces this copy names, `size` must be a multiple of sixteen, and all three must stay valid until the copy completes.\n",
+                    );
+                } else {
+                    output.push_str(
+                        "/// `dst` and `src` must be sixteen-byte-aligned live objects in the state spaces this copy names, `size` must be a multiple of sixteen, and both must stay valid until the committed copy group completes.\n",
+                    );
+                }
+            } else if is_g2s {
                 output.push_str(
                     "/// `dst`, `tensor_map`, and `barrier` must remain valid until the copy completes.\n",
                 );
@@ -959,7 +974,47 @@ pub(super) fn render_compat_tma(catalog: &CatalogFile, hash: &str) -> String {
             }
         }
         output.push_str("#[inline(never)]\n");
-        if is_g2s {
+        if let Some(bulk) = bulk {
+            let mut arguments = if bulk.is_prefetch() {
+                vec!["src: *const u8".to_owned(), "size: u32".to_owned()]
+            } else {
+                vec![
+                    "dst: *mut u8".to_owned(),
+                    "src: *const u8".to_owned(),
+                    "size: u32".to_owned(),
+                ]
+            };
+            if bulk.uses_barrier() {
+                arguments.push("barrier: *mut Barrier".to_owned());
+            }
+            if bulk.multicast {
+                arguments.push("cta_mask: u16".to_owned());
+            }
+            if bulk.cache_hint {
+                arguments.push("cache_hint: u64".to_owned());
+            }
+            if bulk.byte_mask {
+                arguments.push("byte_mask: u16".to_owned());
+            }
+            let values = arguments
+                .iter()
+                .map(|argument| {
+                    argument
+                        .split_once(':')
+                        .expect("rendered argument binding")
+                        .0
+                        .to_owned()
+                })
+                .collect::<Vec<_>>();
+            writeln!(
+                output,
+                "pub unsafe fn {}({}) {{",
+                record.rust.name,
+                arguments.join(", ")
+            )
+            .unwrap();
+            writeln!(output, "    let _ = ({});", values.join(", ")).unwrap();
+        } else if is_g2s {
             let dimensions = dimensions.unwrap();
             let mut arguments = vec![
                 "dst: *mut u8".to_owned(),

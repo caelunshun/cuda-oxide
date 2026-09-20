@@ -38,6 +38,21 @@
 //! 3. **Barrier Integration**: TMA completion is tracked via `mbarrier` - the
 //!    hardware automatically signals the barrier when transfer completes.
 //!
+//! 4. **Non-tensor bulk copies**: the plain `cp.async.bulk.*` forms move a flat,
+//!    sixteen-byte-aligned byte range instead of a tensor tile, so they need no
+//!    descriptor. `cp_async_bulk_g2s` and `cp_async_bulk_g2s_cta` fill cluster
+//!    and CTA shared memory from global memory, `cp_async_bulk_cta_to_cluster`
+//!    pushes into a peer CTA's shared memory, and all three complete through an
+//!    `mbarrier` the same way the tensor copies do. `cp_async_bulk_s2g` writes
+//!    shared memory back to global memory and completes through the bulk
+//!    async-group, so it is followed by `cp_async_bulk_commit_group` and
+//!    `cp_async_bulk_wait_group`. `cp_async_bulk_prefetch_l2` is the
+//!    corresponding L2 prefetch hint. Each form has a `_cache_hint` variant
+//!    that takes an explicit 64-bit L2 eviction policy; the global-to-cluster
+//!    copy also has `_multicast` variants that broadcast to a CTA mask, and the
+//!    shared-to-global copy has `_byte_mask` variants (`.cp_mask`, sm_100 and
+//!    newer) that copy only the selected bytes of each sixteen-byte chunk.
+//!
 //! # Usage Pattern
 //!
 //! ```rust,ignore

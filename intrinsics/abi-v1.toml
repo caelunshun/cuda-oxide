@@ -7145,3 +7145,94 @@ status = "active"
 catalog_id = "mma_sp_ordered_metadata_m16n8k32_f32_f16"
 operation_key = "matrix.mma.sp.m16n8k32.row.col.f32.f16.f16.f32.not_applicable.ordered_metadata"
 raw_rust_signature = { safe = false, arguments = ["[f32; 4]", "[u32; 4]", "[u32; 4]", "u32", "u32"], result = "[f32; 4]" }
+
+[[entry]]
+abi_id = "i1026"
+status = "active"
+catalog_id = "cp_async_bulk_g2s"
+operation_key = "memory.copy.async.bulk.global_to_shared_cluster"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "*mut u64"], result = "()" }
+
+[[entry]]
+abi_id = "i1027"
+status = "active"
+catalog_id = "cp_async_bulk_g2s_cache_hint"
+operation_key = "memory.copy.async.bulk.global_to_shared_cluster.cache_hint"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "*mut u64", "u64"], result = "()" }
+
+[[entry]]
+abi_id = "i1028"
+status = "active"
+catalog_id = "cp_async_bulk_g2s_multicast"
+operation_key = "memory.copy.async.bulk.global_to_shared_cluster.multicast"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "*mut u64", "u16"], result = "()" }
+
+[[entry]]
+abi_id = "i1029"
+status = "active"
+catalog_id = "cp_async_bulk_g2s_multicast_cache_hint"
+operation_key = "memory.copy.async.bulk.global_to_shared_cluster.multicast.cache_hint"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "*mut u64", "u16", "u64"], result = "()" }
+
+[[entry]]
+abi_id = "i1030"
+status = "active"
+catalog_id = "cp_async_bulk_g2s_cta"
+operation_key = "memory.copy.async.bulk.global_to_shared_cta"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "*mut u64"], result = "()" }
+
+[[entry]]
+abi_id = "i1031"
+status = "active"
+catalog_id = "cp_async_bulk_g2s_cta_cache_hint"
+operation_key = "memory.copy.async.bulk.global_to_shared_cta.cache_hint"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "*mut u64", "u64"], result = "()" }
+
+[[entry]]
+abi_id = "i1032"
+status = "active"
+catalog_id = "cp_async_bulk_s2g"
+operation_key = "memory.copy.async.bulk.shared_cta_to_global"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32"], result = "()" }
+
+[[entry]]
+abi_id = "i1033"
+status = "active"
+catalog_id = "cp_async_bulk_s2g_cache_hint"
+operation_key = "memory.copy.async.bulk.shared_cta_to_global.cache_hint"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "u64"], result = "()" }
+
+[[entry]]
+abi_id = "i1034"
+status = "active"
+catalog_id = "cp_async_bulk_s2g_byte_mask"
+operation_key = "memory.copy.async.bulk.shared_cta_to_global.cp_mask"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "u16"], result = "()" }
+
+[[entry]]
+abi_id = "i1035"
+status = "active"
+catalog_id = "cp_async_bulk_s2g_byte_mask_cache_hint"
+operation_key = "memory.copy.async.bulk.shared_cta_to_global.cp_mask.cache_hint"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "u64", "u16"], result = "()" }
+
+[[entry]]
+abi_id = "i1036"
+status = "active"
+catalog_id = "cp_async_bulk_cta_to_cluster"
+operation_key = "memory.copy.async.bulk.shared_cta_to_shared_cluster"
+raw_rust_signature = { safe = false, arguments = ["*mut u8", "*const u8", "u32", "*mut u64"], result = "()" }
+
+[[entry]]
+abi_id = "i1037"
+status = "active"
+catalog_id = "cp_async_bulk_prefetch_l2"
+operation_key = "memory.prefetch.async.bulk.global.l2"
+raw_rust_signature = { safe = false, arguments = ["*const u8", "u32"], result = "()" }
+
+[[entry]]
+abi_id = "i1038"
+status = "active"
+catalog_id = "cp_async_bulk_prefetch_l2_cache_hint"
+operation_key = "memory.prefetch.async.bulk.global.l2.cache_hint"
+raw_rust_signature = { safe = false, arguments = ["*const u8", "u32", "u64"], result = "()" }

@@ -1,0 +1,981 @@
+{
+  "schema": 6,
+  "backend_profile": "rust-llvm-23.1.0-16696adc-tma-bulk",
+  "backend_kind": "llvm_nvptx",
+  "llvm_revision": "16696adcd119e6ba9cc175207d984d7021211acb",
+  "backend_version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+  "backend_sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+  "defaults": {
+    "llvm_results": [],
+    "concrete_llvm_results": [],
+    "target_triple": "nvptx64-nvidia-cuda",
+    "status": "validated",
+    "declaration_attributes_canonicalized": true,
+    "runtime_validation": "unexecuted"
+  },
+  "fixtures": [
+    {
+      "id": "tma_bulk_typed_sm90",
+      "coverage_count": 9,
+      "stages": [
+        {
+          "targets": [
+            "sm_90"
+          ],
+          "representation": "one LLVM module containing the nine PTX 8.0 bulk-copy declarations and calls",
+          "stage": "declaration_canonicalization",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "detail": "llvm-as canonicalized the intrinsic attributes. The 4,526-byte source had SHA-256 44c95f4ccd8814d276b9fda17af17373f41e1c4b407ff5607e85fefe1f80b7d0; the 4,028-byte bitcode had SHA-256 edf4c7263436c09ce5e37c68e8a68e104ed30aa3365da0abd750c642119a60ca."
+        },
+        {
+          "targets": [
+            "sm_90",
+            "ptx80"
+          ],
+          "representation": "typed LLVM calls for every operation in the module",
+          "stage": "backend_codegen",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "detail": "The pinned LLVM emitted every exact instruction with no extern calls. The 9,735-byte PTX had SHA-256 b87a994d10a22dee2644f5af0f2481bea526894260aeca3490508c81a8951b3d."
+        },
+        {
+          "targets": [
+            "sm_90",
+            "ptx80"
+          ],
+          "representation": "LLVM-produced PTX retaining every bulk-copy instruction",
+          "stage": "ptx_assembly",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "artifact_kind": "cubin",
+          "detail": "CUDA 13.3 ptxas produced a 19,968-byte cubin with SHA-256 db176b343b9386c360f3a885c4a90dc3be11ada37bcffc68cf210861b22e4bcb; cuobjdump showed UBLKCP.G.S, UBLKCP.S.G, UBLKCP.S.G.MULTICAST, UBLKCP.S.S, and UBLKPF.L2 in its SASS.",
+          "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+          "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+          "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+        }
+      ]
+    },
+    {
+      "id": "tma_bulk_cta_typed_sm90",
+      "coverage_count": 2,
+      "stages": [
+        {
+          "targets": [
+            "sm_90"
+          ],
+          "representation": "one LLVM module containing both `.shared::cta` destination declarations and calls",
+          "stage": "declaration_canonicalization",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "detail": "llvm-as canonicalized the intrinsic attributes. The 1,218-byte source had SHA-256 c9c18ab1fa25a47f8512276cfd9b45fc246ad543d3e989b67c1ac7c9123b129a; the 2,500-byte bitcode had SHA-256 f6c7bff64eedc09de3a8eb11d5ba393640b28c352a65876df2d2641a9be19988."
+        },
+        {
+          "targets": [
+            "sm_90",
+            "ptx86"
+          ],
+          "representation": "typed LLVM calls for every operation in the module",
+          "stage": "backend_codegen",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "detail": "The pinned LLVM emitted every exact instruction with no extern calls. The 2,384-byte PTX had SHA-256 da3523612681ead87e41a0c35ff61d050fae94f520299c0b69e3299789c2d585."
+        },
+        {
+          "targets": [
+            "sm_90",
+            "ptx86"
+          ],
+          "representation": "LLVM-produced PTX retaining every bulk-copy instruction",
+          "stage": "ptx_assembly",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "artifact_kind": "cubin",
+          "detail": "CUDA 13.3 ptxas produced a 6,144-byte cubin with SHA-256 7be46a2c1b9e3e5dae13f60c06dce3ecde8b604503d5161c5cc61145a168b015; cuobjdump showed UBLKCP.S.G in its SASS.",
+          "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+          "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+          "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+        }
+      ]
+    },
+    {
+      "id": "tma_bulk_mask_typed_sm100",
+      "coverage_count": 2,
+      "stages": [
+        {
+          "targets": [
+            "sm_100"
+          ],
+          "representation": "one LLVM module containing both `.cp_mask` declarations and calls",
+          "stage": "declaration_canonicalization",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "detail": "llvm-as canonicalized the intrinsic attributes. The 1,074-byte source had SHA-256 ddd7b1ae208b16e1f2e71b724590297a827f6594819812bcd6382f67333e0469; the 2,504-byte bitcode had SHA-256 f03c42c5760659daea42646d25bef00646a0091455643bdf47131f53a9bc94d4."
+        },
+        {
+          "targets": [
+            "sm_100",
+            "ptx86"
+          ],
+          "representation": "typed LLVM calls for every operation in the module",
+          "stage": "backend_codegen",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "detail": "The pinned LLVM emitted every exact instruction with no extern calls. The 2,463-byte PTX had SHA-256 0273b0d9a09814277a389357542718b8a45908338ba6dcc6df5a9916f67fd947."
+        },
+        {
+          "targets": [
+            "sm_100",
+            "ptx86"
+          ],
+          "representation": "LLVM-produced PTX retaining every bulk-copy instruction",
+          "stage": "ptx_assembly",
+          "mechanism": "typed_nvvm",
+          "outcome": "succeeded",
+          "artifact_kind": "cubin",
+          "detail": "CUDA 13.3 ptxas produced a 8,904-byte cubin with SHA-256 9a8a384e996ea154aa57dfa3fdce68d92a721419a87f220626a630a288cb6c5a; cuobjdump showed UBLKCP.G.S.DST in its SASS.",
+          "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+          "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+          "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+        }
+      ]
+    }
+  ],
+  "matrices": [
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "global",
+            "mbarrier::complete_tx::bytes"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(7)",
+            "ptr addrspace(3)",
+            "ptr addrspace(1)",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "global",
+            "mbarrier::complete_tx::bytes",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(7)",
+            "ptr addrspace(3)",
+            "ptr addrspace(1)",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_multicast"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "global",
+            "mbarrier::complete_tx::bytes",
+            "multicast::cluster"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(7)",
+            "ptr addrspace(3)",
+            "ptr addrspace(1)",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_multicast_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "global",
+            "mbarrier::complete_tx::bytes",
+            "multicast::cluster",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(7)",
+            "ptr addrspace(3)",
+            "ptr addrspace(1)",
+            "i32",
+            "i16",
+            "i64",
+            "i1",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_cta"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_cta_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cta",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cta",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cta",
+            "global",
+            "mbarrier::complete_tx::bytes"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(3)",
+            "ptr addrspace(3)",
+            "ptr addrspace(1)",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx86"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_g2s_cta_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_cta_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_global_to_shared_cta",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.global.to.shared.cta",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cta",
+            "global",
+            "mbarrier::complete_tx::bytes",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_ptr",
+            "shared_ptr",
+            "global_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(3)",
+            "ptr addrspace(3)",
+            "ptr addrspace(1)",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx86"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_s2g"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_global",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.global",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "global",
+            "shared::cta",
+            "bulk_group"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "shared_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(1)",
+            "ptr addrspace(3)",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_s2g_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_global",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.global",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "global",
+            "shared::cta",
+            "bulk_group",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "shared_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(1)",
+            "ptr addrspace(3)",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_s2g_byte_mask"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_mask_typed_sm100"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_global_bytemask",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.global.bytemask",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "global",
+            "shared::cta",
+            "bulk_group",
+            "cp_mask"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "shared_ptr",
+            "i32",
+            "i64",
+            "i1",
+            "i16"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(1)",
+            "ptr addrspace(3)",
+            "i32",
+            "i64",
+            "i1",
+            "i16"
+          ],
+          "gpu_target": "sm_100",
+          "ptx_feature": "+ptx86"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_s2g_byte_mask_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_mask_typed_sm100"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_global_bytemask",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.global.bytemask",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "global",
+            "shared::cta",
+            "bulk_group",
+            "L2::cache_hint",
+            "cp_mask"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "shared_ptr",
+            "i32",
+            "i64",
+            "i1",
+            "i16"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(1)",
+            "ptr addrspace(3)",
+            "i32",
+            "i64",
+            "i1",
+            "i16"
+          ],
+          "gpu_target": "sm_100",
+          "ptx_feature": "+ptx86"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_cta_to_cluster"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_shared_cta_to_cluster",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.shared.cta.to.cluster",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "shared::cluster",
+            "shared::cta",
+            "mbarrier::complete_tx::bytes"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "address"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "shared_cluster_ptr",
+            "shared_ptr",
+            "shared_ptr",
+            "i32"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(7)",
+            "ptr addrspace(3)",
+            "ptr addrspace(3)",
+            "i32"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_prefetch_l2"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_prefetch_L2",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.prefetch.L2",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "prefetch",
+            "L2",
+            "global"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(1)",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "cp_async_bulk_prefetch_l2_cache_hint"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "tma_bulk_typed_sm90"
+      ],
+      "template": {
+        "id": "${id}",
+        "source_record": "int_nvvm_cp_async_bulk_prefetch_L2",
+        "llvm_symbol": "llvm.nvvm.cp.async.bulk.prefetch.L2",
+        "expected_ptx": {
+          "mnemonic": "cp",
+          "modifiers": [
+            "async",
+            "bulk",
+            "prefetch",
+            "L2",
+            "global",
+            "L2::cache_hint"
+          ],
+          "operands": [
+            {
+              "kind": "address"
+            },
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        },
+        "facts": {
+          "llvm_arguments": [
+            "global_ptr",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "concrete_llvm_arguments": [
+            "ptr addrspace(1)",
+            "i32",
+            "i64",
+            "i1"
+          ],
+          "gpu_target": "sm_90",
+          "ptx_feature": "+ptx80"
+        }
+      }
+    }
+  ]
+}

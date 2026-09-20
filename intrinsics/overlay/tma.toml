@@ -1,6 +1,6 @@
 # Reviewed Tensor Memory Accelerator operations.
 
-schema = 62
+schema = 64
 family = "tma"
 
 [tma]
@@ -8,6 +8,8 @@ llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma"
 libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma"
 reduce_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma-reduce"
 reduce_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma-reduce"
+bulk_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma-bulk"
+bulk_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma-bulk"
 runtime_validation = "unexecuted"
 
 [[tma.variant]]
@@ -197,6 +199,58 @@ operation = "prefetch_tile5d_cache_hint"
 [[tma.variant]]
 abi_id = "i0922"
 operation = "prefetch_tile_gather4_2d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1026"
+operation = "bulk_g2s"
+
+[[tma.variant]]
+abi_id = "i1027"
+operation = "bulk_g2s_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1028"
+operation = "bulk_g2s_multicast"
+
+[[tma.variant]]
+abi_id = "i1029"
+operation = "bulk_g2s_multicast_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1030"
+operation = "bulk_g2s_cta"
+
+[[tma.variant]]
+abi_id = "i1031"
+operation = "bulk_g2s_cta_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1032"
+operation = "bulk_s2g"
+
+[[tma.variant]]
+abi_id = "i1033"
+operation = "bulk_s2g_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1034"
+operation = "bulk_s2g_byte_mask"
+
+[[tma.variant]]
+abi_id = "i1035"
+operation = "bulk_s2g_byte_mask_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1036"
+operation = "bulk_cta_to_cluster"
+
+[[tma.variant]]
+abi_id = "i1037"
+operation = "bulk_prefetch_l2"
+
+[[tma.variant]]
+abi_id = "i1038"
+operation = "bulk_prefetch_l2_cache_hint"
 
 [[tma.reduce_variant]]
 abi_id = "i0923"

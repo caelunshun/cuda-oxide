@@ -6,8 +6,8 @@
 use crate::model::{
     BackendLoweringMechanism, ImportedAddressSpace, ImportedIntrinsic, IntrinsicBackend,
     OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation, Tma, TmaAdapter, TmaAdmission,
-    TmaOperation, TmaReduction, TmaReductionAdmissionVariant, TmaReductionLoadMode,
-    TmaReductionOperation,
+    TmaBulk, TmaBulkDirection, TmaOperation, TmaReduction, TmaReductionAdmissionVariant,
+    TmaReductionLoadMode, TmaReductionOperation,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -19,7 +19,7 @@ use crate::resolve::guards::*;
 pub(in crate::resolve) const TMA_BLACKWELL_TARGETS: &str = "sm_100a|sm_101a|sm_103a|sm_110a";
 pub(in crate::resolve) const TENSOR_MAP_REPLACE_TARGETS: &str =
     "sm_100a|sm_100f|sm_103a|sm_103f|sm_110a|sm_110f|sm_120a|sm_120f|sm_121a|sm_121f|sm_90a";
-pub(in crate::resolve) const TMA_OPERATIONS: [TmaOperation; 47] = [
+pub(in crate::resolve) const TMA_OPERATIONS: [TmaOperation; 60] = [
     TmaOperation::G2sTile1d,
     TmaOperation::G2sTile2d,
     TmaOperation::G2sTile2dMulticast,
@@ -67,6 +67,19 @@ pub(in crate::resolve) const TMA_OPERATIONS: [TmaOperation; 47] = [
     TmaOperation::PrefetchTile4dCacheHint,
     TmaOperation::PrefetchTile5dCacheHint,
     TmaOperation::PrefetchTileGather4TwoDimensionalCacheHint,
+    TmaOperation::BulkG2s,
+    TmaOperation::BulkG2sCacheHint,
+    TmaOperation::BulkG2sMulticast,
+    TmaOperation::BulkG2sMulticastCacheHint,
+    TmaOperation::BulkG2sCta,
+    TmaOperation::BulkG2sCtaCacheHint,
+    TmaOperation::BulkS2g,
+    TmaOperation::BulkS2gCacheHint,
+    TmaOperation::BulkS2gByteMask,
+    TmaOperation::BulkS2gByteMaskCacheHint,
+    TmaOperation::BulkCtaToCluster,
+    TmaOperation::BulkPrefetchL2,
+    TmaOperation::BulkPrefetchL2CacheHint,
 ];
 
 pub(in crate::resolve) const TMA_REDUCTION_OPERATIONS: [TmaReductionOperation; 8] = [
@@ -396,6 +409,56 @@ pub(in crate::resolve) struct TmaRecipe {
     pub(in crate::resolve) summary: &'static str,
 }
 
+/// One reviewed summary line per non-tensor bulk-copy shape.
+pub(in crate::resolve) fn bulk_summary(bulk: TmaBulk) -> &'static str {
+    match (
+        bulk.direction,
+        bulk.multicast,
+        bulk.cache_hint,
+        bulk.byte_mask,
+    ) {
+        (TmaBulkDirection::GlobalToCluster, false, false, _) => {
+            "Starts a bulk copy from global to cluster shared memory."
+        }
+        (TmaBulkDirection::GlobalToCluster, false, true, _) => {
+            "Starts a bulk copy from global to cluster shared memory using an explicit cache hint."
+        }
+        (TmaBulkDirection::GlobalToCluster, true, false, _) => {
+            "Starts a multicast bulk copy from global to cluster shared memory."
+        }
+        (TmaBulkDirection::GlobalToCluster, true, true, _) => {
+            "Starts a multicast bulk copy from global to cluster shared memory using an explicit cache hint."
+        }
+        (TmaBulkDirection::GlobalToCta, _, false, _) => {
+            "Starts a bulk copy from global to this CTA's shared memory."
+        }
+        (TmaBulkDirection::GlobalToCta, _, true, _) => {
+            "Starts a bulk copy from global to this CTA's shared memory using an explicit cache hint."
+        }
+        (TmaBulkDirection::CtaToCluster, _, _, _) => {
+            "Starts a bulk copy from this CTA's shared memory to another CTA's cluster shared memory."
+        }
+        (TmaBulkDirection::CtaToGlobal, _, false, false) => {
+            "Starts a bulk copy from shared to global memory."
+        }
+        (TmaBulkDirection::CtaToGlobal, _, true, false) => {
+            "Starts a bulk copy from shared to global memory using an explicit cache hint."
+        }
+        (TmaBulkDirection::CtaToGlobal, _, false, true) => {
+            "Starts a byte-masked bulk copy from shared to global memory."
+        }
+        (TmaBulkDirection::CtaToGlobal, _, true, true) => {
+            "Starts a byte-masked bulk copy from shared to global memory using an explicit cache hint."
+        }
+        (TmaBulkDirection::PrefetchL2, _, false, _) => {
+            "Prefetches a bulk global-memory range into L2."
+        }
+        (TmaBulkDirection::PrefetchL2, _, true, _) => {
+            "Prefetches a bulk global-memory range into L2 using an explicit cache hint."
+        }
+    }
+}
+
 pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
     let (abi_id, id, operation_key, source_record, llvm_symbol, op_type, op_name) = match operation
     {
@@ -507,6 +570,123 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
             "llvm.nvvm.cp.async.bulk.tensor.s2g.tile.5d",
             "CpAsyncBulkTensorS2gTile5dOp",
             "nvvm.cp_async_bulk_tensor_s2g_tile_5d",
+        ),
+        TmaOperation::BulkG2s => (
+            "i1026",
+            "cp_async_bulk_g2s",
+            "memory.copy.async.bulk.global_to_shared_cluster",
+            "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+            "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+            "CpAsyncBulkG2sOp",
+            "nvvm.cp_async_bulk_g2s",
+        ),
+        TmaOperation::BulkG2sCacheHint => (
+            "i1027",
+            "cp_async_bulk_g2s_cache_hint",
+            "memory.copy.async.bulk.global_to_shared_cluster.cache_hint",
+            "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+            "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+            "CpAsyncBulkG2sCacheHintOp",
+            "nvvm.cp_async_bulk_g2s_cache_hint",
+        ),
+        TmaOperation::BulkG2sMulticast => (
+            "i1028",
+            "cp_async_bulk_g2s_multicast",
+            "memory.copy.async.bulk.global_to_shared_cluster.multicast",
+            "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+            "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+            "CpAsyncBulkG2sMulticastOp",
+            "nvvm.cp_async_bulk_g2s_multicast",
+        ),
+        TmaOperation::BulkG2sMulticastCacheHint => (
+            "i1029",
+            "cp_async_bulk_g2s_multicast_cache_hint",
+            "memory.copy.async.bulk.global_to_shared_cluster.multicast.cache_hint",
+            "int_nvvm_cp_async_bulk_global_to_shared_cluster",
+            "llvm.nvvm.cp.async.bulk.global.to.shared.cluster",
+            "CpAsyncBulkG2sMulticastCacheHintOp",
+            "nvvm.cp_async_bulk_g2s_multicast_cache_hint",
+        ),
+        TmaOperation::BulkG2sCta => (
+            "i1030",
+            "cp_async_bulk_g2s_cta",
+            "memory.copy.async.bulk.global_to_shared_cta",
+            "int_nvvm_cp_async_bulk_global_to_shared_cta",
+            "llvm.nvvm.cp.async.bulk.global.to.shared.cta",
+            "CpAsyncBulkG2sCtaOp",
+            "nvvm.cp_async_bulk_g2s_cta",
+        ),
+        TmaOperation::BulkG2sCtaCacheHint => (
+            "i1031",
+            "cp_async_bulk_g2s_cta_cache_hint",
+            "memory.copy.async.bulk.global_to_shared_cta.cache_hint",
+            "int_nvvm_cp_async_bulk_global_to_shared_cta",
+            "llvm.nvvm.cp.async.bulk.global.to.shared.cta",
+            "CpAsyncBulkG2sCtaCacheHintOp",
+            "nvvm.cp_async_bulk_g2s_cta_cache_hint",
+        ),
+        TmaOperation::BulkS2g => (
+            "i1032",
+            "cp_async_bulk_s2g",
+            "memory.copy.async.bulk.shared_cta_to_global",
+            "int_nvvm_cp_async_bulk_shared_cta_to_global",
+            "llvm.nvvm.cp.async.bulk.shared.cta.to.global",
+            "CpAsyncBulkS2gOp",
+            "nvvm.cp_async_bulk_s2g",
+        ),
+        TmaOperation::BulkS2gCacheHint => (
+            "i1033",
+            "cp_async_bulk_s2g_cache_hint",
+            "memory.copy.async.bulk.shared_cta_to_global.cache_hint",
+            "int_nvvm_cp_async_bulk_shared_cta_to_global",
+            "llvm.nvvm.cp.async.bulk.shared.cta.to.global",
+            "CpAsyncBulkS2gCacheHintOp",
+            "nvvm.cp_async_bulk_s2g_cache_hint",
+        ),
+        TmaOperation::BulkS2gByteMask => (
+            "i1034",
+            "cp_async_bulk_s2g_byte_mask",
+            "memory.copy.async.bulk.shared_cta_to_global.cp_mask",
+            "int_nvvm_cp_async_bulk_shared_cta_to_global_bytemask",
+            "llvm.nvvm.cp.async.bulk.shared.cta.to.global.bytemask",
+            "CpAsyncBulkS2gByteMaskOp",
+            "nvvm.cp_async_bulk_s2g_byte_mask",
+        ),
+        TmaOperation::BulkS2gByteMaskCacheHint => (
+            "i1035",
+            "cp_async_bulk_s2g_byte_mask_cache_hint",
+            "memory.copy.async.bulk.shared_cta_to_global.cp_mask.cache_hint",
+            "int_nvvm_cp_async_bulk_shared_cta_to_global_bytemask",
+            "llvm.nvvm.cp.async.bulk.shared.cta.to.global.bytemask",
+            "CpAsyncBulkS2gByteMaskCacheHintOp",
+            "nvvm.cp_async_bulk_s2g_byte_mask_cache_hint",
+        ),
+        TmaOperation::BulkCtaToCluster => (
+            "i1036",
+            "cp_async_bulk_cta_to_cluster",
+            "memory.copy.async.bulk.shared_cta_to_shared_cluster",
+            "int_nvvm_cp_async_bulk_shared_cta_to_cluster",
+            "llvm.nvvm.cp.async.bulk.shared.cta.to.cluster",
+            "CpAsyncBulkCtaToClusterOp",
+            "nvvm.cp_async_bulk_cta_to_cluster",
+        ),
+        TmaOperation::BulkPrefetchL2 => (
+            "i1037",
+            "cp_async_bulk_prefetch_l2",
+            "memory.prefetch.async.bulk.global.l2",
+            "int_nvvm_cp_async_bulk_prefetch_L2",
+            "llvm.nvvm.cp.async.bulk.prefetch.L2",
+            "CpAsyncBulkPrefetchL2Op",
+            "nvvm.cp_async_bulk_prefetch_l2",
+        ),
+        TmaOperation::BulkPrefetchL2CacheHint => (
+            "i1038",
+            "cp_async_bulk_prefetch_l2_cache_hint",
+            "memory.prefetch.async.bulk.global.l2.cache_hint",
+            "int_nvvm_cp_async_bulk_prefetch_L2",
+            "llvm.nvvm.cp.async.bulk.prefetch.L2",
+            "CpAsyncBulkPrefetchL2CacheHintOp",
+            "nvvm.cp_async_bulk_prefetch_l2_cache_hint",
         ),
         TmaOperation::CommitGroup => (
             "i0340",
@@ -850,6 +1030,7 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
     );
     let cg2 = operation == TmaOperation::G2sTile2dMulticastCg2;
     let prefetch_coordinates = operation.prefetch_coordinate_count();
+    let bulk = operation.bulk();
     let is_release_fence = matches!(
         operation,
         TmaOperation::FenceProxyTensorMapReleaseCluster
@@ -911,6 +1092,106 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
             true,
             "Starts a TMA tile copy from shared to global memory.",
         )
+    } else if let Some(bulk) = bulk {
+        // Every non-tensor bulk copy takes its two addresses and a byte count;
+        // the optional cache hint, CTA mask, and byte mask follow in the same
+        // order the PTX instruction spells them.
+        match bulk.direction {
+            TmaBulkDirection::PrefetchL2 => {
+                rust_arguments.extend(["*const u8", "u32"]);
+                dialect_operands.extend(["ptr", "i32"]);
+                llvm_arguments.extend(["global_ptr", "i32", "i64", "i1"]);
+            }
+            TmaBulkDirection::GlobalToCluster => {
+                rust_arguments.extend(["*mut u8", "*const u8", "u32", "*mut u64"]);
+                dialect_operands.extend(["ptr", "ptr", "i32", "ptr"]);
+                llvm_arguments.extend([
+                    "shared_cluster_ptr",
+                    "shared_ptr",
+                    "global_ptr",
+                    "i32",
+                    "i16",
+                    "i64",
+                    "i1",
+                    "i1",
+                ]);
+            }
+            TmaBulkDirection::GlobalToCta => {
+                rust_arguments.extend(["*mut u8", "*const u8", "u32", "*mut u64"]);
+                dialect_operands.extend(["ptr", "ptr", "i32", "ptr"]);
+                llvm_arguments.extend([
+                    "shared_ptr",
+                    "shared_ptr",
+                    "global_ptr",
+                    "i32",
+                    "i64",
+                    "i1",
+                ]);
+            }
+            TmaBulkDirection::CtaToCluster => {
+                rust_arguments.extend(["*mut u8", "*const u8", "u32", "*mut u64"]);
+                dialect_operands.extend(["ptr", "ptr", "i32", "ptr"]);
+                llvm_arguments.extend(["shared_cluster_ptr", "shared_ptr", "shared_ptr", "i32"]);
+            }
+            TmaBulkDirection::CtaToGlobal => {
+                rust_arguments.extend(["*mut u8", "*const u8", "u32"]);
+                dialect_operands.extend(["ptr", "ptr", "i32"]);
+                llvm_arguments.extend(["global_ptr", "shared_ptr", "i32", "i64", "i1"]);
+                if bulk.byte_mask {
+                    llvm_arguments.push("i16");
+                }
+            }
+        }
+        if bulk.multicast {
+            rust_arguments.push("u16");
+            dialect_operands.push("i16");
+        }
+        if bulk.cache_hint {
+            rust_arguments.push("u64");
+            dialect_operands.push("i64");
+        }
+        if bulk.byte_mask {
+            rust_arguments.push("u16");
+            dialect_operands.push("i16");
+        }
+        let adapter = match (
+            bulk.direction,
+            bulk.multicast,
+            bulk.cache_hint,
+            bulk.byte_mask,
+        ) {
+            (TmaBulkDirection::CtaToCluster, _, _, _) => TmaAdapter::BulkCopyBarrierDirect,
+            (
+                TmaBulkDirection::GlobalToCluster | TmaBulkDirection::GlobalToCta,
+                false,
+                false,
+                _,
+            ) => TmaAdapter::BulkCopyBarrierInjectDefaults,
+            (TmaBulkDirection::GlobalToCluster | TmaBulkDirection::GlobalToCta, false, true, _) => {
+                TmaAdapter::BulkCopyBarrierCacheHintInjectFlag
+            }
+            (TmaBulkDirection::GlobalToCluster | TmaBulkDirection::GlobalToCta, true, false, _) => {
+                TmaAdapter::BulkCopyBarrierMaskInjectFlag
+            }
+            (TmaBulkDirection::GlobalToCluster | TmaBulkDirection::GlobalToCta, true, true, _) => {
+                TmaAdapter::BulkCopyBarrierMaskCacheHintInjectFlags
+            }
+            (TmaBulkDirection::CtaToGlobal, _, false, false) => TmaAdapter::BulkCopyInjectDefaults,
+            (TmaBulkDirection::CtaToGlobal, _, true, false) => {
+                TmaAdapter::BulkCopyCacheHintInjectFlag
+            }
+            (TmaBulkDirection::CtaToGlobal, _, false, true) => {
+                TmaAdapter::BulkCopyByteMaskInjectDefaults
+            }
+            (TmaBulkDirection::CtaToGlobal, _, true, true) => {
+                TmaAdapter::BulkCopyCacheHintByteMaskInjectFlag
+            }
+            (TmaBulkDirection::PrefetchL2, _, false, _) => TmaAdapter::BulkPrefetchInjectDefaults,
+            (TmaBulkDirection::PrefetchL2, _, true, _) => {
+                TmaAdapter::BulkPrefetchCacheHintInjectFlag
+            }
+        };
+        (adapter, false, None, true, bulk_summary(bulk))
     } else if operation == TmaOperation::CommitGroup || is_release_fence {
         (
             TmaAdapter::NoOperands,
@@ -1129,6 +1410,74 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
             ],
             vec![OperandPattern::Address, OperandPattern::Address],
         )
+    } else if let Some(bulk) = bulk {
+        let mut modifiers = vec!["async".into(), "bulk".into()];
+        let mut operands = match bulk.direction {
+            TmaBulkDirection::PrefetchL2 => {
+                modifiers.extend(["prefetch".into(), "L2".into(), "global".into()]);
+                vec![OperandPattern::Address, OperandPattern::Register]
+            }
+            TmaBulkDirection::GlobalToCluster => {
+                modifiers.extend([
+                    "shared::cluster".into(),
+                    "global".into(),
+                    "mbarrier::complete_tx::bytes".into(),
+                ]);
+                vec![
+                    OperandPattern::Address,
+                    OperandPattern::Address,
+                    OperandPattern::Register,
+                    OperandPattern::Address,
+                ]
+            }
+            TmaBulkDirection::GlobalToCta => {
+                modifiers.extend([
+                    "shared::cta".into(),
+                    "global".into(),
+                    "mbarrier::complete_tx::bytes".into(),
+                ]);
+                vec![
+                    OperandPattern::Address,
+                    OperandPattern::Address,
+                    OperandPattern::Register,
+                    OperandPattern::Address,
+                ]
+            }
+            TmaBulkDirection::CtaToCluster => {
+                modifiers.extend([
+                    "shared::cluster".into(),
+                    "shared::cta".into(),
+                    "mbarrier::complete_tx::bytes".into(),
+                ]);
+                vec![
+                    OperandPattern::Address,
+                    OperandPattern::Address,
+                    OperandPattern::Register,
+                    OperandPattern::Address,
+                ]
+            }
+            TmaBulkDirection::CtaToGlobal => {
+                modifiers.extend(["global".into(), "shared::cta".into(), "bulk_group".into()]);
+                vec![
+                    OperandPattern::Address,
+                    OperandPattern::Address,
+                    OperandPattern::Register,
+                ]
+            }
+        };
+        if bulk.multicast {
+            modifiers.push("multicast::cluster".into());
+            operands.push(OperandPattern::Register);
+        }
+        if bulk.cache_hint {
+            modifiers.push("L2::cache_hint".into());
+            operands.push(OperandPattern::Register);
+        }
+        if bulk.byte_mask {
+            modifiers.push("cp_mask".into());
+            operands.push(OperandPattern::Register);
+        }
+        ("cp", modifiers, operands)
     } else if operation == TmaOperation::CommitGroup {
         (
             "cp",
@@ -1308,23 +1657,33 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
         unreachable!("TMA operation category was matched")
     };
 
-    let minimum_ptx = if blackwell_tma || operation == TmaOperation::ReplaceSwizzleAtomicity {
-        "8.6"
-    } else if is_replace || is_fence {
-        "8.3"
-    } else {
-        "8.0"
-    };
+    // PTX 8.6 introduced the `.shared::cta` destination and the `.cp_mask`
+    // qualifier; `.cp_mask` also raised the architecture floor to sm_100.
+    let bulk_ptx_86 =
+        bulk.is_some_and(|bulk| bulk.direction == TmaBulkDirection::GlobalToCta || bulk.byte_mask);
+    let minimum_ptx =
+        if blackwell_tma || operation == TmaOperation::ReplaceSwizzleAtomicity || bulk_ptx_86 {
+            "8.6"
+        } else if is_replace || is_fence {
+            "8.3"
+        } else {
+            "8.0"
+        };
     let (minimum_sm, targets) = if blackwell_tma {
         (None, TMA_BLACKWELL_TARGETS)
     } else if operation == TmaOperation::ReplaceSwizzleAtomicity {
         (None, BLACKWELL_LDMATRIX_LLVM_TARGETS)
     } else if is_replace {
         (None, TENSOR_MAP_REPLACE_TARGETS)
+    } else if bulk.is_some_and(|bulk| bulk.byte_mask) {
+        (Some("sm_100"), "all")
     } else {
         (Some("sm_90"), "all")
     };
-    let memory = if operation == TmaOperation::PrefetchTensorMap || prefetch_coordinates.is_some() {
+    let memory = if operation == TmaOperation::PrefetchTensorMap
+        || prefetch_coordinates.is_some()
+        || bulk.is_some_and(TmaBulk::is_prefetch)
+    {
         "read"
     } else if is_replace {
         "write"
@@ -1360,20 +1719,56 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
         minimum_sm,
         targets,
         memory,
-        ptx_isa_section: if descriptor_control {
-            "Tensor-map descriptor and asynchronous bulk tensor operations"
-        } else {
-            "9.7.9.26.5 Asynchronous bulk tensor copy"
+        ptx_isa_section: match bulk {
+            Some(bulk) if bulk.is_prefetch() => {
+                "9.7.10.28.4.3 Data Movement and Conversion Instructions: cp.async.bulk.prefetch"
+            }
+            Some(_) => "9.7.10.28.4.1 Data Movement and Conversion Instructions: cp.async.bulk",
+            None if descriptor_control => {
+                "Tensor-map descriptor and asynchronous bulk tensor operations"
+            }
+            None => "9.7.9.26.5 Asynchronous bulk tensor copy",
         },
-        ptx_isa_url: if descriptor_control {
-            "https://docs.nvidia.com/cuda/parallel-thread-execution/#tensor-map"
-        } else {
-            "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-cp-async-bulk-tensor"
+        ptx_isa_url: match bulk {
+            Some(bulk) if bulk.is_prefetch() => {
+                "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-cp-async-bulk-prefetch"
+            }
+            Some(_) => {
+                "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-cp-async-bulk"
+            }
+            None if descriptor_control => {
+                "https://docs.nvidia.com/cuda/parallel-thread-execution/#tensor-map"
+            }
+            None => {
+                "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-cp-async-bulk-tensor"
+            }
         },
         mnemonic,
         modifiers,
         operands,
         summary,
+    }
+}
+
+/// Pick the evidence profile one reviewed TMA variant was measured under.
+fn tma_evidence_profile(
+    admission: &TmaAdmission,
+    operation: TmaOperation,
+    backend: IntrinsicBackend,
+) -> String {
+    let (shared, bulk) = match backend {
+        IntrinsicBackend::LlvmNvptx => (
+            &admission.llvm_evidence_profile,
+            &admission.bulk_llvm_evidence_profile,
+        ),
+        IntrinsicBackend::LibNvvm => (
+            &admission.libnvvm_evidence_profile,
+            &admission.bulk_libnvvm_evidence_profile,
+        ),
+    };
+    match bulk {
+        Some(profile) if operation.bulk().is_some() => profile.clone(),
+        _ => shared.clone(),
     }
 }
 
@@ -1388,6 +1783,22 @@ pub(in crate::resolve) fn expand_tma_admission(
         !admission.llvm_evidence_profile.trim().is_empty()
             && !admission.libnvvm_evidence_profile.trim().is_empty(),
         "compact TMA admission requires both backend evidence profiles"
+    );
+    // The non-tensor bulk copies were measured on their own probe modules, so
+    // they carry their own pair of evidence profiles.
+    ensure!(
+        !TMA_OPERATIONS
+            .iter()
+            .any(|operation| operation.bulk().is_some())
+            || (admission
+                .bulk_llvm_evidence_profile
+                .as_ref()
+                .is_some_and(|profile| !profile.trim().is_empty())
+                && admission
+                    .bulk_libnvvm_evidence_profile
+                    .as_ref()
+                    .is_some_and(|profile| !profile.trim().is_empty())),
+        "compact TMA admission requires both non-tensor bulk-copy evidence profiles"
     );
     ensure!(
         admission
@@ -1462,7 +1873,11 @@ pub(in crate::resolve) fn expand_tma_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: recipe.llvm_mechanism,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
+                        evidence_profile: tma_evidence_profile(
+                            admission,
+                            variant.operation,
+                            IntrinsicBackend::LlvmNvptx,
+                        ),
                         targets: None,
                         minimum_ptx: Some(recipe.minimum_ptx.into()),
                         minimum_sm: recipe.minimum_sm.map(Into::into),
@@ -1470,7 +1885,11 @@ pub(in crate::resolve) fn expand_tma_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
+                        evidence_profile: tma_evidence_profile(
+                            admission,
+                            variant.operation,
+                            IntrinsicBackend::LibNvvm,
+                        ),
                         targets: None,
                         minimum_ptx: Some(recipe.minimum_ptx.into()),
                         minimum_sm: recipe.minimum_sm.map(Into::into),
@@ -1818,6 +2237,37 @@ pub(in crate::resolve) fn tma_imported_properties(operation: TmaOperation) -> Ve
             "ReadOnly<arg0>".into(),
             "ReadOnly<arg1>".into(),
         ];
+    }
+    if let Some(bulk) = operation.bulk() {
+        let mut properties = vec!["IntrArgMemOnly".into(), "IntrConvergent".into()];
+        match bulk.direction {
+            TmaBulkDirection::PrefetchL2 => properties.extend([
+                "ImmArg<arg3>".into(),
+                "NoCapture<arg0>".into(),
+                "ReadOnly<arg0>".into(),
+            ]),
+            TmaBulkDirection::GlobalToCluster => properties.extend([
+                "ImmArg<arg6>".into(),
+                "ImmArg<arg7>".into(),
+                "ReadOnly<arg2>".into(),
+                "WriteOnly<arg0>".into(),
+            ]),
+            TmaBulkDirection::GlobalToCta => properties.extend([
+                "ImmArg<arg5>".into(),
+                "ReadOnly<arg2>".into(),
+                "WriteOnly<arg0>".into(),
+            ]),
+            TmaBulkDirection::CtaToCluster => {
+                properties.extend(["ReadOnly<arg2>".into(), "WriteOnly<arg0>".into()])
+            }
+            TmaBulkDirection::CtaToGlobal => properties.extend([
+                "ImmArg<arg4>".into(),
+                "ReadOnly<arg1>".into(),
+                "WriteOnly<arg0>".into(),
+            ]),
+        }
+        properties.sort();
+        return properties;
     }
     if operation == TmaOperation::CommitGroup {
         return vec![];

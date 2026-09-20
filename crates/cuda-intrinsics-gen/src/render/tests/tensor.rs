@@ -432,13 +432,39 @@ fn tma_rendering_preserves_api_and_injects_backend_defaults() {
         compatibility
             .contains("pub unsafe fn cp_async_bulk_prefetch_tensor_gather4_2d_l2_cache_hint(")
     );
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_g2s(dst: *mut u8, src: *const u8, size: u32, barrier: *mut Barrier)"
+        ));
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_g2s_multicast_cache_hint(dst: *mut u8, src: *const u8, size: u32, barrier: *mut Barrier, cta_mask: u16, cache_hint: u64)"
+        ));
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_g2s_cta(dst: *mut u8, src: *const u8, size: u32, barrier: *mut Barrier)"
+        ));
+    assert!(
+        compatibility
+            .contains("pub unsafe fn cp_async_bulk_s2g(dst: *mut u8, src: *const u8, size: u32)")
+    );
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_s2g_byte_mask_cache_hint(dst: *mut u8, src: *const u8, size: u32, cache_hint: u64, byte_mask: u16)"
+        ));
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_cta_to_cluster(dst: *mut u8, src: *const u8, size: u32, barrier: *mut Barrier)"
+        ));
+    assert!(
+        compatibility
+            .contains("pub unsafe fn cp_async_bulk_prefetch_l2(src: *const u8, size: u32)")
+    );
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_prefetch_l2_cache_hint(src: *const u8, size: u32, cache_hint: u64)"
+        ));
     assert!(compatibility.contains("pub unsafe fn tensormap_replace_swizzle_atomicity("));
     assert!(compatibility.contains("pub unsafe fn fence_proxy_tensormap_generic_acquire_system("));
     assert!(compatibility.contains("pub fn fence_proxy_tensormap_generic_release_system()"));
 
     let dialect = render_dialect_tma(&catalog, "test-hash");
-    assert_eq!(dialect.matches("pub struct ").count(), 111);
-    assert_eq!(dialect.matches("NResultsInterface<0>").count(), 111);
+    assert_eq!(dialect.matches("pub struct ").count(), 124);
+    assert_eq!(dialect.matches("NResultsInterface<0>").count(), 124);
     assert!(dialect.contains("NOpdsInterface<10>"));
     assert!(dialect.contains("CpAsyncBulkWaitGroupReadOp::register(ctx)"));
     assert!(dialect.contains("CpAsyncBulkPrefetchTensorGather4TwoDimensionalL2Op::register(ctx)"));
@@ -446,6 +472,10 @@ fn tma_rendering_preserves_api_and_injects_backend_defaults() {
         dialect
             .contains("CpAsyncBulkPrefetchTensorGather4TwoDimensionalL2CacheHintOp::register(ctx)")
     );
+    assert!(dialect.contains("CpAsyncBulkG2sMulticastCacheHintOp::register(ctx)"));
+    assert!(dialect.contains("CpAsyncBulkS2gByteMaskCacheHintOp::register(ctx)"));
+    assert!(dialect.contains("CpAsyncBulkCtaToClusterOp::register(ctx)"));
+    assert!(dialect.contains("CpAsyncBulkPrefetchL2CacheHintOp::register(ctx)"));
     assert!(dialect.contains("ReplaceTensorMapSwizzleAtomicityOp::register(ctx)"));
     assert!(dialect.contains("FenceProxyTensorMapGenericReleaseSystemOp::register(ctx)"));
 

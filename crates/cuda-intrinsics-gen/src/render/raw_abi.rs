@@ -359,6 +359,28 @@ pub(super) fn render_raw_abi(catalog: &CatalogFile, hash: &str) -> Result<String
                     TmaAdapter::DescriptorPointerInjectBytes => output.push_str(
                         "/// The tensor-map pointer must name a live 128-byte descriptor covered by the matching generic-proxy release fence.\n",
                     ),
+                    TmaAdapter::BulkCopyBarrierInjectDefaults
+                    | TmaAdapter::BulkCopyBarrierCacheHintInjectFlag
+                    | TmaAdapter::BulkCopyBarrierMaskInjectFlag
+                    | TmaAdapter::BulkCopyBarrierMaskCacheHintInjectFlags
+                    | TmaAdapter::BulkCopyBarrierDirect => output.push_str(
+                        "/// The source range, the destination range, and the barrier must be live, sixteen-byte-aligned objects in the state spaces this copy names, and `_arg2` must be a multiple of sixteen.
+                         /// Keep every object alive until the barrier reports the copy complete. Only the designated issuing thread may start this transfer.
+",
+                    ),
+                    TmaAdapter::BulkCopyInjectDefaults
+                    | TmaAdapter::BulkCopyCacheHintInjectFlag
+                    | TmaAdapter::BulkCopyByteMaskInjectDefaults
+                    | TmaAdapter::BulkCopyCacheHintByteMaskInjectFlag => output.push_str(
+                        "/// The source and destination ranges must be live, sixteen-byte-aligned objects in the state spaces this copy names, and `_arg2` must be a multiple of sixteen.
+                         /// Keep both ranges alive until the committed bulk-copy group completes.
+",
+                    ),
+                    TmaAdapter::BulkPrefetchInjectDefaults
+                    | TmaAdapter::BulkPrefetchCacheHintInjectFlag => output.push_str(
+                        "/// `_arg0` must be a sixteen-byte-aligned global address whose `_arg1` bytes stay inside one live allocation, and `_arg1` must be a multiple of sixteen.
+",
+                    ),
                     TmaAdapter::NoOperands | TmaAdapter::CompileTimeConstantMaxPending => {}
                 }
             } else if let Some(operation) = ExecutionControlOperation::from_catalog_id(&record.id) {

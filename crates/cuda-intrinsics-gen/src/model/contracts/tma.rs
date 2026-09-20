@@ -42,6 +42,21 @@ pub enum TmaOperation {
     S2gTile4d,
     S2gTile5d,
     Reduce,
+    BulkG2s,
+    BulkG2sCacheHint,
+    BulkG2sMulticast,
+    BulkG2sMulticastCacheHint,
+    BulkG2sCta,
+    BulkG2sCtaCacheHint,
+    BulkS2g,
+    BulkS2gCacheHint,
+    BulkS2gByteMask,
+    BulkS2gByteMaskCacheHint,
+    BulkCtaToCluster,
+    #[serde(rename = "bulk_prefetch_l2")]
+    BulkPrefetchL2,
+    #[serde(rename = "bulk_prefetch_l2_cache_hint")]
+    BulkPrefetchL2CacheHint,
     CommitGroup,
     WaitGroup,
     WaitGroupRead,
@@ -93,6 +108,19 @@ impl TmaOperation {
             Self::G2sTile4d | Self::S2gTile4d => Some(4),
             Self::G2sTile5d | Self::S2gTile5d => Some(5),
             Self::Reduce
+            | Self::BulkG2s
+            | Self::BulkG2sCacheHint
+            | Self::BulkG2sMulticast
+            | Self::BulkG2sMulticastCacheHint
+            | Self::BulkG2sCta
+            | Self::BulkG2sCtaCacheHint
+            | Self::BulkS2g
+            | Self::BulkS2gCacheHint
+            | Self::BulkS2gByteMask
+            | Self::BulkS2gByteMaskCacheHint
+            | Self::BulkCtaToCluster
+            | Self::BulkPrefetchL2
+            | Self::BulkPrefetchL2CacheHint
             | Self::CommitGroup
             | Self::WaitGroup
             | Self::WaitGroupRead
@@ -145,6 +173,46 @@ impl TmaOperation {
         }
     }
 
+    /// Return the closed shape of one non-tensor `cp.async.bulk` operation.
+    pub const fn bulk(self) -> Option<TmaBulk> {
+        const fn shape(
+            direction: TmaBulkDirection,
+            cache_hint: bool,
+            multicast: bool,
+            byte_mask: bool,
+        ) -> Option<TmaBulk> {
+            Some(TmaBulk {
+                direction,
+                cache_hint,
+                multicast,
+                byte_mask,
+            })
+        }
+
+        match self {
+            Self::BulkG2s => shape(TmaBulkDirection::GlobalToCluster, false, false, false),
+            Self::BulkG2sCacheHint => shape(TmaBulkDirection::GlobalToCluster, true, false, false),
+            Self::BulkG2sMulticast => shape(TmaBulkDirection::GlobalToCluster, false, true, false),
+            Self::BulkG2sMulticastCacheHint => {
+                shape(TmaBulkDirection::GlobalToCluster, true, true, false)
+            }
+            Self::BulkG2sCta => shape(TmaBulkDirection::GlobalToCta, false, false, false),
+            Self::BulkG2sCtaCacheHint => shape(TmaBulkDirection::GlobalToCta, true, false, false),
+            Self::BulkS2g => shape(TmaBulkDirection::CtaToGlobal, false, false, false),
+            Self::BulkS2gCacheHint => shape(TmaBulkDirection::CtaToGlobal, true, false, false),
+            Self::BulkS2gByteMask => shape(TmaBulkDirection::CtaToGlobal, false, false, true),
+            Self::BulkS2gByteMaskCacheHint => {
+                shape(TmaBulkDirection::CtaToGlobal, true, false, true)
+            }
+            Self::BulkCtaToCluster => shape(TmaBulkDirection::CtaToCluster, false, false, false),
+            Self::BulkPrefetchL2 => shape(TmaBulkDirection::PrefetchL2, false, false, false),
+            Self::BulkPrefetchL2CacheHint => {
+                shape(TmaBulkDirection::PrefetchL2, true, false, false)
+            }
+            _ => None,
+        }
+    }
+
     pub const fn uses_prefetch_cache_hint(self) -> bool {
         matches!(
             self,
@@ -155,6 +223,47 @@ impl TmaOperation {
                 | Self::PrefetchTile5dCacheHint
                 | Self::PrefetchTileGather4TwoDimensionalCacheHint
         )
+    }
+}
+
+/// The state spaces one non-tensor `cp.async.bulk` operation moves between.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TmaBulkDirection {
+    /// `.global` to `.shared::cluster`, completed through an mbarrier.
+    GlobalToCluster,
+    /// `.global` to `.shared::cta`, completed through an mbarrier.
+    GlobalToCta,
+    /// `.shared::cta` to `.global`, completed through the bulk async-group.
+    CtaToGlobal,
+    /// `.shared::cta` to another CTA's `.shared::cluster`, through an mbarrier.
+    CtaToCluster,
+    /// A hint that prefetches `.global` bytes into L2.
+    PrefetchL2,
+}
+
+/// Closed shape of one non-tensor `cp.async.bulk` operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TmaBulk {
+    pub direction: TmaBulkDirection,
+    pub cache_hint: bool,
+    pub multicast: bool,
+    pub byte_mask: bool,
+}
+
+impl TmaBulk {
+    /// Bulk copies that signal an mbarrier take it as a trailing operand.
+    pub const fn uses_barrier(self) -> bool {
+        matches!(
+            self.direction,
+            TmaBulkDirection::GlobalToCluster
+                | TmaBulkDirection::GlobalToCta
+                | TmaBulkDirection::CtaToCluster
+        )
+    }
+
+    /// Only the prefetch hint reads one address instead of copying between two.
+    pub const fn is_prefetch(self) -> bool {
+        matches!(self.direction, TmaBulkDirection::PrefetchL2)
     }
 }
 
@@ -205,6 +314,17 @@ pub enum TmaAdapter {
     DescriptorAndImmediateU32,
     DescriptorAndRuntimeU32,
     DescriptorPointerInjectBytes,
+    BulkCopyBarrierInjectDefaults,
+    BulkCopyBarrierCacheHintInjectFlag,
+    BulkCopyBarrierMaskInjectFlag,
+    BulkCopyBarrierMaskCacheHintInjectFlags,
+    BulkCopyBarrierDirect,
+    BulkCopyInjectDefaults,
+    BulkCopyCacheHintInjectFlag,
+    BulkCopyByteMaskInjectDefaults,
+    BulkCopyCacheHintByteMaskInjectFlag,
+    BulkPrefetchInjectDefaults,
+    BulkPrefetchCacheHintInjectFlag,
 }
 
 #[cfg(test)]

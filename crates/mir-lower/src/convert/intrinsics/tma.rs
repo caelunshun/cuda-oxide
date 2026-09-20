@@ -572,6 +572,376 @@ pub(crate) fn convert_prefetch_tile(
     Ok(())
 }
 
+/// Which state spaces one non-tensor `cp.async.bulk` operation names.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BulkDirection {
+    GlobalToCluster,
+    GlobalToCta,
+    CtaToCluster,
+    SharedToGlobal,
+    PrefetchL2,
+}
+
+impl BulkDirection {
+    fn parse(direction: &str) -> Result<Self> {
+        Ok(match direction {
+            "g2s_cluster" => Self::GlobalToCluster,
+            "g2s_cta" => Self::GlobalToCta,
+            "cta_to_cluster" => Self::CtaToCluster,
+            "s2g" => Self::SharedToGlobal,
+            "prefetch" => Self::PrefetchL2,
+            _ => {
+                return pliron::input_err_noloc!("unsupported bulk-copy direction `{direction}`");
+            }
+        })
+    }
+
+    /// Bulk copies completed through an mbarrier take it as a fourth operand.
+    const fn uses_barrier(self) -> bool {
+        matches!(
+            self,
+            Self::GlobalToCluster | Self::GlobalToCta | Self::CtaToCluster
+        )
+    }
+
+    /// Only the prefetch hint names one address instead of a source and a
+    /// destination.
+    const fn is_prefetch(self) -> bool {
+        matches!(self, Self::PrefetchL2)
+    }
+}
+
+/// The reviewed shape of one non-tensor `cp.async.bulk` conversion.
+pub(crate) struct BulkConfig<'a> {
+    direction: &'a str,
+    multicast: bool,
+    cache_hint: bool,
+    byte_mask: bool,
+    intrinsic_name: &'a str,
+}
+
+impl<'a> BulkConfig<'a> {
+    pub(crate) const fn new(
+        direction: &'a str,
+        multicast: bool,
+        cache_hint: bool,
+        byte_mask: bool,
+        intrinsic_name: &'a str,
+    ) -> Self {
+        Self {
+            direction,
+            multicast,
+            cache_hint,
+            byte_mask,
+            intrinsic_name,
+        }
+    }
+}
+
+/// Build the inline-PTX template and constraint string for one bulk copy.
+///
+/// Operands arrive in the order the safe wrapper spells them, so the template
+/// converts each generic address into the state space the instruction names
+/// rather than relying on the incoming pointer already carrying it.
+fn bulk_inline_asm(
+    direction: BulkDirection,
+    multicast: bool,
+    cache_hint: bool,
+    byte_mask: bool,
+) -> (String, String) {
+    let mut setup = String::new();
+    let mut constraints = Vec::new();
+    let (mnemonic, destination, source): (String, Option<&str>, &str) = match direction {
+        BulkDirection::GlobalToCluster => (
+            "cp.async.bulk.shared::cluster.global.mbarrier::complete_tx::bytes".into(),
+            Some("shared::cluster"),
+            "global",
+        ),
+        BulkDirection::GlobalToCta => (
+            "cp.async.bulk.shared::cta.global.mbarrier::complete_tx::bytes".into(),
+            Some("shared"),
+            "global",
+        ),
+        BulkDirection::CtaToCluster => (
+            "cp.async.bulk.shared::cluster.shared::cta.mbarrier::complete_tx::bytes".into(),
+            Some("shared::cluster"),
+            "shared",
+        ),
+        BulkDirection::SharedToGlobal => (
+            "cp.async.bulk.global.shared::cta.bulk_group".into(),
+            Some("global"),
+            "shared",
+        ),
+        BulkDirection::PrefetchL2 => ("cp.async.bulk.prefetch.L2.global".into(), None, "global"),
+    };
+
+    let mut index = 0;
+    let mut addresses = Vec::new();
+    if let Some(destination) = destination {
+        setup.push_str(&format!(
+            " .reg .u64 %bulk_dst; cvta.to.{destination}.u64 %bulk_dst, ${index};"
+        ));
+        addresses.push("[%bulk_dst]".to_owned());
+        constraints.push("l");
+        index += 1;
+    }
+    setup.push_str(&format!(
+        " .reg .u64 %bulk_src; cvta.to.{source}.u64 %bulk_src, ${index};"
+    ));
+    addresses.push("[%bulk_src]".to_owned());
+    constraints.push("l");
+    index += 1;
+
+    let size = format!("${index}");
+    constraints.push("r");
+    index += 1;
+
+    let mut trailing = Vec::new();
+    if direction.uses_barrier() {
+        setup.push_str(&format!(
+            " .reg .u64 %bulk_mbar; cvta.to.shared.u64 %bulk_mbar, ${index};"
+        ));
+        trailing.push("[%bulk_mbar]".to_owned());
+        constraints.push("l");
+        index += 1;
+    }
+
+    let mut modifiers = String::new();
+    if multicast {
+        modifiers.push_str(".multicast::cluster");
+        trailing.push(format!("${index}"));
+        constraints.push("h");
+        index += 1;
+    }
+    if cache_hint {
+        modifiers.push_str(".L2::cache_hint");
+        trailing.push(format!("${index}"));
+        constraints.push("l");
+        index += 1;
+    }
+    if byte_mask {
+        modifiers.push_str(".cp_mask");
+        trailing.push(format!("${index}"));
+        constraints.push("h");
+    }
+    constraints.push("~{memory}");
+
+    let mut operands = addresses;
+    operands.push(size);
+    operands.extend(trailing);
+    let template = format!(
+        "{{{setup} {mnemonic}{modifiers} {}; }}",
+        operands.join(", ")
+    );
+    (template, constraints.join(","))
+}
+
+/// Convert one non-tensor `cp.async.bulk` copy or prefetch.
+pub(crate) fn convert_bulk(
+    ctx: &mut Context,
+    rewriter: &mut DialectConversionRewriter,
+    op: Ptr<Operation>,
+    _operands_info: &OperandsInfo,
+    config: BulkConfig<'_>,
+) -> Result<()> {
+    let BulkConfig {
+        direction,
+        multicast,
+        cache_hint,
+        byte_mask,
+        intrinsic_name,
+    } = config;
+    let direction = BulkDirection::parse(direction)?;
+
+    let operands: Vec<_> = op.deref(ctx).operands().collect();
+    let expected_operands = usize::from(!direction.is_prefetch())
+        + 2
+        + usize::from(direction.uses_barrier())
+        + usize::from(multicast)
+        + usize::from(cache_hint)
+        + usize::from(byte_mask);
+    if operands.len() != expected_operands || op.deref(ctx).get_num_results() != 0 {
+        return pliron::input_err_noloc!(
+            "cp.async.bulk requires {expected_operands} operand(s) and no results"
+        );
+    }
+
+    let void_ty = llvm_types::VoidType::get(ctx);
+
+    if context::lowering_options(ctx).intrinsic_backend == IntrinsicBackend::LibNvvm {
+        // libNVVM does not know these typed NVVM intrinsics, so the reviewed
+        // inline PTX carries the whole instruction.
+        let (template, constraints) = bulk_inline_asm(direction, multicast, cache_hint, byte_mask);
+        inline_asm_convergent(
+            ctx,
+            rewriter,
+            op,
+            void_ty.into(),
+            operands,
+            &template,
+            &constraints,
+        );
+        rewriter.erase_operation(ctx, op);
+        return Ok(());
+    }
+
+    let i16_ty = IntegerType::get(ctx, 16, Signedness::Signless);
+    let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
+    let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+    let i1_ty = IntegerType::get(ctx, 1, Signedness::Signless);
+    let global_ptr_ty = llvm_types::PointerType::get(ctx, 1);
+    let shared_ptr_ty = llvm_types::PointerType::get(ctx, 3);
+    let cluster_ptr_ty = llvm_types::PointerType::get(ctx, 7);
+
+    // The typed declaration takes its addresses in a different order than the
+    // safe wrapper: destination, barrier, source.
+    let mut argument_types: Vec<pliron::r#type::TypeHandle> = Vec::new();
+    let mut call_operands = Vec::new();
+    let mut next_operand = 0;
+    if !direction.is_prefetch() {
+        let (destination_ty, destination_space) = match direction {
+            BulkDirection::GlobalToCluster | BulkDirection::CtaToCluster => {
+                (cluster_ptr_ty.into(), 7)
+            }
+            BulkDirection::GlobalToCta => (shared_ptr_ty.into(), 3),
+            BulkDirection::SharedToGlobal => (global_ptr_ty.into(), 1),
+            BulkDirection::PrefetchL2 => unreachable!("prefetch has no destination"),
+        };
+        argument_types.push(destination_ty);
+        call_operands.push(cast_to_addrspace(
+            ctx,
+            rewriter,
+            operands[next_operand],
+            destination_space,
+        ));
+        next_operand += 1;
+    }
+    let source_index = next_operand;
+    next_operand += 1;
+    let size = operands[next_operand];
+    next_operand += 1;
+    if direction.uses_barrier() {
+        argument_types.push(shared_ptr_ty.into());
+        call_operands.push(cast_to_shared_addrspace(
+            ctx,
+            rewriter,
+            operands[next_operand],
+        ));
+        next_operand += 1;
+    }
+    let (source_ty, source_space) = match direction {
+        BulkDirection::GlobalToCluster | BulkDirection::GlobalToCta | BulkDirection::PrefetchL2 => {
+            (global_ptr_ty.into(), 1)
+        }
+        BulkDirection::CtaToCluster | BulkDirection::SharedToGlobal => (shared_ptr_ty.into(), 3),
+    };
+    argument_types.push(source_ty);
+    call_operands.push(cast_to_addrspace(
+        ctx,
+        rewriter,
+        operands[source_index],
+        source_space,
+    ));
+    argument_types.push(i32_ty.into());
+    call_operands.push(size);
+
+    let multicast_operand = multicast.then(|| {
+        let value = operands[next_operand];
+        next_operand += 1;
+        value
+    });
+    let cache_hint_operand = cache_hint.then(|| {
+        let value = operands[next_operand];
+        next_operand += 1;
+        value
+    });
+    let byte_mask_operand = byte_mask.then(|| operands[next_operand]);
+
+    if direction == BulkDirection::GlobalToCluster {
+        argument_types.push(i16_ty.into());
+        call_operands.push(match multicast_operand {
+            Some(mask) => mask,
+            None => create_i16_const(ctx, rewriter, 0),
+        });
+    }
+    if direction != BulkDirection::CtaToCluster {
+        argument_types.push(i64_ty.into());
+        call_operands.push(match cache_hint_operand {
+            Some(hint) => hint,
+            None => create_i64_const(ctx, rewriter, 0),
+        });
+        if direction == BulkDirection::GlobalToCluster {
+            argument_types.push(i1_ty.into());
+            call_operands.push(create_i1_const(ctx, rewriter, multicast));
+        }
+        argument_types.push(i1_ty.into());
+        call_operands.push(create_i1_const(ctx, rewriter, cache_hint));
+    }
+    if let Some(mask) = byte_mask_operand {
+        argument_types.push(i16_ty.into());
+        call_operands.push(mask);
+    }
+
+    let function_ty = llvm_types::FuncType::get(ctx, void_ty.into(), argument_types, false);
+    call_intrinsic(
+        ctx,
+        rewriter,
+        op,
+        intrinsic_name,
+        function_ty,
+        call_operands,
+    )?;
+    rewriter.erase_operation(ctx, op);
+    Ok(())
+}
+
+/// Cast a pointer into `space`, leaving it alone when it is already there.
+fn cast_to_addrspace(
+    ctx: &mut Context,
+    rewriter: &mut DialectConversionRewriter,
+    pointer: pliron::value::Value,
+    space: u32,
+) -> pliron::value::Value {
+    if space == 3 {
+        return cast_to_shared_addrspace(ctx, rewriter, pointer);
+    }
+    if space == 7 {
+        return cast_to_cluster_shared_addrspace(ctx, rewriter, pointer);
+    }
+    let current = pointer
+        .get_type(ctx)
+        .deref(ctx)
+        .downcast_ref::<llvm_types::PointerType>()
+        .map_or(0, |pointer| pointer.address_space());
+    if current == space {
+        return pointer;
+    }
+    let cast = llvm::AddrSpaceCastOp::new(
+        ctx,
+        pointer,
+        llvm_types::PointerType::get(ctx, space).into(),
+    );
+    rewriter.insert_operation(ctx, cast.get_operation());
+    cast.get_operation().deref(ctx).get_result(0)
+}
+
+/// Create an i16 constant for an unused CTA or byte mask.
+fn create_i16_const(
+    ctx: &mut Context,
+    rewriter: &mut DialectConversionRewriter,
+    value: i16,
+) -> pliron::value::Value {
+    let i16_ty = IntegerType::get(ctx, 16, Signedness::Signless);
+    let apint = pliron::utils::apint::APInt::from_i64(
+        i64::from(value),
+        std::num::NonZeroUsize::new(16).unwrap(),
+    );
+    let attr = pliron::builtin::attributes::IntegerAttr::new(i16_ty, apint);
+    let constant = llvm::ConstantOp::new(ctx, Box::new(attr));
+    rewriter.insert_operation(ctx, constant.get_operation());
+    constant.get_operation().deref(ctx).get_result(0)
+}
+
 /// Convert one member of the global tensor-map replacement family.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn convert_tensormap_replace(
