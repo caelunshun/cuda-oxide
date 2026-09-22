@@ -327,7 +327,7 @@ describe. There are seven modules and 26 operations:
 **Generated**, under `ops/generated/`, from `intrinsics/catalog.json` by
 `cuda-intrinsics-gen`. Every file there opens with `// @generated ... DO NOT
 EDIT.`, and editing one by hand is undone by the next generator run. This is
-the large majority -- 35 modules and 563 operations, resolved from 1038 catalog
+the large majority -- 36 modules and 571 operations, resolved from 1046 catalog
 entries, since several intrinsics can share one structural op:
 
 | Area                        | Modules                                                                       | Ops |
@@ -343,6 +343,7 @@ entries, since several intrinsics can share one structural op:
 | Cluster                     | `clc`, `cluster_barrier`, `cluster_memory`                                    |  10 |
 | Scalar math                 | `dotprod`, `scalar_arithmetic`, `scalar_conversion`, `scalar_math`, `extended_minmax`, `prmt` |   9 |
 | Integer min/max (DPX)       | `integer_minmax`                                                              |   8 |
+| L2 cache policy             | `cache_policy`                                                                |   8 |
 
 Architecture requirements live per intrinsic rather than per module -- the
 catalog records the PTX version and minimum SM for each, and

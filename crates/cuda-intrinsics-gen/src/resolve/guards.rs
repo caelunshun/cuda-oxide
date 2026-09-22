@@ -663,6 +663,7 @@ pub(super) fn ensure_no_other_family_contract(
             && (policy.family == "tma" || policy.selected_address_space.is_none())
             && (policy.family == "packed_alu") == policy.packed_alu.is_some()
             && (policy.family == "integer_minmax") == policy.integer_minmax.is_some()
+            && (policy.family == "cache_policy") == policy.cache_policy.is_some()
             && (policy.family == "packed_conversion") == policy.packed_conversion.is_some()
             && (policy.family == "scalar_conversion") == policy.scalar_conversion.is_some()
             && (policy.family == "scalar_arithmetic") == policy.scalar_arithmetic.is_some()

@@ -1099,3 +1099,55 @@ fn reference_rows_have_one_cell_per_header_column() {
              found {carried_a_pipe} rows with an escaped pipe"
     );
 }
+
+#[test]
+fn cache_policy_rendering_emits_pure_createpolicy_routes() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let catalog = crate::resolve::resolve(&repo_root).unwrap();
+    validate_renderable(&catalog).unwrap();
+    let records = crate::render::families::cache_policies(&catalog).collect::<Vec<_>>();
+    assert_eq!(records.len(), 8);
+
+    let compatibility = crate::render::compat::render_compat_cache_policy(&catalog, "test-hash");
+    let dialect = crate::render::dialect::render_dialect_cache_policy(&catalog, "test-hash");
+    let importer = render_importer(&catalog, "test-hash");
+    let lowering = render_lowering(&catalog, "test-hash");
+    for record in &records {
+        let instruction = crate::render::families::cache_policy_instruction(record);
+        assert!(compatibility.contains(&format!(
+            "pub fn {}(fraction: f32) -> u64 {{",
+            record.rust.name
+        )));
+        assert_eq!(
+            dialect
+                .matches(&format!("pub struct {};", record.dialect.op_type))
+                .count(),
+            1
+        );
+        assert!(dialect.contains(&format!("{}::register(ctx);", record.dialect.op_type)));
+        assert!(importer.contains(&record.rust.canonical_path));
+        assert!(importer.contains(&format!("{}::build(ctx, arg0)", record.dialect.op_type)));
+        assert!(lowering.contains(&format!(
+            "impl MirToLlvmConversion for {}",
+            record.dialect.op_type
+        )));
+        assert!(lowering.contains(&format!("{instruction:?}")));
+
+        let probe = render_probe(&catalog, record, "test-hash");
+        assert!(probe.contains(&format!(
+            "%result = call i64 asm \"{instruction} $0, $1;\", \"=l,f\"(float %fraction)"
+        )));
+        assert!(!probe.contains("sideeffect"));
+        assert!(record.semantics.pure && !record.semantics.convergent);
+    }
+    assert!(dialect.contains("NOpdsInterface<1>, NResultsInterface<1>"));
+    assert!(lowering.contains("cache_policy::convert_generated_cache_policy"));
+
+    let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
+    for path in [
+        "crates/cuda-device/src/generated/cache_policy.rs",
+        "crates/dialect-nvvm/src/ops/generated/cache_policy.rs",
+    ] {
+        assert!(outputs.contains_key(&PathBuf::from(path)));
+    }
+}

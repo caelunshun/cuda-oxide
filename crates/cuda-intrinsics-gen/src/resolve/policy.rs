@@ -158,6 +158,7 @@ pub(super) fn validate_policy(
         "warp_shuffle" => validate_warp_shuffle_policy(policy, declaration)?,
         "packed_alu" => validate_packed_alu_policy(policy, source, declaration)?,
         "integer_minmax" => validate_integer_minmax_policy(policy, source, declaration)?,
+        "cache_policy" => validate_cache_policy_policy(policy, source, declaration)?,
         "packed_conversion" => validate_packed_conversion_policy(policy, source, declaration)?,
         "scalar_conversion" => validate_scalar_conversion_policy(
             policy,

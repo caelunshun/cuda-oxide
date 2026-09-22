@@ -16,15 +16,15 @@ use crate::model::{
 };
 use crate::render::common::{rust_header, uses_identifier};
 use crate::render::families::{
-    active_masks, clc_intrinsics, cluster_barrier_attr, cluster_barrier_template, cluster_barriers,
-    cluster_memory, cp_async_controls, cp_async_copies, cp_async_mbarriers, debug_controls,
-    dialect_nvvm_ops_import_candidates, dot_product_ptx, dot_products, elect_intrinsics,
-    execution_controls, expected_ptx_head, extended_minmax, extended_minmax_carrier,
-    extended_minmax_format_attr, extended_minmax_nan_attr, extended_minmax_operation_attr,
-    extended_minmax_ptx_mnemonic, extended_minmax_subnormal_attr, extended_minmax_xorsign_abs_attr,
-    integer_minmax_ptx_mnemonic, integer_minmaxes, ldmatrix, ldmatrix_attr_variants,
-    ldmatrix_compat_op, mbarrier_basics, mbarrier_extended, movmatrix, movmatrix_template,
-    packed_alu_ptx_mnemonic, packed_alu_width, packed_alus, packed_atomics,
+    active_masks, cache_policies, cache_policy_instruction, clc_intrinsics, cluster_barrier_attr,
+    cluster_barrier_template, cluster_barriers, cluster_memory, cp_async_controls, cp_async_copies,
+    cp_async_mbarriers, debug_controls, dialect_nvvm_ops_import_candidates, dot_product_ptx,
+    dot_products, elect_intrinsics, execution_controls, expected_ptx_head, extended_minmax,
+    extended_minmax_carrier, extended_minmax_format_attr, extended_minmax_nan_attr,
+    extended_minmax_operation_attr, extended_minmax_ptx_mnemonic, extended_minmax_subnormal_attr,
+    extended_minmax_xorsign_abs_attr, integer_minmax_ptx_mnemonic, integer_minmaxes, ldmatrix,
+    ldmatrix_attr_variants, ldmatrix_compat_op, mbarrier_basics, mbarrier_extended, movmatrix,
+    movmatrix_template, packed_alu_ptx_mnemonic, packed_alu_width, packed_alus, packed_atomics,
     packed_conversion_ptx_mnemonic, packed_conversion_result_width, packed_conversion_source_width,
     packed_conversion_typed_llvm_name, packed_conversions, prmts, redux,
     register_mma_attr_variants, register_mma_compat_op_type, register_mma_constraints,
@@ -1052,6 +1052,29 @@ fn integer_minmax_impls(catalog: &CatalogFile) -> String {
     output
 }
 
+fn cache_policy_impls(catalog: &CatalogFile) -> String {
+    let mut output = String::new();
+    for record in cache_policies(catalog) {
+        writeln!(
+            output,
+            "#[op_interface_impl]\nimpl MirToLlvmConversion for {} {{",
+            record.dialect.op_type
+        )
+        .unwrap();
+        output.push_str(
+            "    fn convert(\n        &self,\n        ctx: &mut Context,\n        rewriter: &mut DialectConversionRewriter,\n        _operands_info: &OperandsInfo,\n    ) -> Result<()> {\n",
+        );
+        writeln!(
+            output,
+            "        convert_generated_cache_policy(ctx, rewriter, self.get_operation(), {:?})",
+            cache_policy_instruction(record)
+        )
+        .unwrap();
+        output.push_str("    }\n}\n\n");
+    }
+    output
+}
+
 fn packed_conversion_impls(catalog: &CatalogFile) -> String {
     let mut output = String::new();
     for record in packed_conversions(catalog) {
@@ -2011,6 +2034,7 @@ fn lowering_shards(catalog: &CatalogFile) -> Vec<(&'static str, String)> {
         ("warp_shuffle", warp_shuffle_impls(catalog)),
         ("packed_alu", packed_alu_impls(catalog)),
         ("integer_minmax", integer_minmax_impls(catalog)),
+        ("cache_policy", cache_policy_impls(catalog)),
         ("packed_conversion", packed_conversion_impls(catalog)),
         ("cp_async", cp_async_impls(catalog)),
         ("mbarrier_basic", mbarrier_basic_impls(catalog)),
@@ -2034,6 +2058,10 @@ const LOWERING_INTRINSIC_HELPERS: &[(&str, &str)] = &[
     (
         "convert_sreg_read_inline",
         "basic::convert_sreg_read_inline",
+    ),
+    (
+        "convert_generated_cache_policy",
+        "cache_policy::convert_generated_cache_policy",
     ),
     (
         "convert_generated_clc_query",

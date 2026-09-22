@@ -48,7 +48,8 @@
 //!    async-group, so it is followed by `cp_async_bulk_commit_group` and
 //!    `cp_async_bulk_wait_group`. `cp_async_bulk_prefetch_l2` is the
 //!    corresponding L2 prefetch hint. Each form has a `_cache_hint` variant
-//!    that takes an explicit 64-bit L2 eviction policy; the global-to-cluster
+//!    that takes an explicit 64-bit L2 eviction policy, built with the
+//!    `createpolicy` intrinsics in [`crate::cache_policy`]; the global-to-cluster
 //!    copy also has `_multicast` variants that broadcast to a CTA mask, and the
 //!    shared-to-global copy has `_byte_mask` variants (`.cp_mask`, sm_100 and
 //!    newer) that copy only the selected bytes of each sixteen-byte chunk.

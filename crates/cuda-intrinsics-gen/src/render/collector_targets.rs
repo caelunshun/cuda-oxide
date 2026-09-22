@@ -1014,6 +1014,7 @@ const TARGETS_FAMILY_SHARDS: &[&str] = &[
     "dotprod",
     "packed_alu",
     "integer_minmax",
+    "cache_policy",
     "packed_conversion",
     "scalar_conversion",
     "scalar_arithmetic",

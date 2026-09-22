@@ -486,6 +486,7 @@ pub(in crate::resolve) fn scalar_math_overlay_record(
         dot_product: None,
         packed_alu: None,
         integer_minmax: None,
+        cache_policy: None,
         packed_conversion: None,
         scalar_conversion: None,
         scalar_arithmetic: None,

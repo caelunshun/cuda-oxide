@@ -7236,3 +7236,59 @@ status = "active"
 catalog_id = "cp_async_bulk_prefetch_l2_cache_hint"
 operation_key = "memory.prefetch.async.bulk.global.l2.cache_hint"
 raw_rust_signature = { safe = false, arguments = ["*const u8", "u32", "u64"], result = "()" }
+
+[[entry]]
+abi_id = "i1039"
+status = "active"
+catalog_id = "createpolicy_fractional_evict_last"
+operation_key = "memory.cache_policy.l2.fractional.evict_last"
+raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }
+
+[[entry]]
+abi_id = "i1040"
+status = "active"
+catalog_id = "createpolicy_fractional_evict_normal"
+operation_key = "memory.cache_policy.l2.fractional.evict_normal"
+raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }
+
+[[entry]]
+abi_id = "i1041"
+status = "active"
+catalog_id = "createpolicy_fractional_evict_first"
+operation_key = "memory.cache_policy.l2.fractional.evict_first"
+raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }
+
+[[entry]]
+abi_id = "i1042"
+status = "active"
+catalog_id = "createpolicy_fractional_evict_unchanged"
+operation_key = "memory.cache_policy.l2.fractional.evict_unchanged"
+raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }
+
+[[entry]]
+abi_id = "i1043"
+status = "active"
+catalog_id = "createpolicy_fractional_evict_last_evict_first"
+operation_key = "memory.cache_policy.l2.fractional.evict_last.evict_first"
+raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }
+
+[[entry]]
+abi_id = "i1044"
+status = "active"
+catalog_id = "createpolicy_fractional_evict_normal_evict_first"
+operation_key = "memory.cache_policy.l2.fractional.evict_normal.evict_first"
+raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }
+
+[[entry]]
+abi_id = "i1045"
+status = "active"
+catalog_id = "createpolicy_fractional_evict_first_evict_first"
+operation_key = "memory.cache_policy.l2.fractional.evict_first.evict_first"
+raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }
+
+[[entry]]
+abi_id = "i1046"
+status = "active"
+catalog_id = "createpolicy_fractional_evict_unchanged_evict_first"
+operation_key = "memory.cache_policy.l2.fractional.evict_unchanged.evict_first"
+raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }

@@ -301,6 +301,22 @@ pub(super) fn integer_minmaxes(catalog: &CatalogFile) -> impl Iterator<Item = &C
         .filter(|record| record.family == "integer_minmax")
 }
 
+pub(super) fn cache_policies(catalog: &CatalogFile) -> impl Iterator<Item = &CatalogIntrinsic> {
+    catalog
+        .intrinsics
+        .iter()
+        .filter(|record| record.family == "cache_policy")
+}
+
+/// The exact `createpolicy` instruction, without operands.
+pub(super) fn cache_policy_instruction(record: &CatalogIntrinsic) -> String {
+    record
+        .cache_policy
+        .as_ref()
+        .expect("cache-policy contract")
+        .ptx_instruction()
+}
+
 /// Everything a sharded generated output may import from `dialect_nvvm::ops`:
 /// each record's op type, the compatibility op types, and the attribute types
 /// the renderers spell out inline. Shard emitters filter this list against the

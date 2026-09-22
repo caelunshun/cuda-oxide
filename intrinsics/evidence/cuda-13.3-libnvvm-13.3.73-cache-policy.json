@@ -1,0 +1,363 @@
+{
+  "schema": 6,
+  "backend_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+  "backend_kind": "lib_nvvm",
+  "llvm_revision": "cuda-13.3-libnvvm",
+  "backend_version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+  "backend_sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+  "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+  "build_id_prefix": "88b802",
+  "nvvm_ir_version": "2.0",
+  "debug_ir_version": "3.2",
+  "defaults": {
+    "target_triple": "nvptx64-nvidia-cuda",
+    "gpu_target": "compute_80",
+    "ptx_feature": "PTX ISA 9.3 emitted by CUDA 13.3",
+    "status": "validated",
+    "runtime_validation": "unexecuted"
+  },
+  "fixtures": [
+    {
+      "id": "cache_policy_inline_sm80",
+      "coverage_count": 8,
+      "stages": [
+        {
+          "targets": [
+            "compute_80",
+            "ptx93"
+          ],
+          "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+          "stage": "backend_codegen",
+          "mechanism": "inline_ptx",
+          "outcome": "succeeded",
+          "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf."
+        },
+        {
+          "targets": [
+            "sm_80",
+            "ptx93"
+          ],
+          "representation": "linked cubin built from the libNVVM createpolicy probe",
+          "stage": "device_link",
+          "mechanism": "inline_ptx",
+          "outcome": "succeeded",
+          "artifact_kind": "cubin",
+          "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+          "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+          "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+          "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+        }
+      ]
+    }
+  ],
+  "matrices": [
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "createpolicy_fractional_evict_last"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "cache_policy_inline_sm80"
+      ],
+      "template": {
+        "id": "${id}",
+        "source": {
+          "kind": "ptx_native",
+          "instruction": "createpolicy.fractional.L2::evict_last.b64"
+        },
+        "llvm_symbol": null,
+        "expected_ptx": {
+          "mnemonic": "createpolicy",
+          "modifiers": [
+            "fractional",
+            "L2::evict_last",
+            "b64"
+          ],
+          "operands": [
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "createpolicy_fractional_evict_normal"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "cache_policy_inline_sm80"
+      ],
+      "template": {
+        "id": "${id}",
+        "source": {
+          "kind": "ptx_native",
+          "instruction": "createpolicy.fractional.L2::evict_normal.b64"
+        },
+        "llvm_symbol": null,
+        "expected_ptx": {
+          "mnemonic": "createpolicy",
+          "modifiers": [
+            "fractional",
+            "L2::evict_normal",
+            "b64"
+          ],
+          "operands": [
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "createpolicy_fractional_evict_first"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "cache_policy_inline_sm80"
+      ],
+      "template": {
+        "id": "${id}",
+        "source": {
+          "kind": "ptx_native",
+          "instruction": "createpolicy.fractional.L2::evict_first.b64"
+        },
+        "llvm_symbol": null,
+        "expected_ptx": {
+          "mnemonic": "createpolicy",
+          "modifiers": [
+            "fractional",
+            "L2::evict_first",
+            "b64"
+          ],
+          "operands": [
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "createpolicy_fractional_evict_unchanged"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "cache_policy_inline_sm80"
+      ],
+      "template": {
+        "id": "${id}",
+        "source": {
+          "kind": "ptx_native",
+          "instruction": "createpolicy.fractional.L2::evict_unchanged.b64"
+        },
+        "llvm_symbol": null,
+        "expected_ptx": {
+          "mnemonic": "createpolicy",
+          "modifiers": [
+            "fractional",
+            "L2::evict_unchanged",
+            "b64"
+          ],
+          "operands": [
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "createpolicy_fractional_evict_last_evict_first"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "cache_policy_inline_sm80"
+      ],
+      "template": {
+        "id": "${id}",
+        "source": {
+          "kind": "ptx_native",
+          "instruction": "createpolicy.fractional.L2::evict_last.L2::evict_first.b64"
+        },
+        "llvm_symbol": null,
+        "expected_ptx": {
+          "mnemonic": "createpolicy",
+          "modifiers": [
+            "fractional",
+            "L2::evict_last",
+            "L2::evict_first",
+            "b64"
+          ],
+          "operands": [
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "createpolicy_fractional_evict_normal_evict_first"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "cache_policy_inline_sm80"
+      ],
+      "template": {
+        "id": "${id}",
+        "source": {
+          "kind": "ptx_native",
+          "instruction": "createpolicy.fractional.L2::evict_normal.L2::evict_first.b64"
+        },
+        "llvm_symbol": null,
+        "expected_ptx": {
+          "mnemonic": "createpolicy",
+          "modifiers": [
+            "fractional",
+            "L2::evict_normal",
+            "L2::evict_first",
+            "b64"
+          ],
+          "operands": [
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "createpolicy_fractional_evict_first_evict_first"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "cache_policy_inline_sm80"
+      ],
+      "template": {
+        "id": "${id}",
+        "source": {
+          "kind": "ptx_native",
+          "instruction": "createpolicy.fractional.L2::evict_first.L2::evict_first.b64"
+        },
+        "llvm_symbol": null,
+        "expected_ptx": {
+          "mnemonic": "createpolicy",
+          "modifiers": [
+            "fractional",
+            "L2::evict_first",
+            "L2::evict_first",
+            "b64"
+          ],
+          "operands": [
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "axes": [
+        {
+          "name": "id",
+          "values": [
+            "createpolicy_fractional_evict_unchanged_evict_first"
+          ]
+        }
+      ],
+      "product_count": 1,
+      "fixtures": [
+        "cache_policy_inline_sm80"
+      ],
+      "template": {
+        "id": "${id}",
+        "source": {
+          "kind": "ptx_native",
+          "instruction": "createpolicy.fractional.L2::evict_unchanged.L2::evict_first.b64"
+        },
+        "llvm_symbol": null,
+        "expected_ptx": {
+          "mnemonic": "createpolicy",
+          "modifiers": [
+            "fractional",
+            "L2::evict_unchanged",
+            "L2::evict_first",
+            "b64"
+          ],
+          "operands": [
+            {
+              "kind": "register"
+            },
+            {
+              "kind": "register"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

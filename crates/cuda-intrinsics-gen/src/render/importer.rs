@@ -14,14 +14,14 @@ use crate::model::{
 use crate::render::common::{intrinsic_marker, rust_header, uses_identifier};
 use crate::render::families::dialect_nvvm_ops_import_candidates;
 use crate::render::families::{
-    active_masks, clc_intrinsics, cluster_barrier_attr, cluster_barriers, cluster_memory,
-    cp_async_controls, cp_async_copies, cp_async_mbarriers, debug_controls, dot_products,
-    elect_intrinsics, execution_controls, extended_minmax, extended_minmax_format_attr,
-    extended_minmax_nan_attr, extended_minmax_operation_attr, extended_minmax_subnormal_attr,
-    extended_minmax_xorsign_abs_attr, integer_minmaxes, ldmatrix, ldmatrix_attr_variants,
-    mbarrier_basics, mbarrier_extended, movmatrix, packed_alus, packed_atomics, packed_conversions,
-    prmts, redux, register_mma_attr_variants, register_mmas, scalar_arithmetic_arity,
-    scalar_arithmetic_format_attr, scalar_arithmetic_operation_attr,
+    active_masks, cache_policies, clc_intrinsics, cluster_barrier_attr, cluster_barriers,
+    cluster_memory, cp_async_controls, cp_async_copies, cp_async_mbarriers, debug_controls,
+    dot_products, elect_intrinsics, execution_controls, extended_minmax,
+    extended_minmax_format_attr, extended_minmax_nan_attr, extended_minmax_operation_attr,
+    extended_minmax_subnormal_attr, extended_minmax_xorsign_abs_attr, integer_minmaxes, ldmatrix,
+    ldmatrix_attr_variants, mbarrier_basics, mbarrier_extended, movmatrix, packed_alus,
+    packed_atomics, packed_conversions, prmts, redux, register_mma_attr_variants, register_mmas,
+    scalar_arithmetic_arity, scalar_arithmetic_format_attr, scalar_arithmetic_operation_attr,
     scalar_arithmetic_rounding_attr, scalar_arithmetic_saturation_attr,
     scalar_arithmetic_subnormal_attr, scalar_arithmetics, scalar_conversion_rounding_attr,
     scalar_conversion_saturation_attr, scalar_conversions, scalar_math_format_attr,
@@ -1434,6 +1434,14 @@ fn packed_alu_arms(catalog: &CatalogFile) -> String {
 fn integer_minmax_arms(catalog: &CatalogFile) -> String {
     let mut output = String::new();
     for record in integer_minmaxes(catalog) {
+        render_importer_pure_value_dispatch(&mut output, catalog, record);
+    }
+    output
+}
+
+fn cache_policy_arms(catalog: &CatalogFile) -> String {
+    let mut output = String::new();
+    for record in cache_policies(catalog) {
         render_importer_pure_value_dispatch(&mut output, catalog, record);
     }
     output
@@ -2980,6 +2988,7 @@ fn importer_dispatch_shards(catalog: &CatalogFile) -> Vec<(&'static str, String)
         ("dotprod", dotprod_arms(catalog)),
         ("packed_alu", packed_alu_arms(catalog)),
         ("integer_minmax", integer_minmax_arms(catalog)),
+        ("cache_policy", cache_policy_arms(catalog)),
         ("packed_conversion", packed_conversion_arms(catalog)),
         ("scalar_conversion", scalar_conversion_arms(catalog)),
         ("scalar_arithmetic", scalar_arithmetic_arms(catalog)),
@@ -3024,6 +3033,7 @@ const IMPORTER_TEST_SHARD_ORDER: &[&str] = &[
     "dotprod",
     "packed_alu",
     "integer_minmax",
+    "cache_policy",
     "packed_conversion",
     "scalar_conversion",
     "scalar_arithmetic",

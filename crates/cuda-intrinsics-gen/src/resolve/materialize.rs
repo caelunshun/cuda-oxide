@@ -421,6 +421,7 @@ pub(super) fn materialize_record(
         dot_product: policy.dot_product.clone(),
         packed_alu: policy.packed_alu.clone(),
         integer_minmax: policy.integer_minmax.clone(),
+        cache_policy: policy.cache_policy.clone(),
         packed_conversion: policy.packed_conversion.clone(),
         scalar_conversion: policy.scalar_conversion.clone(),
         scalar_arithmetic: policy.scalar_arithmetic.clone(),

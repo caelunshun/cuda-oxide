@@ -19,7 +19,7 @@ use super::guards::*;
 
 pub(super) const OVERLAY_SCHEMA: u32 = 44;
 pub(super) const MINIMUM_OVERLAY_SHARD_SCHEMA: u32 = 26;
-pub(super) const OVERLAY_SHARD_SCHEMA: u32 = 64;
+pub(super) const OVERLAY_SHARD_SCHEMA: u32 = 65;
 pub(super) const REGISTER_MMA_F8F6F4_SHARD_SCHEMA: u32 = 46;
 pub(super) const REGISTER_MMA_F8F6F4_F16_SHARD_SCHEMA: u32 = 47;
 pub(super) const REGISTER_MMA_MXF8F6F4_SHARD_SCHEMA: u32 = 60;
@@ -42,6 +42,7 @@ pub(super) const CLC_SHARD_SCHEMA: u32 = 40;
 pub(super) const TMA_SHARD_SCHEMA: u32 = 61;
 pub(super) const TMA_REDUCTION_SHARD_SCHEMA: u32 = 62;
 pub(super) const TMA_BULK_SHARD_SCHEMA: u32 = 64;
+pub(super) const CACHE_POLICY_SHARD_SCHEMA: u32 = 65;
 pub(super) const MBARRIER_EXTENDED_SHARD_SCHEMA: u32 = 40;
 pub(super) const WGMMA_CONTROL_SHARD_SCHEMA: u32 = 38;
 pub(super) const TCGEN05_SHARD_SCHEMA: u32 = 42;
@@ -451,6 +452,15 @@ pub(super) fn validate_overlay_shard_schema_with_max(
             || shard.schema >= REGISTER_MMA_AMPERE_FLOAT_SHARD_SCHEMA,
         "compact Ampere floating-point MMA admission requires overlay shard schema {}",
         REGISTER_MMA_AMPERE_FLOAT_SHARD_SCHEMA
+    );
+    ensure!(
+        shard
+            .intrinsics
+            .iter()
+            .all(|intrinsic| intrinsic.cache_policy.is_none())
+            || shard.schema >= CACHE_POLICY_SHARD_SCHEMA,
+        "cache-policy admission requires overlay shard schema {}",
+        CACHE_POLICY_SHARD_SCHEMA
     );
     ensure!(
         shard.prmt.is_none() || shard.schema >= PRMT_SHARD_SCHEMA,

@@ -6,8 +6,8 @@
 use crate::model::{CatalogFile, PackedConversionSourceFormat};
 use crate::render::common::rust_header;
 use crate::render::families::{
-    extended_minmax, extended_minmax_format_attr, extended_minmax_nan_attr,
-    extended_minmax_operation_attr, extended_minmax_subnormal_attr,
+    cache_policies, cache_policy_instruction, extended_minmax, extended_minmax_format_attr,
+    extended_minmax_nan_attr, extended_minmax_operation_attr, extended_minmax_subnormal_attr,
     extended_minmax_xorsign_abs_attr, integer_minmax_ptx_mnemonic, integer_minmaxes,
     packed_alu_ptx_mnemonic, packed_alu_width, packed_alus, packed_conversion_element,
     packed_conversion_result_width, packed_conversion_source, packed_conversion_source_width,
@@ -71,6 +71,53 @@ pub(in crate::render) fn render_dialect_integer_minmax(
     }
     output.push_str("\npub(super) fn register(ctx: &mut Context) {\n");
     for record in integer_minmaxes(catalog) {
+        writeln!(output, "    {}::register(ctx);", record.dialect.op_type).unwrap();
+    }
+    output.push_str("}\n");
+    output
+}
+
+pub(in crate::render) fn render_dialect_cache_policy(catalog: &CatalogFile, hash: &str) -> String {
+    let mut output = rust_header(catalog, hash);
+    output.push_str(
+        "//! Structural operations for generated `createpolicy` L2 cache policies.\n\nuse pliron::{\n    builtin::{\n        op_interfaces::{NOpdsInterface, NResultsInterface},\n        types::{FP32Type, IntegerType, Signedness},\n    },\n    common_traits::Verify,\n    context::{Context, Ptr},\n    location::Located,\n    op::Op,\n    operation::Operation,\n    result::Error,\n    r#type::Typed,\n    value::Value,\n    verify_err,\n};\nuse pliron_derive::pliron_op;\n\nfn is_f32(ctx: &Context, ty: pliron::r#type::TypeHandle) -> bool {\n    ty.deref(ctx).downcast_ref::<FP32Type>().is_some()\n}\n\nfn is_i64(ctx: &Context, ty: pliron::r#type::TypeHandle) -> bool {\n    ty.deref(ctx)\n        .downcast_ref::<IntegerType>()\n        .is_some_and(|integer| integer.width() == 64)\n}\n\n",
+    );
+    for record in cache_policies(catalog) {
+        writeln!(output, "/// {}", record.summary).unwrap();
+        writeln!(
+            output,
+            "///\n/// Lowers to `{}`.",
+            cache_policy_instruction(record)
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "#[pliron_op(\n    name = {:?},\n    format,\n    interfaces = [NOpdsInterface<1>, NResultsInterface<1>],\n)]",
+            record.dialect.op_name
+        )
+        .unwrap();
+        writeln!(output, "pub struct {};", record.dialect.op_type).unwrap();
+        writeln!(output, "\nimpl {} {{", record.dialect.op_type).unwrap();
+        output.push_str(
+            "    pub fn new(op: Ptr<Operation>) -> Self {\n        Self { op }\n    }\n\n    pub fn build(ctx: &mut Context, fraction: Value) -> Ptr<Operation> {\n        let result_ty = IntegerType::get(ctx, 64, Signedness::Unsigned);\n        Operation::new(\n            ctx,\n            Self::get_concrete_op_info(),\n            vec![result_ty.into()],\n            vec![fraction],\n            vec![],\n            0,\n        )\n    }\n}\n",
+        );
+        writeln!(output, "\nimpl Verify for {} {{", record.dialect.op_type).unwrap();
+        writeln!(
+            output,
+            "    fn verify(&self, ctx: &Context) -> Result<(), Error> {{\n        let op = self.get_operation().deref(ctx);\n        if op.get_num_operands() != 1 || op.get_num_results() != 1 {{\n            return verify_err!(op.loc(), {:?});\n        }}\n        if !is_f32(ctx, op.get_operand(0).get_type(ctx))\n            || !is_i64(ctx, op.get_result(0).get_type(ctx))\n        {{\n            return verify_err!(op.loc(), {:?});\n        }}\n        Ok(())\n    }}\n}}\n",
+            format!(
+                "{} requires exactly 1 operand and one result",
+                record.dialect.op_name
+            ),
+            format!(
+                "{} requires an f32 fraction and a 64-bit policy result",
+                record.dialect.op_name
+            ),
+        )
+        .unwrap();
+    }
+    output.push_str("\npub(super) fn register(ctx: &mut Context) {\n");
+    for record in cache_policies(catalog) {
         writeln!(output, "    {}::register(ctx);", record.dialect.op_type).unwrap();
     }
     output.push_str("}\n");

@@ -11,8 +11,8 @@
   },
   "inputs": {
     "imported_sha256": "3f54245b231a5b6e19f3225710c3865b7e1a106242cce873250ef5fdc32e532e",
-    "overlay_sha256": "92d1f1dc4e8788353e52243c52799f63ad92b4e74cafa8812776876e8e44d9d3",
-    "abi_ledger_sha256": "a64487b7966efca335c8ca78612a9b9044bc500373f5c99d88b52f5be5d41d63",
+    "overlay_sha256": "43c2b7eecbf8d94de0f0ff71b9bc8b47e848381bd91ba3c0b023f883e7fb9843",
+    "abi_ledger_sha256": "43c1b26568dc08cf764e5abc62bd821bcfe51165a4544cdbb310b4b668721f33",
     "evidence_sha256": [
       "cuda-12.0-libnvvm-12.0.140-ex2-f16.json:7102ea7d567ff2d2eb75a0384148d2e5eb6e605c26a5b98c71371fa3c46adef6",
       "cuda-12.9-libnvvm-12.9.86-f32x2.json:bc5bb505677989affa9ac1044da772b4eb349700dc65e16f09fffffa1f5c493e",
@@ -67,6 +67,7 @@
       "cuda-13.3-libnvvm-13.3.33-tma.json:4234bdb8305a79abd0870ee1572d1be6910052ca23ef5e358aca1e74a0331496",
       "cuda-13.3-libnvvm-13.3.33-wgmma-control.json:6afe57cb717496e040ed81f12d28f1b8a3fe3603e98180626de4bfb265d02c61",
       "cuda-13.3-libnvvm-13.3.33.json:683386bf1139bff78c82da76c4b985c17f8c7d0e1e02f80689a54ccb066f044f",
+      "cuda-13.3-libnvvm-13.3.73-cache-policy.json:cf50fc6ea2142b5425057dc9914192fc6927db4cc27435dfaaa91eef36ee5942",
       "cuda-13.3-libnvvm-13.3.73-execution-control.json:f66216bc7aaccca9ea66fc557e19fdeeaac8c277781f669ee969e727e203aac5",
       "cuda-13.3-libnvvm-13.3.73-register-mma-mxf8f6f4-f32.json:e437bf84570f4df0a28a743a132e0b93f359f9431d1af03b443f324f62b715ba",
       "cuda-13.3-libnvvm-13.3.73-tma-bulk.json:df502e2ab7d2950d351bec6768d4977bf3403d54565cf54948e93c2157870136",
@@ -74,6 +75,7 @@
       "cuda-13.3-libnvvm-13.3.73-tma-reduce.json:f5df5bb51068966594660cb01b1b28c3b72cb004c456fcd8dff377ff0bee4fc0",
       "cuda-13.3-libnvvm-13.3.73-tma.json:8607f93605f215858a98075a0ea1394f2718d090538bcaf0a795e11b4cb66d47",
       "rust-llvm-23.1.0-16696adc-blackwell-ldmatrix.json:16b9e82da0f44ba327caf383ec107e45e2103bb3c8c5b66e412779b575a2c741",
+      "rust-llvm-23.1.0-16696adc-cache-policy.json:72623dd30ac20e8281344989e268f8383ede5abe41674f1c6c63a646491e5983",
       "rust-llvm-23.1.0-16696adc-clc.json:afc13ecb0e9a316d5102e98beea67e921a89c2474e46dc0d8d1a9cf4a3b12d4c",
       "rust-llvm-23.1.0-16696adc-cluster-barrier.json:2e3886e63765415c1f4467670adf9253a4733d0b292f13536f00461c1fd84f14",
       "rust-llvm-23.1.0-16696adc-cluster-memory.json:13067b0e40a71e50e0a9b8e7b6b41d72f069bd95d97e6cf67906a8a7ac1d80af",
@@ -45954,6 +45956,1626 @@
         ]
       },
       "summary": "Waits until at most the compile-time constant number of recent asynchronous copy groups remain pending."
+    },
+    {
+      "id": "createpolicy_fractional_evict_first",
+      "operation_key": "memory.cache_policy.l2.fractional.evict_first",
+      "family": "cache_policy",
+      "source": {
+        "kind": "ptx_native",
+        "instruction": "createpolicy.fractional.L2::evict_first.b64"
+      },
+      "selections": [],
+      "rust": {
+        "abi_id": "i1041",
+        "module": "cache_policy",
+        "name": "createpolicy_fractional_evict_first",
+        "arguments": [
+          "f32"
+        ],
+        "result": "u64",
+        "safe": true,
+        "must_use": true,
+        "safe_allowlist_reason": "Computes an opaque L2 cache-hint value; it has no memory, pointer, synchronization, or participation effects.",
+        "canonical_path": "cuda_intrinsics::__cuda_oxide_intrinsic_abi_v1::i1041",
+        "public_path": "cuda_intrinsics::cache_policy::createpolicy_fractional_evict_first",
+        "compatibility_paths": [
+          "cuda_device::cache_policy::createpolicy_fractional_evict_first"
+        ]
+      },
+      "dialect": {
+        "op_type": "CreatepolicyFractionalEvictFirstOp",
+        "op_name": "nvvm.createpolicy_fractional_evict_first",
+        "operands": [
+          "f32"
+        ],
+        "results": [
+          "i64"
+        ]
+      },
+      "semantics": {
+        "pure": true,
+        "memory": "none",
+        "convergent": false,
+        "execution_scope": "thread"
+      },
+      "target": {
+        "minimum_ptx": "7.4",
+        "hardware": {
+          "kind": "any_of",
+          "alternatives": [
+            {
+              "kind": "minimum_sm",
+              "sm": 80
+            }
+          ]
+        },
+        "ptx_result": "u64",
+        "targets": "all",
+        "ptx_isa_version": "9.3",
+        "ptx_isa_section": "9.7.9.19 Data Movement and Conversion Instructions: createpolicy",
+        "ptx_isa_url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
+      },
+      "backend": {
+        "profile": "rust-llvm-23.1.0-16696adc",
+        "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+        "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+        "status": "validated",
+        "target_triple": "nvptx64-nvidia-cuda",
+        "gpu_target": "sm_80",
+        "ptx_feature": "+ptx74"
+      },
+      "backend_lowerings": [
+        {
+          "backend": "llvm_nvptx",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "rust-llvm-23.1.0-16696adc",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+          "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+          "artifact_path": null,
+          "build_id_prefix": null,
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "one LLVM IR kernel with pure inline PTX for the eight createpolicy.fractional forms, each result stored to global memory",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "The pinned Rust LLVM emitted a 1,688-byte PTX 7.4 module containing all eight exact createpolicy instructions with =l,f operands; the 1,809-byte source had SHA-256 c5b30d67ad09a7e660b40eb06b95abb12c7c5e41b2ee542769b59313cea49a5f and the PTX had SHA-256 57eb0cd8d85f360b4fcd6c4f18e23122e34b6db1f5ec8ad4d59a571f5a21135f.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "LLVM-produced PTX retaining every createpolicy instruction",
+              "stage": "ptx_assembly",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 ptxas accepted the module and produced a 3,752-byte cubin with SHA-256 de040cf561206d1f7a94cecd6f01f7dedf50601f1fdca9c705622d832baf8238; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+              "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+              "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+            }
+          ]
+        },
+        {
+          "backend": "lib_nvvm",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+          "sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+          "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+          "build_id_prefix": "88b802",
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "compute_80",
+                "ptx93"
+              ],
+              "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx93"
+              ],
+              "representation": "linked cubin built from the libNVVM createpolicy probe",
+              "stage": "device_link",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+              "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+              "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+            }
+          ]
+        }
+      ],
+      "cache_policy": {
+        "form": "fractional",
+        "primary": "evict_first",
+        "secondary": "evict_unchanged"
+      },
+      "lowering": "generated_cache_policy_inline_ptx",
+      "expected_ptx": {
+        "mnemonic": "createpolicy",
+        "modifiers": [
+          "fractional",
+          "L2::evict_first",
+          "b64"
+        ],
+        "operands": [
+          {
+            "kind": "register"
+          },
+          {
+            "kind": "register"
+          }
+        ]
+      },
+      "summary": "Creates an L2 cache policy that marks the given fraction of accessed lines evict-first and leaves the rest unchanged."
+    },
+    {
+      "id": "createpolicy_fractional_evict_first_evict_first",
+      "operation_key": "memory.cache_policy.l2.fractional.evict_first.evict_first",
+      "family": "cache_policy",
+      "source": {
+        "kind": "ptx_native",
+        "instruction": "createpolicy.fractional.L2::evict_first.L2::evict_first.b64"
+      },
+      "selections": [],
+      "rust": {
+        "abi_id": "i1045",
+        "module": "cache_policy",
+        "name": "createpolicy_fractional_evict_first_evict_first",
+        "arguments": [
+          "f32"
+        ],
+        "result": "u64",
+        "safe": true,
+        "must_use": true,
+        "safe_allowlist_reason": "Computes an opaque L2 cache-hint value; it has no memory, pointer, synchronization, or participation effects.",
+        "canonical_path": "cuda_intrinsics::__cuda_oxide_intrinsic_abi_v1::i1045",
+        "public_path": "cuda_intrinsics::cache_policy::createpolicy_fractional_evict_first_evict_first",
+        "compatibility_paths": [
+          "cuda_device::cache_policy::createpolicy_fractional_evict_first_evict_first"
+        ]
+      },
+      "dialect": {
+        "op_type": "CreatepolicyFractionalEvictFirstEvictFirstOp",
+        "op_name": "nvvm.createpolicy_fractional_evict_first_evict_first",
+        "operands": [
+          "f32"
+        ],
+        "results": [
+          "i64"
+        ]
+      },
+      "semantics": {
+        "pure": true,
+        "memory": "none",
+        "convergent": false,
+        "execution_scope": "thread"
+      },
+      "target": {
+        "minimum_ptx": "7.4",
+        "hardware": {
+          "kind": "any_of",
+          "alternatives": [
+            {
+              "kind": "minimum_sm",
+              "sm": 80
+            }
+          ]
+        },
+        "ptx_result": "u64",
+        "targets": "all",
+        "ptx_isa_version": "9.3",
+        "ptx_isa_section": "9.7.9.19 Data Movement and Conversion Instructions: createpolicy",
+        "ptx_isa_url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
+      },
+      "backend": {
+        "profile": "rust-llvm-23.1.0-16696adc",
+        "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+        "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+        "status": "validated",
+        "target_triple": "nvptx64-nvidia-cuda",
+        "gpu_target": "sm_80",
+        "ptx_feature": "+ptx74"
+      },
+      "backend_lowerings": [
+        {
+          "backend": "llvm_nvptx",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "rust-llvm-23.1.0-16696adc",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+          "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+          "artifact_path": null,
+          "build_id_prefix": null,
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "one LLVM IR kernel with pure inline PTX for the eight createpolicy.fractional forms, each result stored to global memory",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "The pinned Rust LLVM emitted a 1,688-byte PTX 7.4 module containing all eight exact createpolicy instructions with =l,f operands; the 1,809-byte source had SHA-256 c5b30d67ad09a7e660b40eb06b95abb12c7c5e41b2ee542769b59313cea49a5f and the PTX had SHA-256 57eb0cd8d85f360b4fcd6c4f18e23122e34b6db1f5ec8ad4d59a571f5a21135f.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "LLVM-produced PTX retaining every createpolicy instruction",
+              "stage": "ptx_assembly",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 ptxas accepted the module and produced a 3,752-byte cubin with SHA-256 de040cf561206d1f7a94cecd6f01f7dedf50601f1fdca9c705622d832baf8238; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+              "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+              "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+            }
+          ]
+        },
+        {
+          "backend": "lib_nvvm",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+          "sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+          "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+          "build_id_prefix": "88b802",
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "compute_80",
+                "ptx93"
+              ],
+              "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx93"
+              ],
+              "representation": "linked cubin built from the libNVVM createpolicy probe",
+              "stage": "device_link",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+              "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+              "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+            }
+          ]
+        }
+      ],
+      "cache_policy": {
+        "form": "fractional",
+        "primary": "evict_first",
+        "secondary": "evict_first"
+      },
+      "lowering": "generated_cache_policy_inline_ptx",
+      "expected_ptx": {
+        "mnemonic": "createpolicy",
+        "modifiers": [
+          "fractional",
+          "L2::evict_first",
+          "L2::evict_first",
+          "b64"
+        ],
+        "operands": [
+          {
+            "kind": "register"
+          },
+          {
+            "kind": "register"
+          }
+        ]
+      },
+      "summary": "Creates an L2 cache policy that marks the given fraction of accessed lines evict-first and marks the rest evict-first."
+    },
+    {
+      "id": "createpolicy_fractional_evict_last",
+      "operation_key": "memory.cache_policy.l2.fractional.evict_last",
+      "family": "cache_policy",
+      "source": {
+        "kind": "ptx_native",
+        "instruction": "createpolicy.fractional.L2::evict_last.b64"
+      },
+      "selections": [],
+      "rust": {
+        "abi_id": "i1039",
+        "module": "cache_policy",
+        "name": "createpolicy_fractional_evict_last",
+        "arguments": [
+          "f32"
+        ],
+        "result": "u64",
+        "safe": true,
+        "must_use": true,
+        "safe_allowlist_reason": "Computes an opaque L2 cache-hint value; it has no memory, pointer, synchronization, or participation effects.",
+        "canonical_path": "cuda_intrinsics::__cuda_oxide_intrinsic_abi_v1::i1039",
+        "public_path": "cuda_intrinsics::cache_policy::createpolicy_fractional_evict_last",
+        "compatibility_paths": [
+          "cuda_device::cache_policy::createpolicy_fractional_evict_last"
+        ]
+      },
+      "dialect": {
+        "op_type": "CreatepolicyFractionalEvictLastOp",
+        "op_name": "nvvm.createpolicy_fractional_evict_last",
+        "operands": [
+          "f32"
+        ],
+        "results": [
+          "i64"
+        ]
+      },
+      "semantics": {
+        "pure": true,
+        "memory": "none",
+        "convergent": false,
+        "execution_scope": "thread"
+      },
+      "target": {
+        "minimum_ptx": "7.4",
+        "hardware": {
+          "kind": "any_of",
+          "alternatives": [
+            {
+              "kind": "minimum_sm",
+              "sm": 80
+            }
+          ]
+        },
+        "ptx_result": "u64",
+        "targets": "all",
+        "ptx_isa_version": "9.3",
+        "ptx_isa_section": "9.7.9.19 Data Movement and Conversion Instructions: createpolicy",
+        "ptx_isa_url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
+      },
+      "backend": {
+        "profile": "rust-llvm-23.1.0-16696adc",
+        "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+        "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+        "status": "validated",
+        "target_triple": "nvptx64-nvidia-cuda",
+        "gpu_target": "sm_80",
+        "ptx_feature": "+ptx74"
+      },
+      "backend_lowerings": [
+        {
+          "backend": "llvm_nvptx",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "rust-llvm-23.1.0-16696adc",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+          "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+          "artifact_path": null,
+          "build_id_prefix": null,
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "one LLVM IR kernel with pure inline PTX for the eight createpolicy.fractional forms, each result stored to global memory",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "The pinned Rust LLVM emitted a 1,688-byte PTX 7.4 module containing all eight exact createpolicy instructions with =l,f operands; the 1,809-byte source had SHA-256 c5b30d67ad09a7e660b40eb06b95abb12c7c5e41b2ee542769b59313cea49a5f and the PTX had SHA-256 57eb0cd8d85f360b4fcd6c4f18e23122e34b6db1f5ec8ad4d59a571f5a21135f.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "LLVM-produced PTX retaining every createpolicy instruction",
+              "stage": "ptx_assembly",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 ptxas accepted the module and produced a 3,752-byte cubin with SHA-256 de040cf561206d1f7a94cecd6f01f7dedf50601f1fdca9c705622d832baf8238; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+              "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+              "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+            }
+          ]
+        },
+        {
+          "backend": "lib_nvvm",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+          "sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+          "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+          "build_id_prefix": "88b802",
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "compute_80",
+                "ptx93"
+              ],
+              "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx93"
+              ],
+              "representation": "linked cubin built from the libNVVM createpolicy probe",
+              "stage": "device_link",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+              "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+              "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+            }
+          ]
+        }
+      ],
+      "cache_policy": {
+        "form": "fractional",
+        "primary": "evict_last",
+        "secondary": "evict_unchanged"
+      },
+      "lowering": "generated_cache_policy_inline_ptx",
+      "expected_ptx": {
+        "mnemonic": "createpolicy",
+        "modifiers": [
+          "fractional",
+          "L2::evict_last",
+          "b64"
+        ],
+        "operands": [
+          {
+            "kind": "register"
+          },
+          {
+            "kind": "register"
+          }
+        ]
+      },
+      "summary": "Creates an L2 cache policy that marks the given fraction of accessed lines evict-last and leaves the rest unchanged."
+    },
+    {
+      "id": "createpolicy_fractional_evict_last_evict_first",
+      "operation_key": "memory.cache_policy.l2.fractional.evict_last.evict_first",
+      "family": "cache_policy",
+      "source": {
+        "kind": "ptx_native",
+        "instruction": "createpolicy.fractional.L2::evict_last.L2::evict_first.b64"
+      },
+      "selections": [],
+      "rust": {
+        "abi_id": "i1043",
+        "module": "cache_policy",
+        "name": "createpolicy_fractional_evict_last_evict_first",
+        "arguments": [
+          "f32"
+        ],
+        "result": "u64",
+        "safe": true,
+        "must_use": true,
+        "safe_allowlist_reason": "Computes an opaque L2 cache-hint value; it has no memory, pointer, synchronization, or participation effects.",
+        "canonical_path": "cuda_intrinsics::__cuda_oxide_intrinsic_abi_v1::i1043",
+        "public_path": "cuda_intrinsics::cache_policy::createpolicy_fractional_evict_last_evict_first",
+        "compatibility_paths": [
+          "cuda_device::cache_policy::createpolicy_fractional_evict_last_evict_first"
+        ]
+      },
+      "dialect": {
+        "op_type": "CreatepolicyFractionalEvictLastEvictFirstOp",
+        "op_name": "nvvm.createpolicy_fractional_evict_last_evict_first",
+        "operands": [
+          "f32"
+        ],
+        "results": [
+          "i64"
+        ]
+      },
+      "semantics": {
+        "pure": true,
+        "memory": "none",
+        "convergent": false,
+        "execution_scope": "thread"
+      },
+      "target": {
+        "minimum_ptx": "7.4",
+        "hardware": {
+          "kind": "any_of",
+          "alternatives": [
+            {
+              "kind": "minimum_sm",
+              "sm": 80
+            }
+          ]
+        },
+        "ptx_result": "u64",
+        "targets": "all",
+        "ptx_isa_version": "9.3",
+        "ptx_isa_section": "9.7.9.19 Data Movement and Conversion Instructions: createpolicy",
+        "ptx_isa_url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
+      },
+      "backend": {
+        "profile": "rust-llvm-23.1.0-16696adc",
+        "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+        "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+        "status": "validated",
+        "target_triple": "nvptx64-nvidia-cuda",
+        "gpu_target": "sm_80",
+        "ptx_feature": "+ptx74"
+      },
+      "backend_lowerings": [
+        {
+          "backend": "llvm_nvptx",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "rust-llvm-23.1.0-16696adc",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+          "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+          "artifact_path": null,
+          "build_id_prefix": null,
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "one LLVM IR kernel with pure inline PTX for the eight createpolicy.fractional forms, each result stored to global memory",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "The pinned Rust LLVM emitted a 1,688-byte PTX 7.4 module containing all eight exact createpolicy instructions with =l,f operands; the 1,809-byte source had SHA-256 c5b30d67ad09a7e660b40eb06b95abb12c7c5e41b2ee542769b59313cea49a5f and the PTX had SHA-256 57eb0cd8d85f360b4fcd6c4f18e23122e34b6db1f5ec8ad4d59a571f5a21135f.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "LLVM-produced PTX retaining every createpolicy instruction",
+              "stage": "ptx_assembly",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 ptxas accepted the module and produced a 3,752-byte cubin with SHA-256 de040cf561206d1f7a94cecd6f01f7dedf50601f1fdca9c705622d832baf8238; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+              "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+              "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+            }
+          ]
+        },
+        {
+          "backend": "lib_nvvm",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+          "sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+          "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+          "build_id_prefix": "88b802",
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "compute_80",
+                "ptx93"
+              ],
+              "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx93"
+              ],
+              "representation": "linked cubin built from the libNVVM createpolicy probe",
+              "stage": "device_link",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+              "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+              "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+            }
+          ]
+        }
+      ],
+      "cache_policy": {
+        "form": "fractional",
+        "primary": "evict_last",
+        "secondary": "evict_first"
+      },
+      "lowering": "generated_cache_policy_inline_ptx",
+      "expected_ptx": {
+        "mnemonic": "createpolicy",
+        "modifiers": [
+          "fractional",
+          "L2::evict_last",
+          "L2::evict_first",
+          "b64"
+        ],
+        "operands": [
+          {
+            "kind": "register"
+          },
+          {
+            "kind": "register"
+          }
+        ]
+      },
+      "summary": "Creates an L2 cache policy that marks the given fraction of accessed lines evict-last and marks the rest evict-first."
+    },
+    {
+      "id": "createpolicy_fractional_evict_normal",
+      "operation_key": "memory.cache_policy.l2.fractional.evict_normal",
+      "family": "cache_policy",
+      "source": {
+        "kind": "ptx_native",
+        "instruction": "createpolicy.fractional.L2::evict_normal.b64"
+      },
+      "selections": [],
+      "rust": {
+        "abi_id": "i1040",
+        "module": "cache_policy",
+        "name": "createpolicy_fractional_evict_normal",
+        "arguments": [
+          "f32"
+        ],
+        "result": "u64",
+        "safe": true,
+        "must_use": true,
+        "safe_allowlist_reason": "Computes an opaque L2 cache-hint value; it has no memory, pointer, synchronization, or participation effects.",
+        "canonical_path": "cuda_intrinsics::__cuda_oxide_intrinsic_abi_v1::i1040",
+        "public_path": "cuda_intrinsics::cache_policy::createpolicy_fractional_evict_normal",
+        "compatibility_paths": [
+          "cuda_device::cache_policy::createpolicy_fractional_evict_normal"
+        ]
+      },
+      "dialect": {
+        "op_type": "CreatepolicyFractionalEvictNormalOp",
+        "op_name": "nvvm.createpolicy_fractional_evict_normal",
+        "operands": [
+          "f32"
+        ],
+        "results": [
+          "i64"
+        ]
+      },
+      "semantics": {
+        "pure": true,
+        "memory": "none",
+        "convergent": false,
+        "execution_scope": "thread"
+      },
+      "target": {
+        "minimum_ptx": "7.4",
+        "hardware": {
+          "kind": "any_of",
+          "alternatives": [
+            {
+              "kind": "minimum_sm",
+              "sm": 80
+            }
+          ]
+        },
+        "ptx_result": "u64",
+        "targets": "all",
+        "ptx_isa_version": "9.3",
+        "ptx_isa_section": "9.7.9.19 Data Movement and Conversion Instructions: createpolicy",
+        "ptx_isa_url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
+      },
+      "backend": {
+        "profile": "rust-llvm-23.1.0-16696adc",
+        "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+        "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+        "status": "validated",
+        "target_triple": "nvptx64-nvidia-cuda",
+        "gpu_target": "sm_80",
+        "ptx_feature": "+ptx74"
+      },
+      "backend_lowerings": [
+        {
+          "backend": "llvm_nvptx",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "rust-llvm-23.1.0-16696adc",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+          "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+          "artifact_path": null,
+          "build_id_prefix": null,
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "one LLVM IR kernel with pure inline PTX for the eight createpolicy.fractional forms, each result stored to global memory",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "The pinned Rust LLVM emitted a 1,688-byte PTX 7.4 module containing all eight exact createpolicy instructions with =l,f operands; the 1,809-byte source had SHA-256 c5b30d67ad09a7e660b40eb06b95abb12c7c5e41b2ee542769b59313cea49a5f and the PTX had SHA-256 57eb0cd8d85f360b4fcd6c4f18e23122e34b6db1f5ec8ad4d59a571f5a21135f.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "LLVM-produced PTX retaining every createpolicy instruction",
+              "stage": "ptx_assembly",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 ptxas accepted the module and produced a 3,752-byte cubin with SHA-256 de040cf561206d1f7a94cecd6f01f7dedf50601f1fdca9c705622d832baf8238; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+              "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+              "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+            }
+          ]
+        },
+        {
+          "backend": "lib_nvvm",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+          "sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+          "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+          "build_id_prefix": "88b802",
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "compute_80",
+                "ptx93"
+              ],
+              "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx93"
+              ],
+              "representation": "linked cubin built from the libNVVM createpolicy probe",
+              "stage": "device_link",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+              "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+              "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+            }
+          ]
+        }
+      ],
+      "cache_policy": {
+        "form": "fractional",
+        "primary": "evict_normal",
+        "secondary": "evict_unchanged"
+      },
+      "lowering": "generated_cache_policy_inline_ptx",
+      "expected_ptx": {
+        "mnemonic": "createpolicy",
+        "modifiers": [
+          "fractional",
+          "L2::evict_normal",
+          "b64"
+        ],
+        "operands": [
+          {
+            "kind": "register"
+          },
+          {
+            "kind": "register"
+          }
+        ]
+      },
+      "summary": "Creates an L2 cache policy that marks the given fraction of accessed lines evict-normal and leaves the rest unchanged."
+    },
+    {
+      "id": "createpolicy_fractional_evict_normal_evict_first",
+      "operation_key": "memory.cache_policy.l2.fractional.evict_normal.evict_first",
+      "family": "cache_policy",
+      "source": {
+        "kind": "ptx_native",
+        "instruction": "createpolicy.fractional.L2::evict_normal.L2::evict_first.b64"
+      },
+      "selections": [],
+      "rust": {
+        "abi_id": "i1044",
+        "module": "cache_policy",
+        "name": "createpolicy_fractional_evict_normal_evict_first",
+        "arguments": [
+          "f32"
+        ],
+        "result": "u64",
+        "safe": true,
+        "must_use": true,
+        "safe_allowlist_reason": "Computes an opaque L2 cache-hint value; it has no memory, pointer, synchronization, or participation effects.",
+        "canonical_path": "cuda_intrinsics::__cuda_oxide_intrinsic_abi_v1::i1044",
+        "public_path": "cuda_intrinsics::cache_policy::createpolicy_fractional_evict_normal_evict_first",
+        "compatibility_paths": [
+          "cuda_device::cache_policy::createpolicy_fractional_evict_normal_evict_first"
+        ]
+      },
+      "dialect": {
+        "op_type": "CreatepolicyFractionalEvictNormalEvictFirstOp",
+        "op_name": "nvvm.createpolicy_fractional_evict_normal_evict_first",
+        "operands": [
+          "f32"
+        ],
+        "results": [
+          "i64"
+        ]
+      },
+      "semantics": {
+        "pure": true,
+        "memory": "none",
+        "convergent": false,
+        "execution_scope": "thread"
+      },
+      "target": {
+        "minimum_ptx": "7.4",
+        "hardware": {
+          "kind": "any_of",
+          "alternatives": [
+            {
+              "kind": "minimum_sm",
+              "sm": 80
+            }
+          ]
+        },
+        "ptx_result": "u64",
+        "targets": "all",
+        "ptx_isa_version": "9.3",
+        "ptx_isa_section": "9.7.9.19 Data Movement and Conversion Instructions: createpolicy",
+        "ptx_isa_url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
+      },
+      "backend": {
+        "profile": "rust-llvm-23.1.0-16696adc",
+        "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+        "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+        "status": "validated",
+        "target_triple": "nvptx64-nvidia-cuda",
+        "gpu_target": "sm_80",
+        "ptx_feature": "+ptx74"
+      },
+      "backend_lowerings": [
+        {
+          "backend": "llvm_nvptx",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "rust-llvm-23.1.0-16696adc",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+          "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+          "artifact_path": null,
+          "build_id_prefix": null,
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "one LLVM IR kernel with pure inline PTX for the eight createpolicy.fractional forms, each result stored to global memory",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "The pinned Rust LLVM emitted a 1,688-byte PTX 7.4 module containing all eight exact createpolicy instructions with =l,f operands; the 1,809-byte source had SHA-256 c5b30d67ad09a7e660b40eb06b95abb12c7c5e41b2ee542769b59313cea49a5f and the PTX had SHA-256 57eb0cd8d85f360b4fcd6c4f18e23122e34b6db1f5ec8ad4d59a571f5a21135f.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "LLVM-produced PTX retaining every createpolicy instruction",
+              "stage": "ptx_assembly",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 ptxas accepted the module and produced a 3,752-byte cubin with SHA-256 de040cf561206d1f7a94cecd6f01f7dedf50601f1fdca9c705622d832baf8238; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+              "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+              "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+            }
+          ]
+        },
+        {
+          "backend": "lib_nvvm",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+          "sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+          "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+          "build_id_prefix": "88b802",
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "compute_80",
+                "ptx93"
+              ],
+              "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx93"
+              ],
+              "representation": "linked cubin built from the libNVVM createpolicy probe",
+              "stage": "device_link",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+              "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+              "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+            }
+          ]
+        }
+      ],
+      "cache_policy": {
+        "form": "fractional",
+        "primary": "evict_normal",
+        "secondary": "evict_first"
+      },
+      "lowering": "generated_cache_policy_inline_ptx",
+      "expected_ptx": {
+        "mnemonic": "createpolicy",
+        "modifiers": [
+          "fractional",
+          "L2::evict_normal",
+          "L2::evict_first",
+          "b64"
+        ],
+        "operands": [
+          {
+            "kind": "register"
+          },
+          {
+            "kind": "register"
+          }
+        ]
+      },
+      "summary": "Creates an L2 cache policy that marks the given fraction of accessed lines evict-normal and marks the rest evict-first."
+    },
+    {
+      "id": "createpolicy_fractional_evict_unchanged",
+      "operation_key": "memory.cache_policy.l2.fractional.evict_unchanged",
+      "family": "cache_policy",
+      "source": {
+        "kind": "ptx_native",
+        "instruction": "createpolicy.fractional.L2::evict_unchanged.b64"
+      },
+      "selections": [],
+      "rust": {
+        "abi_id": "i1042",
+        "module": "cache_policy",
+        "name": "createpolicy_fractional_evict_unchanged",
+        "arguments": [
+          "f32"
+        ],
+        "result": "u64",
+        "safe": true,
+        "must_use": true,
+        "safe_allowlist_reason": "Computes an opaque L2 cache-hint value; it has no memory, pointer, synchronization, or participation effects.",
+        "canonical_path": "cuda_intrinsics::__cuda_oxide_intrinsic_abi_v1::i1042",
+        "public_path": "cuda_intrinsics::cache_policy::createpolicy_fractional_evict_unchanged",
+        "compatibility_paths": [
+          "cuda_device::cache_policy::createpolicy_fractional_evict_unchanged"
+        ]
+      },
+      "dialect": {
+        "op_type": "CreatepolicyFractionalEvictUnchangedOp",
+        "op_name": "nvvm.createpolicy_fractional_evict_unchanged",
+        "operands": [
+          "f32"
+        ],
+        "results": [
+          "i64"
+        ]
+      },
+      "semantics": {
+        "pure": true,
+        "memory": "none",
+        "convergent": false,
+        "execution_scope": "thread"
+      },
+      "target": {
+        "minimum_ptx": "7.4",
+        "hardware": {
+          "kind": "any_of",
+          "alternatives": [
+            {
+              "kind": "minimum_sm",
+              "sm": 80
+            }
+          ]
+        },
+        "ptx_result": "u64",
+        "targets": "all",
+        "ptx_isa_version": "9.3",
+        "ptx_isa_section": "9.7.9.19 Data Movement and Conversion Instructions: createpolicy",
+        "ptx_isa_url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
+      },
+      "backend": {
+        "profile": "rust-llvm-23.1.0-16696adc",
+        "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+        "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+        "status": "validated",
+        "target_triple": "nvptx64-nvidia-cuda",
+        "gpu_target": "sm_80",
+        "ptx_feature": "+ptx74"
+      },
+      "backend_lowerings": [
+        {
+          "backend": "llvm_nvptx",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "rust-llvm-23.1.0-16696adc",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+          "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+          "artifact_path": null,
+          "build_id_prefix": null,
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "one LLVM IR kernel with pure inline PTX for the eight createpolicy.fractional forms, each result stored to global memory",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "The pinned Rust LLVM emitted a 1,688-byte PTX 7.4 module containing all eight exact createpolicy instructions with =l,f operands; the 1,809-byte source had SHA-256 c5b30d67ad09a7e660b40eb06b95abb12c7c5e41b2ee542769b59313cea49a5f and the PTX had SHA-256 57eb0cd8d85f360b4fcd6c4f18e23122e34b6db1f5ec8ad4d59a571f5a21135f.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "LLVM-produced PTX retaining every createpolicy instruction",
+              "stage": "ptx_assembly",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 ptxas accepted the module and produced a 3,752-byte cubin with SHA-256 de040cf561206d1f7a94cecd6f01f7dedf50601f1fdca9c705622d832baf8238; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+              "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+              "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+            }
+          ]
+        },
+        {
+          "backend": "lib_nvvm",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+          "sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+          "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+          "build_id_prefix": "88b802",
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "compute_80",
+                "ptx93"
+              ],
+              "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx93"
+              ],
+              "representation": "linked cubin built from the libNVVM createpolicy probe",
+              "stage": "device_link",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+              "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+              "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+            }
+          ]
+        }
+      ],
+      "cache_policy": {
+        "form": "fractional",
+        "primary": "evict_unchanged",
+        "secondary": "evict_unchanged"
+      },
+      "lowering": "generated_cache_policy_inline_ptx",
+      "expected_ptx": {
+        "mnemonic": "createpolicy",
+        "modifiers": [
+          "fractional",
+          "L2::evict_unchanged",
+          "b64"
+        ],
+        "operands": [
+          {
+            "kind": "register"
+          },
+          {
+            "kind": "register"
+          }
+        ]
+      },
+      "summary": "Creates an L2 cache policy that leaves the eviction priority of all accessed lines unchanged."
+    },
+    {
+      "id": "createpolicy_fractional_evict_unchanged_evict_first",
+      "operation_key": "memory.cache_policy.l2.fractional.evict_unchanged.evict_first",
+      "family": "cache_policy",
+      "source": {
+        "kind": "ptx_native",
+        "instruction": "createpolicy.fractional.L2::evict_unchanged.L2::evict_first.b64"
+      },
+      "selections": [],
+      "rust": {
+        "abi_id": "i1046",
+        "module": "cache_policy",
+        "name": "createpolicy_fractional_evict_unchanged_evict_first",
+        "arguments": [
+          "f32"
+        ],
+        "result": "u64",
+        "safe": true,
+        "must_use": true,
+        "safe_allowlist_reason": "Computes an opaque L2 cache-hint value; it has no memory, pointer, synchronization, or participation effects.",
+        "canonical_path": "cuda_intrinsics::__cuda_oxide_intrinsic_abi_v1::i1046",
+        "public_path": "cuda_intrinsics::cache_policy::createpolicy_fractional_evict_unchanged_evict_first",
+        "compatibility_paths": [
+          "cuda_device::cache_policy::createpolicy_fractional_evict_unchanged_evict_first"
+        ]
+      },
+      "dialect": {
+        "op_type": "CreatepolicyFractionalEvictUnchangedEvictFirstOp",
+        "op_name": "nvvm.createpolicy_fractional_evict_unchanged_evict_first",
+        "operands": [
+          "f32"
+        ],
+        "results": [
+          "i64"
+        ]
+      },
+      "semantics": {
+        "pure": true,
+        "memory": "none",
+        "convergent": false,
+        "execution_scope": "thread"
+      },
+      "target": {
+        "minimum_ptx": "7.4",
+        "hardware": {
+          "kind": "any_of",
+          "alternatives": [
+            {
+              "kind": "minimum_sm",
+              "sm": 80
+            }
+          ]
+        },
+        "ptx_result": "u64",
+        "targets": "all",
+        "ptx_isa_version": "9.3",
+        "ptx_isa_section": "9.7.9.19 Data Movement and Conversion Instructions: createpolicy",
+        "ptx_isa_url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
+      },
+      "backend": {
+        "profile": "rust-llvm-23.1.0-16696adc",
+        "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+        "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+        "status": "validated",
+        "target_triple": "nvptx64-nvidia-cuda",
+        "gpu_target": "sm_80",
+        "ptx_feature": "+ptx74"
+      },
+      "backend_lowerings": [
+        {
+          "backend": "llvm_nvptx",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "rust-llvm-23.1.0-16696adc",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "LLVM version 23.1.0-rust-1.100.0-nightly",
+          "sha256": "2e5bc688625ca7d98bca9b5f0f0d14525d2eb59e8a9842964e480df3ffd1f921",
+          "artifact_path": null,
+          "build_id_prefix": null,
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "one LLVM IR kernel with pure inline PTX for the eight createpolicy.fractional forms, each result stored to global memory",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "The pinned Rust LLVM emitted a 1,688-byte PTX 7.4 module containing all eight exact createpolicy instructions with =l,f operands; the 1,809-byte source had SHA-256 c5b30d67ad09a7e660b40eb06b95abb12c7c5e41b2ee542769b59313cea49a5f and the PTX had SHA-256 57eb0cd8d85f360b4fcd6c4f18e23122e34b6db1f5ec8ad4d59a571f5a21135f.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx74"
+              ],
+              "representation": "LLVM-produced PTX retaining every createpolicy instruction",
+              "stage": "ptx_assembly",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 ptxas accepted the module and produced a 3,752-byte cubin with SHA-256 de040cf561206d1f7a94cecd6f01f7dedf50601f1fdca9c705622d832baf8238; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/bin/ptxas",
+              "tool_version": "CUDA 13.3 V13.3.73 build cuda_13.3.r13.3/compiler.38244171_0",
+              "tool_sha256": "afd8d1e1fa6e310f7faee44f6621e4c1315fb7fd6da7d4d87414358e12a651dc"
+            }
+          ]
+        },
+        {
+          "backend": "lib_nvvm",
+          "mechanism": "inline_ptx",
+          "evidence_profile": "cuda-13.3-libnvvm-13.3.73-cache-policy",
+          "target": {
+            "minimum_ptx": "7.4",
+            "hardware": {
+              "kind": "any_of",
+              "alternatives": [
+                {
+                  "kind": "minimum_sm",
+                  "sm": 80
+                }
+              ]
+            }
+          },
+          "version": "CUDA 13.3 libNVVM package 13.3.73; libNVVM API 2.0",
+          "sha256": "e55af1135e987372355d19d66cb74e1a1e99c32ac98ffad14fb567eef16e4f77",
+          "artifact_path": "/usr/local/cuda-13.3/nvvm/lib64/libnvvm.so.4.0.0",
+          "build_id_prefix": "88b802",
+          "status": "validated",
+          "stages": [
+            {
+              "targets": [
+                "compute_80",
+                "ptx93"
+              ],
+              "representation": "one NVVM IR 2.0 kernel with pure inline PTX for the eight createpolicy.fractional forms",
+              "stage": "backend_codegen",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3.73 libNVVM retained every exact instruction with no extern calls. The 2,044-byte NVVM IR 2.0 source had SHA-256 1c7483b1ff55818c2908cb37e8610fad97c4571598e2191e042f6a1ba4ef922f; the 1,604-byte PTX 9.3 output had SHA-256 8eebe13d7e2cbc177c9b765773a7d6c170ec4d03317f76e980dde083e96510bf.",
+              "artifact_kind": null,
+              "tool_path": null,
+              "tool_version": null,
+              "tool_sha256": null
+            },
+            {
+              "targets": [
+                "sm_80",
+                "ptx93"
+              ],
+              "representation": "linked cubin built from the libNVVM createpolicy probe",
+              "stage": "device_link",
+              "mechanism": "inline_ptx",
+              "outcome": "succeeded",
+              "detail": "CUDA 13.3 nvJitLink produced a 3,880-byte CUDA ELF cubin with SHA-256 c65597ca884beebffbb0965bd668e8a990456c751db2ae15872bffd1cada1078; ptxas folds each policy into integer ALU operations over the fraction.",
+              "artifact_kind": "cubin",
+              "tool_path": "/usr/local/cuda-13.3/lib64/libnvJitLink.so.13.3.33",
+              "tool_version": "CUDA 13.3 nvJitLink 13.3.33",
+              "tool_sha256": "3ba1e744347cd68617b862eccfd98b125482e882b7a6319f42abc9a768513db8"
+            }
+          ]
+        }
+      ],
+      "cache_policy": {
+        "form": "fractional",
+        "primary": "evict_unchanged",
+        "secondary": "evict_first"
+      },
+      "lowering": "generated_cache_policy_inline_ptx",
+      "expected_ptx": {
+        "mnemonic": "createpolicy",
+        "modifiers": [
+          "fractional",
+          "L2::evict_unchanged",
+          "L2::evict_first",
+          "b64"
+        ],
+        "operands": [
+          {
+            "kind": "register"
+          },
+          {
+            "kind": "register"
+          }
+        ]
+      },
+      "summary": "Creates an L2 cache policy that leaves the given fraction of accessed lines unchanged and marks the rest evict-first."
     },
     {
       "id": "cvt_f16x2_f32",

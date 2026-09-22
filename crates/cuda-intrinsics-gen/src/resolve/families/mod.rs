@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+pub(super) mod cache_policy;
 pub(super) mod clc;
 pub(super) mod cluster;
 pub(super) mod cp_async;
@@ -25,6 +26,7 @@ pub(super) mod threadfence;
 pub(super) mod tma;
 pub(super) mod warp;
 
+pub(super) use cache_policy::*;
 pub(super) use clc::*;
 pub(super) use cluster::*;
 pub(super) use cp_async::*;

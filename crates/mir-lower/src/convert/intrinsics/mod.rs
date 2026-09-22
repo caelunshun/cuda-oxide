@@ -98,6 +98,7 @@
 pub mod asm;
 pub mod atomic;
 pub mod basic;
+pub mod cache_policy;
 pub mod clc;
 pub mod cluster;
 pub mod common;

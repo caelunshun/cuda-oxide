@@ -9,36 +9,36 @@ use crate::render::collector_targets::render_targets;
 use crate::render::collector_targets::{render_collector, render_targets_files};
 use crate::render::common::backend_label;
 use crate::render::compat::{
-    render_compat_clc, render_compat_cluster_barrier, render_compat_cluster_memory,
-    render_compat_cluster_sreg, render_compat_counted_barrier, render_compat_cp_async_copy,
-    render_compat_debug_control, render_compat_dotprod, render_compat_fence,
-    render_compat_float_output, render_compat_grid_dependency, render_compat_integer_minmax,
-    render_compat_ldmatrix, render_compat_mbarrier_basic, render_compat_mbarrier_extended,
-    render_compat_movmatrix, render_compat_packed_alu, render_compat_packed_atomic,
-    render_compat_packed_conversion, render_compat_prmt, render_compat_register_control,
-    render_compat_register_mma, render_compat_scalar_minmax, render_compat_sparse_mma,
-    render_compat_special_register_module, render_compat_sreg, render_compat_stmatrix,
-    render_compat_tcgen05, render_compat_tma, render_compat_wgmma_control,
+    render_compat_cache_policy, render_compat_clc, render_compat_cluster_barrier,
+    render_compat_cluster_memory, render_compat_cluster_sreg, render_compat_counted_barrier,
+    render_compat_cp_async_copy, render_compat_debug_control, render_compat_dotprod,
+    render_compat_fence, render_compat_float_output, render_compat_grid_dependency,
+    render_compat_integer_minmax, render_compat_ldmatrix, render_compat_mbarrier_basic,
+    render_compat_mbarrier_extended, render_compat_movmatrix, render_compat_packed_alu,
+    render_compat_packed_atomic, render_compat_packed_conversion, render_compat_prmt,
+    render_compat_register_control, render_compat_register_mma, render_compat_scalar_minmax,
+    render_compat_sparse_mma, render_compat_special_register_module, render_compat_sreg,
+    render_compat_stmatrix, render_compat_tcgen05, render_compat_tma, render_compat_wgmma_control,
 };
 use crate::render::dialect::{
-    render_dialect_active_mask, render_dialect_clc, render_dialect_cluster_barrier,
-    render_dialect_cluster_memory, render_dialect_cp_async_copy, render_dialect_debug_control,
-    render_dialect_dotprod, render_dialect_elect, render_dialect_execution_control,
-    render_dialect_extended_minmax, render_dialect_integer_minmax, render_dialect_ldmatrix,
-    render_dialect_mbarrier_basic, render_dialect_mbarrier_extended, render_dialect_mod,
-    render_dialect_movmatrix, render_dialect_packed_alu, render_dialect_packed_atomic,
-    render_dialect_packed_conversion, render_dialect_prmt, render_dialect_redux,
-    render_dialect_register_mma, render_dialect_scalar_arithmetic,
-    render_dialect_scalar_conversion, render_dialect_scalar_math, render_dialect_sparse_mma,
-    render_dialect_sreg, render_dialect_stmatrix, render_dialect_sync, render_dialect_tcgen05,
-    render_dialect_tma, render_dialect_vote, render_dialect_warp_barrier,
+    render_dialect_active_mask, render_dialect_cache_policy, render_dialect_clc,
+    render_dialect_cluster_barrier, render_dialect_cluster_memory, render_dialect_cp_async_copy,
+    render_dialect_debug_control, render_dialect_dotprod, render_dialect_elect,
+    render_dialect_execution_control, render_dialect_extended_minmax,
+    render_dialect_integer_minmax, render_dialect_ldmatrix, render_dialect_mbarrier_basic,
+    render_dialect_mbarrier_extended, render_dialect_mod, render_dialect_movmatrix,
+    render_dialect_packed_alu, render_dialect_packed_atomic, render_dialect_packed_conversion,
+    render_dialect_prmt, render_dialect_redux, render_dialect_register_mma,
+    render_dialect_scalar_arithmetic, render_dialect_scalar_conversion, render_dialect_scalar_math,
+    render_dialect_sparse_mma, render_dialect_sreg, render_dialect_stmatrix, render_dialect_sync,
+    render_dialect_tcgen05, render_dialect_tma, render_dialect_vote, render_dialect_warp_barrier,
     render_dialect_warp_match, render_dialect_warp_shuffle, render_dialect_wgmma_control,
 };
 use crate::render::families::{
-    clc_intrinsics, cluster_memory, debug_controls, elect_intrinsics, execution_controls,
-    extended_minmax, extended_minmax_contract, integer_minmaxes, mbarrier_extended, movmatrix,
-    scalar_arithmetics, scalar_conversions, scalar_maths, stmatrices, sync_intrinsics,
-    tcgen05_intrinsics, threadfence_ptx_level, tma_intrinsics, wgmma_controls,
+    cache_policies, clc_intrinsics, cluster_memory, debug_controls, elect_intrinsics,
+    execution_controls, extended_minmax, extended_minmax_contract, integer_minmaxes,
+    mbarrier_extended, movmatrix, scalar_arithmetics, scalar_conversions, scalar_maths, stmatrices,
+    sync_intrinsics, tcgen05_intrinsics, threadfence_ptx_level, tma_intrinsics, wgmma_controls,
 };
 #[cfg(test)]
 use crate::render::importer::render_importer;
@@ -207,6 +207,16 @@ pub fn all_outputs(
                 render_compat_integer_minmax(catalog, catalog_sha256, module),
             );
         }
+    }
+    if cache_policies(catalog).next().is_some() {
+        outputs.insert(
+            "crates/cuda-device/src/generated/cache_policy.rs".into(),
+            render_compat_cache_policy(catalog, catalog_sha256),
+        );
+        outputs.insert(
+            "crates/dialect-nvvm/src/ops/generated/cache_policy.rs".into(),
+            render_dialect_cache_policy(catalog, catalog_sha256),
+        );
     }
     if integer_minmaxes(catalog).next().is_some() {
         outputs.insert(

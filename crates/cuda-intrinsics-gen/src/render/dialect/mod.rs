@@ -6,10 +6,10 @@
 use crate::model::CatalogFile;
 use crate::render::common::rust_header;
 use crate::render::families::{
-    clc_intrinsics, cluster_memory, debug_controls, elect_intrinsics, execution_controls,
-    extended_minmax, integer_minmaxes, mbarrier_extended, movmatrix, scalar_arithmetics,
-    scalar_conversions, scalar_maths, stmatrices, tcgen05_intrinsics, tma_intrinsics,
-    wgmma_controls,
+    cache_policies, clc_intrinsics, cluster_memory, debug_controls, elect_intrinsics,
+    execution_controls, extended_minmax, integer_minmaxes, mbarrier_extended, movmatrix,
+    scalar_arithmetics, scalar_conversions, scalar_maths, stmatrices, tcgen05_intrinsics,
+    tma_intrinsics, wgmma_controls,
 };
 
 mod cluster_tensor;
@@ -61,6 +61,18 @@ pub(super) fn render_dialect_mod(catalog: &CatalogFile, hash: &str) -> String {
             .replace(
                 "    redux::register(ctx);",
                 "    redux::register(ctx);\n    scalar_math::register(ctx);",
+            );
+    }
+    if cache_policies(catalog).next().is_some() {
+        output = output
+            .replace("mod active_mask;", "mod active_mask;\nmod cache_policy;")
+            .replace(
+                "pub use active_mask::*;",
+                "pub use active_mask::*;\npub use cache_policy::*;",
+            )
+            .replace(
+                "    active_mask::register(ctx);",
+                "    active_mask::register(ctx);\n    cache_policy::register(ctx);",
             );
     }
     if integer_minmaxes(catalog).next().is_some() {

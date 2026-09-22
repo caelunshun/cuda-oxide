@@ -5,7 +5,7 @@
 
 use super::catalog::TargetContract;
 use super::contracts::{
-    ActiveMask, Clc, ClcOperation, ClusterBarrier, ClusterBarrierMode, ClusterMemory,
+    ActiveMask, CachePolicy, Clc, ClcOperation, ClusterBarrier, ClusterBarrierMode, ClusterMemory,
     ClusterMemoryOperation, CpAsyncControl, CpAsyncCopy, CpAsyncMbarrier, DebugControl,
     DebugControlOperation, DotProduct, ExtendedMinMax, ExtendedMinMaxFormat, ExtendedMinMaxNan,
     ExtendedMinMaxOperation, ExtendedMinMaxSubnormal, IntegerMinMax, LdmatrixAdapter,
@@ -827,6 +827,8 @@ pub struct OverlayIntrinsic {
     pub packed_alu: Option<PackedAlu>,
     #[serde(default)]
     pub integer_minmax: Option<IntegerMinMax>,
+    #[serde(default)]
+    pub cache_policy: Option<CachePolicy>,
     #[serde(default)]
     pub packed_conversion: Option<PackedConversion>,
     #[serde(default)]

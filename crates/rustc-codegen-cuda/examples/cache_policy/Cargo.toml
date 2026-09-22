@@ -1,0 +1,16 @@
+[package]
+name = "cache_policy"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace]
+
+# `createpolicy` needs sm_80+; the bulk copy that consumes the policy needs
+# sm_90+. Build with:
+#   cargo oxide run cache_policy
+
+[dependencies]
+cuda-core = "0.3.1"
+cuda-device = { path = "../../../cuda-device" }
+cuda-host = { path = "../../../cuda-host" }

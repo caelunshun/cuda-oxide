@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+mod cache_policy;
 mod control;
 mod matrix;
 mod memory;
@@ -11,6 +12,7 @@ mod tcgen05;
 mod tma;
 mod warp;
 
+pub use self::cache_policy::*;
 pub use self::control::*;
 pub use self::matrix::*;
 pub use self::memory::*;

@@ -100,6 +100,7 @@ pub(super) fn policy() -> OverlayIntrinsic {
         dot_product: None,
         packed_alu: None,
         integer_minmax: None,
+        cache_policy: None,
         packed_conversion: None,
         scalar_conversion: None,
         scalar_arithmetic: None,

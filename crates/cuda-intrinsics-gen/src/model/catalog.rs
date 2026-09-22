@@ -4,12 +4,12 @@
  */
 
 use super::contracts::{
-    ActiveMask, Clc, ClusterBarrier, ClusterMemory, CpAsyncControl, CpAsyncCopy, CpAsyncMbarrier,
-    DebugControl, DotProduct, ExtendedMinMax, IntegerMinMax, LdmatrixAdapter, LdmatrixSafety,
-    LdmatrixVariant, MbarrierBasic, MbarrierExtended, Movmatrix, PackedAlu, PackedAtomic,
-    PackedConversion, Prmt, Redux, RegisterMma, ScalarArithmetic, ScalarConversion, ScalarMath,
-    SparseMma, SpecialRegister, Tcgen05, Tma, Vote, WarpBarrier, WarpMatch, WarpShuffle,
-    WgmmaControl,
+    ActiveMask, CachePolicy, Clc, ClusterBarrier, ClusterMemory, CpAsyncControl, CpAsyncCopy,
+    CpAsyncMbarrier, DebugControl, DotProduct, ExtendedMinMax, IntegerMinMax, LdmatrixAdapter,
+    LdmatrixSafety, LdmatrixVariant, MbarrierBasic, MbarrierExtended, Movmatrix, PackedAlu,
+    PackedAtomic, PackedConversion, Prmt, Redux, RegisterMma, ScalarArithmetic, ScalarConversion,
+    ScalarMath, SparseMma, SpecialRegister, Tcgen05, Tma, Vote, WarpBarrier, WarpMatch,
+    WarpShuffle, WgmmaControl,
 };
 use super::core::{BackendLoweringMechanism, IntrinsicBackend, IntrinsicSource};
 use super::evidence::EvidenceStage;
@@ -81,6 +81,8 @@ pub struct CatalogIntrinsic {
     pub packed_alu: Option<PackedAlu>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub integer_minmax: Option<IntegerMinMax>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_policy: Option<CachePolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub packed_conversion: Option<PackedConversion>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

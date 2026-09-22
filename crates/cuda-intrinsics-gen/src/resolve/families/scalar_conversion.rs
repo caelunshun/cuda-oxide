@@ -326,6 +326,7 @@ pub(in crate::resolve) fn scalar_conversion_overlay_record(
         dot_product: None,
         packed_alu: None,
         integer_minmax: None,
+        cache_policy: None,
         packed_conversion: None,
         scalar_conversion: Some(ScalarConversion {
             source_format: ScalarConversionSourceFormat::F32,

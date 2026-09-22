@@ -16,17 +16,18 @@ use crate::model::{
 };
 use crate::render::common::{backend_label, llvm, llvm_header};
 use crate::render::families::{
-    extended_minmax_contract, extended_minmax_ptx_mnemonic, integer_minmax_ptx_mnemonic,
-    movmatrix_template, packed_alu_ptx_mnemonic, packed_alu_register_constraint, packed_alu_width,
-    packed_conversion_constraint, packed_conversion_dialect_type, packed_conversion_ptx_mnemonic,
-    packed_conversion_source, packed_conversion_source_width, packed_conversion_typed_llvm_name,
-    register_mma_constraints, register_mma_fragment_counts, register_mma_template,
-    scalar_arithmetic_arity, scalar_arithmetic_llvm_mechanism, scalar_arithmetic_llvm_type,
-    scalar_arithmetic_ptx_mnemonic, scalar_math_llvm_mechanism, scalar_math_llvm_type,
-    scalar_math_ptx_mnemonic, sparse_mma_constraints, sparse_mma_fragment_counts,
-    sparse_mma_selector_values, sparse_mma_template, special_register_backend_mechanism,
-    special_register_inline_template, special_register_output_constraint, stmatrix_variant,
-    tcgen05_inline_asm, tcgen05_ld_register_count, tcgen05_mma_inline_asm, tcgen05_mma_is_ws,
+    cache_policy_instruction, extended_minmax_contract, extended_minmax_ptx_mnemonic,
+    integer_minmax_ptx_mnemonic, movmatrix_template, packed_alu_ptx_mnemonic,
+    packed_alu_register_constraint, packed_alu_width, packed_conversion_constraint,
+    packed_conversion_dialect_type, packed_conversion_ptx_mnemonic, packed_conversion_source,
+    packed_conversion_source_width, packed_conversion_typed_llvm_name, register_mma_constraints,
+    register_mma_fragment_counts, register_mma_template, scalar_arithmetic_arity,
+    scalar_arithmetic_llvm_mechanism, scalar_arithmetic_llvm_type, scalar_arithmetic_ptx_mnemonic,
+    scalar_math_llvm_mechanism, scalar_math_llvm_type, scalar_math_ptx_mnemonic,
+    sparse_mma_constraints, sparse_mma_fragment_counts, sparse_mma_selector_values,
+    sparse_mma_template, special_register_backend_mechanism, special_register_inline_template,
+    special_register_output_constraint, stmatrix_variant, tcgen05_inline_asm,
+    tcgen05_ld_register_count, tcgen05_mma_inline_asm, tcgen05_mma_is_ws,
     tcgen05_mma_runtime_parameters, tcgen05_st_register_count, threadfence_ptx_level,
 };
 use std::fmt::Write as _;
@@ -1348,6 +1349,20 @@ pub(crate) fn render_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, has
                 output.push_str("  ret void\n}\n\nattributes #0 = { convergent }\n");
             }
         }
+    } else if record.cache_policy.is_some() {
+        writeln!(
+            output,
+            "define i64 @probe_{}(float %fraction) {{",
+            record.id
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "  %result = call i64 asm \"{} $0, $1;\", \"=l,f\"(float %fraction)",
+            cache_policy_instruction(record)
+        )
+        .unwrap();
+        output.push_str("  ret i64 %result\n}\n");
     } else if record.integer_minmax.is_some() {
         let parameters = "i32 %arg0, i32 %arg1";
         writeln!(output, "define i32 @probe_{}({parameters}) {{", record.id).unwrap();

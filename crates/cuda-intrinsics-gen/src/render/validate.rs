@@ -1403,6 +1403,21 @@ pub(super) fn validate_renderable(catalog: &CatalogFile) -> Result<()> {
                 "{} is outside the closed generated shfl.sync recipe",
                 record.id
             ),
+            "cache_policy" => ensure!(
+                record.cache_policy.is_some()
+                    && record.rust.module == "cache_policy"
+                    && record.rust.arguments == ["f32"]
+                    && record.rust.result == "u64"
+                    && record.rust.safe
+                    && record.rust.must_use
+                    && record.dialect.operands == ["f32"]
+                    && record.dialect.results == ["i64"]
+                    && record.lowering == "generated_cache_policy_inline_ptx"
+                    && record.llvm.is_none()
+                    && matches!(record.source, IntrinsicSource::PtxNative { .. }),
+                "{} is outside the closed generated cache-policy recipe",
+                record.id
+            ),
             "integer_minmax" => ensure!(
                 record.integer_minmax.as_ref().is_some_and(|minmax| {
                     let module = match minmax.format {

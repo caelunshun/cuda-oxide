@@ -15,17 +15,18 @@ use crate::model::{
 };
 use crate::render::common::{hardware_target_label, llvm, rust_header, source_label};
 use crate::render::families::{
-    ClcSafetyArgNames, clc_intrinsics, cluster_barriers, cluster_memory, cp_async_controls,
-    cp_async_copies, cp_async_mbarriers, debug_controls, dot_products, execution_control_family,
-    expected_ptx_head, extended_minmax, extended_minmax_rust_type, integer_minmaxes,
-    is_blackwell_ldmatrix, ldmatrix, mbarrier_basics, mbarrier_extended, movmatrix,
-    packed_alu_format_shape, packed_alus, packed_atomics, packed_conversion_rust_arguments,
-    packed_conversion_source, packed_conversions, prmts, register_mmas, render_clc_safety_lines,
-    scalar_arithmetic_arity, scalar_arithmetic_rust_type, scalar_arithmetics, scalar_conversions,
-    scalar_math_contract, scalar_maths, sparse_mma_fragment_counts, sparse_mma_metadata_rule,
-    sparse_mma_ptx_head, sparse_mma_selector_description, sparse_mmas, sregs, stmatrices,
-    stmatrix_compatibility_name, stmatrix_variant, sync_intrinsics, tcgen05_intrinsics,
-    tcgen05_is_commit, tcgen05_is_multicast_commit, tcgen05_is_shift, tcgen05_ld_register_count,
+    ClcSafetyArgNames, cache_policies, cache_policy_instruction, clc_intrinsics, cluster_barriers,
+    cluster_memory, cp_async_controls, cp_async_copies, cp_async_mbarriers, debug_controls,
+    dot_products, execution_control_family, expected_ptx_head, extended_minmax,
+    extended_minmax_rust_type, integer_minmaxes, is_blackwell_ldmatrix, ldmatrix, mbarrier_basics,
+    mbarrier_extended, movmatrix, packed_alu_format_shape, packed_alus, packed_atomics,
+    packed_conversion_rust_arguments, packed_conversion_source, packed_conversions, prmts,
+    register_mmas, render_clc_safety_lines, scalar_arithmetic_arity, scalar_arithmetic_rust_type,
+    scalar_arithmetics, scalar_conversions, scalar_math_contract, scalar_maths,
+    sparse_mma_fragment_counts, sparse_mma_metadata_rule, sparse_mma_ptx_head,
+    sparse_mma_selector_description, sparse_mmas, sregs, stmatrices, stmatrix_compatibility_name,
+    stmatrix_variant, sync_intrinsics, tcgen05_intrinsics, tcgen05_is_commit,
+    tcgen05_is_multicast_commit, tcgen05_is_shift, tcgen05_ld_register_count,
     tcgen05_mma_runtime_parameters, tcgen05_mma_selector_parameters, tcgen05_participation_doc,
     tcgen05_st_register_count, threadfence_ptx_level, tma_intrinsics, wgmma_control,
     wgmma_controls,
@@ -2002,6 +2003,43 @@ pub(super) fn render_compat_integer_minmax(
         )
         .unwrap();
         output.push_str("    let _ = (arg0, arg1);\n");
+        writeln!(
+            output,
+            "    unreachable!(\"generated CUDA intrinsic `{path}` executed outside device compilation\")"
+        )
+        .unwrap();
+        output.push_str("}\n\n");
+    }
+    output
+}
+
+pub(super) fn render_compat_cache_policy(catalog: &CatalogFile, hash: &str) -> String {
+    let mut output = rust_header(catalog, hash);
+    output.push_str(
+        "// Included inside `cuda_device::cache_policy` to keep existing paths stable.\n\n",
+    );
+    for record in cache_policies(catalog) {
+        let path = record
+            .rust
+            .compatibility_paths
+            .iter()
+            .find(|path| path.starts_with("cuda_device::cache_policy::"))
+            .expect("cache-policy compatibility path");
+        writeln!(output, "/// {}", record.summary).unwrap();
+        writeln!(
+            output,
+            "///\n/// Emits `{} policy, fraction;`. `fraction` must be in `(0.0, 1.0]`.",
+            cache_policy_instruction(record)
+        )
+        .unwrap();
+        output.push_str("#[must_use]\n#[inline(never)]\n");
+        writeln!(
+            output,
+            "pub fn {}(fraction: f32) -> u64 {{",
+            record.rust.name
+        )
+        .unwrap();
+        output.push_str("    let _ = fraction;\n");
         writeln!(
             output,
             "    unreachable!(\"generated CUDA intrinsic `{path}` executed outside device compilation\")"

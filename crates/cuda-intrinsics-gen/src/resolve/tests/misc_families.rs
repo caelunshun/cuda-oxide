@@ -1136,3 +1136,79 @@ fn return_range_properties_are_half_open_and_unique() {
         imported_result_facts(&["Range<ret,0,32>".into(), "Range<ret,0,64>".into()]).unwrap_err();
     assert!(duplicate.to_string().contains("duplicate return range"));
 }
+
+#[test]
+fn cache_policy_admission_is_closed_and_fails_closed() {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let (overlay, _) =
+        read_overlay(&repo_root, &repo_root.join("intrinsics/overlay.toml")).unwrap();
+    let policies = overlay
+        .intrinsics
+        .iter()
+        .filter(|policy| policy.family == "cache_policy")
+        .collect::<Vec<_>>();
+    assert_eq!(policies.len(), 8);
+    for policy in &policies {
+        let source = resolve_policy_source(policy).unwrap();
+        validate_cache_policy_policy(policy, &source, None).unwrap();
+        assert_eq!(
+            source,
+            IntrinsicSource::PtxNative {
+                instruction: policy.cache_policy.as_ref().unwrap().ptx_instruction(),
+            }
+        );
+    }
+
+    let base = policies
+        .iter()
+        .find(|policy| policy.id == "createpolicy_fractional_evict_last_evict_first")
+        .copied()
+        .unwrap()
+        .clone();
+    let source = resolve_policy_source(&base).unwrap();
+    assert_eq!(
+        source,
+        IntrinsicSource::PtxNative {
+            instruction: "createpolicy.fractional.L2::evict_last.L2::evict_first.b64".into(),
+        }
+    );
+
+    let mut swapped = base.clone();
+    swapped.cache_policy.as_mut().unwrap().secondary =
+        crate::model::CachePolicySecondaryPriority::EvictUnchanged;
+    assert!(validate_cache_policy_policy(&swapped, &source, None).is_err());
+
+    let mut unsafe_api = base.clone();
+    unsafe_api.safe = false;
+    assert!(validate_cache_policy_policy(&unsafe_api, &source, None).is_err());
+
+    let mut lowered_floor = base.clone();
+    lowered_floor.minimum_sm = Some("sm_75".into());
+    assert!(validate_cache_policy_policy(&lowered_floor, &source, None).is_err());
+
+    let mut wrong_modifiers = base.clone();
+    wrong_modifiers.expected_ptx.modifiers.pop();
+    assert!(validate_cache_policy_policy(&wrong_modifiers, &source, None).is_err());
+
+    let mut single_backend = base.clone();
+    single_backend.backend_lowerings.pop();
+    assert!(validate_cache_policy_policy(&single_backend, &source, None).is_err());
+
+    let other_source = IntrinsicSource::PtxNative {
+        instruction: "createpolicy.fractional.L2::evict_last.b64".into(),
+    };
+    assert!(validate_cache_policy_policy(&base, &other_source, None).is_err());
+
+    let mut mixed = base;
+    mixed.integer_minmax = policies
+        .first()
+        .and_then(|_| {
+            overlay
+                .intrinsics
+                .iter()
+                .find(|policy| policy.family == "integer_minmax")
+        })
+        .and_then(|policy| policy.integer_minmax.clone());
+    assert!(mixed.integer_minmax.is_some());
+    assert!(validate_cache_policy_policy(&mixed, &source, None).is_err());
+}
