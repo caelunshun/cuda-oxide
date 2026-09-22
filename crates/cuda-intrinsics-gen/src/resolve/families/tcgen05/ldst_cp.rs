@@ -200,6 +200,7 @@ pub(in crate::resolve) fn materialize_tcgen05_cp_variant(
             group: variant.group,
         }),
         ld: None,
+        ld_red: None,
         st: None,
         mma: None,
         adapter: Tcgen05Adapter::TmemDescriptorToVoid,
@@ -474,6 +475,7 @@ pub(in crate::resolve) fn materialize_tcgen05_ld_variant(
         operation: Tcgen05Operation::Ld,
         cp: None,
         ld: Some(ld),
+        ld_red: None,
         st: None,
         mma: None,
         adapter: if has_half_split_offset {
@@ -656,6 +658,7 @@ pub(in crate::resolve) fn materialize_tcgen05_st_variant(
         operation: Tcgen05Operation::St,
         cp: None,
         ld: None,
+        ld_red: None,
         st: Some(st),
         mma: None,
         adapter: if has_half_split_offset {
@@ -792,6 +795,7 @@ pub(in crate::resolve) fn validate_tcgen05_ld_policy(
             && tcgen05.operation == Tcgen05Operation::Ld
             && tcgen05.cp.is_none()
             && tcgen05.ld == Some(ld)
+            && tcgen05.ld_red.is_none()
             && tcgen05.st.is_none()
             && tcgen05.adapter
                 == if has_half_split_offset {
@@ -936,6 +940,7 @@ pub(in crate::resolve) fn validate_tcgen05_st_policy(
             && tcgen05.operation == Tcgen05Operation::St
             && tcgen05.cp.is_none()
             && tcgen05.ld.is_none()
+            && tcgen05.ld_red.is_none()
             && tcgen05.st == Some(st)
             && tcgen05.adapter
                 == if has_half_split_offset {
@@ -1052,6 +1057,7 @@ pub(in crate::resolve) fn validate_tcgen05_cp_policy(
             && policy.execution_scope == "thread"
             && tcgen05.operation == operation
             && tcgen05.ld.is_none()
+            && tcgen05.ld_red.is_none()
             && tcgen05.st.is_none()
             && tcgen05.adapter == Tcgen05Adapter::TmemDescriptorToVoid
             && tcgen05.source_contract == Tcgen05SourceContract::ExactTablegenSelection

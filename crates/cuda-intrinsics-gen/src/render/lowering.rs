@@ -10,9 +10,9 @@ use crate::model::{
     ExecutionControlOperation, IntrinsicBackend, MbarrierBasicAdapter, MbarrierBasicOperation,
     MbarrierExtendedAdapter, PackedConversionAdapter, PackedConversionSourceFormat, PrmtAdapter,
     PrmtMode, ReduxAdapter, ScalarArithmeticFormat, ScalarMathFormat, StmatrixLayout,
-    Tcgen05Operation, TmaBulkDirection, TmaOperation, TmaReductionLoadMode, TmaReductionOperation,
-    VoteAdapter, WarpBarrierAdapter, WarpMatchAdapter, WarpShuffleAdapter, WarpShuffleMode,
-    WarpShuffleValueKind, WgmmaControlMode,
+    Tcgen05LdRedElement, Tcgen05Operation, TmaBulkDirection, TmaOperation, TmaReductionLoadMode,
+    TmaReductionOperation, VoteAdapter, WarpBarrierAdapter, WarpMatchAdapter, WarpShuffleAdapter,
+    WarpShuffleMode, WarpShuffleValueKind, WgmmaControlMode,
 };
 use crate::render::common::{rust_header, uses_identifier};
 use crate::render::families::{
@@ -41,7 +41,7 @@ use crate::render::families::{
     sparse_mma_fragment_counts, sparse_mma_result_variant, sparse_mma_template, sparse_mmas,
     special_register_asm_kind, special_register_backend_mechanism,
     special_register_inline_template, special_register_output_constraint, sregs, stmatrices,
-    stmatrix_variant, sync_intrinsics, tcgen05_inline_asm, tcgen05_intrinsics,
+    stmatrix_variant, sync_intrinsics, tcgen05_inline_asm, tcgen05_intrinsics, tcgen05_ld_red,
     tcgen05_mma_intrinsics, tcgen05_non_mma_intrinsics, threadfence_ptx_level, tma_intrinsics,
     vote_intrinsics, warp_barriers, warp_matches, warp_shuffles, wgmma_control_template,
     wgmma_controls,
@@ -97,9 +97,10 @@ fn convert_generated_tcgen05_load(
     constraints: &str,
 ) -> Result<()> {
     let operands: Vec<_> = op.deref(ctx).operands().collect();
-    if operands.len() != arity || !(1..=2).contains(&arity) || !(1..=128).contains(&count) || op.deref(ctx).get_num_results() != count {
+    // 128 loaded registers plus the `tcgen05.ld.red` reduction result.
+    if operands.len() != arity || !(1..=2).contains(&arity) || !(1..=129).contains(&count) || op.deref(ctx).get_num_results() != count {
         return pliron::input_err_noloc!(
-            "generated tcgen05 load requires 1..=2 operands and 1..=128 results"
+            "generated tcgen05 load requires 1..=2 operands and 1..=129 results"
         );
     }
     let scalar_ty: pliron::r#type::TypeHandle = if integer_results {
@@ -1758,7 +1759,13 @@ fn tcgen05_impls(catalog: &CatalogFile) -> String {
             "    fn convert(\n        &self,\n        ctx: &mut Context,\n        rewriter: &mut DialectConversionRewriter,\n        _operands_info: &OperandsInfo,\n    ) -> Result<()> {\n",
         );
         if let Some(count) = result_count {
-            let integer_results = operation == Tcgen05Operation::Ld;
+            let integer_results = match operation {
+                Tcgen05Operation::Ld => true,
+                Tcgen05Operation::LdRed => {
+                    tcgen05_ld_red(record).element != Tcgen05LdRedElement::F32
+                }
+                _ => false,
+            };
             writeln!(
                 output,
                 "        convert_generated_tcgen05_load(ctx, rewriter, self.get_operation(), {}, {count}, {integer_results}, {template:?}, {constraints:?})",

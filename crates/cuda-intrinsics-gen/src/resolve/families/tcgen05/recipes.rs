@@ -397,7 +397,10 @@ pub(in crate::resolve) fn tcgen05_recipe(operation: Tcgen05Operation) -> Tcgen05
             Tcgen05Adapter::TmemAddressToVoid,
             Tcgen05SourceContract::ExactTablegenSelection,
         ),
-        Tcgen05Operation::Ld | Tcgen05Operation::St | Tcgen05Operation::Mma => {
+        Tcgen05Operation::Ld
+        | Tcgen05Operation::LdRed
+        | Tcgen05Operation::St
+        | Tcgen05Operation::Mma => {
             unreachable!("tcgen05 load/store variants use their compact recipes")
         }
     };
@@ -880,7 +883,10 @@ pub(in crate::resolve) fn tcgen05_recipe(operation: Tcgen05Operation) -> Tcgen05
             }),
             "Shifts tensor-memory rows down by one row.",
         ),
-        Tcgen05Operation::Ld | Tcgen05Operation::St | Tcgen05Operation::Mma => {
+        Tcgen05Operation::Ld
+        | Tcgen05Operation::LdRed
+        | Tcgen05Operation::St
+        | Tcgen05Operation::Mma => {
             unreachable!("tcgen05 load/store variants use their compact recipes")
         }
     };

@@ -4,11 +4,13 @@
  */
 
 pub(in crate::resolve) mod admission;
+pub(in crate::resolve) mod ld_red;
 pub(in crate::resolve) mod ldst_cp;
 pub(in crate::resolve) mod mma;
 pub(in crate::resolve) mod recipes;
 
 pub(in crate::resolve) use admission::*;
+pub(in crate::resolve) use ld_red::*;
 pub(in crate::resolve) use ldst_cp::*;
 pub(in crate::resolve) use mma::*;
 pub(in crate::resolve) use recipes::*;

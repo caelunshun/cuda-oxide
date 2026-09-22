@@ -53,6 +53,9 @@
 #                   kernels are never launched.
 #   sm100-compile -- compile-only coverage pinned to exact sm_100a. These
 #                   kernels are never launched.
+#   sm103-compile -- compile-only coverage pinned to exact sm_103a, for
+#                   instructions such as tcgen05.ld.red that sm_100a lacks.
+#                   These kernels are not launched by the smoketest.
 #   NVVM_VERIFY_EXAMPLES are compiled through the real libNVVM verifier and
 #                   compiler in compile-only mode.
 #
@@ -82,6 +85,7 @@ AUTO_NVVM_EXAMPLES=(libdevice_math)
 IKET_EXAMPLES=(iket_trace)
 BLACKWELL_COMPILE_EXAMPLES=(generated_intrinsics_blackwell)
 SM100_COMPILE_EXAMPLES=(redux_f32)
+SM103_COMPILE_EXAMPLES=(tcgen05_ld_red)
 NVVM_VERIFY_EXAMPLES=(cp_async_small device_global enum_constant_provenance ex2_approx_f16 generated_intrinsics generated_intrinsics_blackwell generated_ldmatrix kernel_reference_validity legacy_atomic_fadd legacy_atomic_rmw_cas libdevice_math legacy_nvvm_pointer_shapes packed_atomic_add primitive_stress scoped_atomic_load_store shuffle_64 tcgen05 tuple_constant_provenance wgmma_mma_bf16)
 ERROR_EXAMPLES=(error error_set_discriminant_uninhabited error_enum_bool_payload_addr error_enum_pointer_overlap error_enum_shared_pointer_layout error_heap_alloc error_host_arch_intrinsic error_host_target_feature error_kernel_shared_param error_missing_device_attr error_generated_intrinsic_abi error_generated_intrinsic_unknown_id error_generated_intrinsic_fn_pointer error_generated_intrinsic_callable)
 
@@ -130,6 +134,7 @@ classify() {
     for cat in "${IKET_EXAMPLES[@]}";        do [[ "$ex" == "$cat" ]] && { echo iket;        return; }; done
     for cat in "${BLACKWELL_COMPILE_EXAMPLES[@]}"; do [[ "$ex" == "$cat" ]] && { echo blackwell-compile; return; }; done
     for cat in "${SM100_COMPILE_EXAMPLES[@]}"; do [[ "$ex" == "$cat" ]] && { echo sm100-compile; return; }; done
+    for cat in "${SM103_COMPILE_EXAMPLES[@]}"; do [[ "$ex" == "$cat" ]] && { echo sm103-compile; return; }; done
     for cat in "${ERROR_EXAMPLES[@]}";       do [[ "$ex" == "$cat" ]] && { echo error;       return; }; done
     echo standard
 }
@@ -212,6 +217,7 @@ compile_only_arch_hint() {
     case "${cat}" in
         blackwell-compile) printf 'sm_120a\n'; return ;;
         sm100-compile)     printf 'sm_100a\n'; return ;;
+        sm103-compile)     printf 'sm_103a\n'; return ;;
     esac
     if verify_nvvm_in_compile_only "${ex}"; then
         nvvm_verify_arch "${ex}"
@@ -1281,6 +1287,7 @@ run_full_debug_build() {
         iket)             arch="sm_90" ;;
         blackwell-compile) arch="sm_120a" ;;
         sm100-compile)    arch="sm_100a" ;;
+        sm103-compile)    arch="sm_103a" ;;
     esac
 
     # Retain the instruction floors from the compile-only verifier matrix,
@@ -1527,6 +1534,39 @@ run_cargo() {
             printf 'libNVVM route did not emit the expected sparse, dense, standard FP8, conversion, and ldmatrix inline-PTX calls\n' >>"${log}"
             if [[ ${VERBOSE} -eq 1 ]]; then
                 printf 'libNVVM route did not emit the expected sparse, dense, standard FP8, conversion, and ldmatrix inline-PTX calls\n'
+            fi
+            CARGO_EC=1
+        fi
+        return
+    fi
+
+    # tcgen05.ld.red admits only sm_103a and sm_110a in the generated target
+    # gating, so this batch pins sm_103a.
+    if [[ "${cat}" == "sm103-compile" ]]; then
+        local -a llvm_args=("build" "${ex}" "--arch=sm_103a")
+        local llvm_ec
+        if [[ ${VERBOSE} -eq 1 ]]; then
+            cargo oxide "${llvm_args[@]}" 2>&1 | tee "${log}"
+            llvm_ec=${PIPESTATUS[0]}
+        else
+            cargo oxide "${llvm_args[@]}" >"${log}" 2>&1
+            llvm_ec=$?
+        fi
+        CARGO_EC=${llvm_ec}
+        if [[ ${llvm_ec} -ne 0 ]]; then
+            return
+        fi
+        local llvm_ptx="crates/rustc-codegen-cuda/examples/${ex}/${ex}.ptx"
+        local ld_red_re='tcgen05\.ld\.red\.sync\.aligned\.(32x32b|16x32bx2)\.x(2|4|8|16|32|64|128)\.(min|max)(\.abs)?(\.NaN)?\.(u32|s32|f32)'
+        # The example uses seven distinct reducing-load forms, each once.
+        if [[ ! -s "${llvm_ptx}" ]] \
+            || ! grep -qx '\.version 8\.8' "${llvm_ptx}" \
+            || ! grep -qx '\.target sm_103a' "${llvm_ptx}" \
+            || [[ "$(grep -oE "${ld_red_re}" "${llvm_ptx}" | wc -l)" -ne 7 ]] \
+            || [[ "$(grep -oE "${ld_red_re}" "${llvm_ptx}" | sort -u | wc -l)" -ne 7 ]]; then
+            printf 'direct LLVM route did not emit the expected tcgen05.ld.red instructions\n' >>"${log}"
+            if [[ ${VERBOSE} -eq 1 ]]; then
+                printf 'direct LLVM route did not emit the expected tcgen05.ld.red instructions\n'
             fi
             CARGO_EC=1
         fi
@@ -2398,7 +2438,7 @@ for ex in "${selected[@]}"; do
     if [[ ! -f "${log}" ]]; then
         verdict="FAIL (log missing: ${log})"
         status=1
-    elif [[ ( ${COMPILE_ONLY} -eq 1 || ${FULL_DEBUG} -eq 1 || "${cat}" == "blackwell-compile" || "${cat}" == "sm100-compile" ) && "${cat}" != "error" ]]; then
+    elif [[ ( ${COMPILE_ONLY} -eq 1 || ${FULL_DEBUG} -eq 1 || "${cat}" == "blackwell-compile" || "${cat}" == "sm100-compile" || "${cat}" == "sm103-compile" ) && "${cat}" != "error" ]]; then
         # Artifact-only modes collapse the GPU-gated categories: with nothing
         # executed, "PTX (or the explicitly configured artifact) compiled" is
         # the bar except for error examples, which must still fail with their

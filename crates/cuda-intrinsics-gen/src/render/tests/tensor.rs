@@ -733,7 +733,7 @@ fn tcgen05_rendering_preserves_api_and_inline_ptx_routes() {
                     "/// All tcgen05 operations in the kernel must use the same CTA-group mode.\n",
                 )
                 .count(),
-            233
+            401
         );
     assert!(compatibility.contains("/// `KIND` is 0=f16, 1=tf32, 2=f8f6f4, or 3=i8."));
     assert!(compatibility.contains(
@@ -806,7 +806,7 @@ fn tcgen05_rendering_preserves_api_and_inline_ptx_routes() {
                 "/// All tcgen05 operations in the kernel must use the same CTA-group mode.\n",
             )
             .count(),
-            233
+            401
         );
     assert!(raw.contains("pub fn i0345() -> ()"));
     assert!(raw.contains("pub fn i0357() -> ()"));
@@ -842,10 +842,10 @@ fn tcgen05_rendering_preserves_api_and_inline_ptx_routes() {
     ));
 
     let dialect = render_dialect_tcgen05(&catalog, "test-hash");
-    assert_eq!(dialect.matches("pub struct Tcgen05").count(), 210);
-    assert_eq!(dialect.matches("impl Verify for Tcgen05").count(), 210);
-    assert_eq!(dialect.matches("::register(ctx)").count(), 216);
-    assert_eq!(dialect.matches("            Some(1),").count(), 32);
+    assert_eq!(dialect.matches("pub struct Tcgen05").count(), 378);
+    assert_eq!(dialect.matches("impl Verify for Tcgen05").count(), 378);
+    assert_eq!(dialect.matches("::register(ctx)").count(), 384);
+    assert_eq!(dialect.matches("            Some(1),").count(), 116);
     assert_eq!(dialect.matches("verifier = \"succ\"").count(), 6);
     assert!(dialect.contains("Operation::get_op::<MirConstantOp>"));
     assert!(dialect.contains("Operation::get_op::<ConstantOp>"));
@@ -1172,4 +1172,81 @@ fn tcgen05_rendering_preserves_api_and_inline_ptx_routes() {
         .modifiers
         .remove(3);
     assert!(validate_renderable(&wrong_copy_spelling).is_err());
+}
+
+#[test]
+fn tcgen05_ld_red_rendering_returns_registers_and_reduction() {
+    let catalog = catalog_with_tcgen05();
+    validate_renderable(&catalog).unwrap();
+    let ld_red: Vec<_> = tcgen05_intrinsics(&catalog)
+        .filter(|record| {
+            record
+                .tcgen05
+                .as_ref()
+                .is_some_and(|tcgen05| tcgen05.ld_red.is_some())
+        })
+        .collect();
+    assert_eq!(ld_red.len(), 168);
+    assert!(ld_red.iter().all(|record| {
+        record.target.targets == "sm_103a|sm_110a"
+            && record.target.minimum_ptx.to_string() == "8.8"
+            && record.rust.must_use
+            && !record.rust.safe
+    }));
+
+    let raw = render_raw_abi(&catalog, "test-hash").unwrap();
+    assert!(raw.contains("pub unsafe fn i1047(_arg0: u32) -> ([u32; 2], u32)"));
+    assert!(raw.contains("pub unsafe fn i1214(_arg0: u32, _arg1: i64) -> ([f32; 128], f32)"));
+    assert!(raw.contains("consuming the returned registers or reduction"));
+
+    let compatibility = render_compat_tcgen05(&catalog, "test-hash");
+    assert!(compatibility.contains(
+        "pub unsafe fn tcgen05_ld_red_32x32b_x2_min_u32(tmem_addr: u32) -> (CuSimd<u32, 2>, u32)"
+    ));
+    assert!(compatibility.contains(
+        "pub unsafe fn tcgen05_ld_red_32x32b_x4_max_s32(tmem_addr: u32) -> (CuSimd<i32, 4>, i32)"
+    ));
+    assert!(compatibility.contains(
+        "pub unsafe fn tcgen05_ld_red_16x32bx2_x128_max_abs_nan_f32<const HALF_SPLIT_OFFSET: i32>(tmem_addr: u32) -> (CuSimd<f32, 128>, f32)"
+    ));
+    assert!(compatibility.contains(
+        "pub(crate) unsafe fn __tcgen05_ld_red_16x32bx2_x128_max_abs_nan_f32(_tmem_addr: u32, _half_split_offset: i64) -> (CuSimd<f32, 128>, f32)"
+    ));
+
+    let importer = render_importer(&catalog, "test-hash");
+    assert!(importer.contains("Tcgen05LdRed32x32bX2MinU32Op::get_concrete_op_info()"));
+    assert!(importer.contains("cuda_device::tcgen05::__tcgen05_ld_red_16x32bx2_x2_min_u32"));
+    assert!(importer.contains("IntegerType::get(ctx, 32, Signedness::Signed).into()"));
+    assert!(importer.contains("MirConstructTupleOp::get_concrete_op_info()"));
+    assert!(importer.contains("(registers, reduction) tuple"));
+    assert!(importer.contains("\"v1:i1047\""));
+    assert!(importer.contains("\"v1:i1214\""));
+
+    let lowering = render_lowering(&catalog, "test-hash");
+    assert!(lowering.contains("tcgen05.ld.red.sync.aligned.32x32b.x2.min.u32 {$0,$1}, $2, [$3];"));
+    assert!(lowering.contains("\"=r,=r,=r,r,~{memory}\""));
+    assert!(lowering.contains(
+        "tcgen05.ld.red.sync.aligned.16x32bx2.x2.max.abs.NaN.f32 {$0,$1}, $2, [$3], $4;"
+    ));
+    assert!(lowering.contains("\"=f,=f,=f,r,n,~{memory}\""));
+    assert!(lowering.contains(
+        "convert_generated_tcgen05_load(ctx, rewriter, self.get_operation(), 1, 129, false"
+    ));
+    assert!(lowering.contains(
+        "convert_generated_tcgen05_load(ctx, rewriter, self.get_operation(), 2, 129, true"
+    ));
+
+    let dialect = render_dialect_tcgen05(&catalog, "test-hash");
+    assert!(dialect.contains("pub struct Tcgen05LdRed16x32bx2X128MaxAbsNanF32Op"));
+    assert!(dialect.contains("NResultsInterface<129>"));
+
+    let record = ld_red
+        .iter()
+        .find(|record| record.id == "tcgen05_ld_red_16x32bx2_x8_min_nan_f32")
+        .unwrap();
+    let probe = render_probe(&catalog, record, "test-hash");
+    assert!(probe.contains(
+        "tcgen05.ld.red.sync.aligned.16x32bx2.x8.min.NaN.f32 {$0,$1,$2,$3,$4,$5,$6,$7}, $8, [$9], $10;"
+    ));
+    assert!(probe.contains("(i32 %tmem, i64 16)"));
 }

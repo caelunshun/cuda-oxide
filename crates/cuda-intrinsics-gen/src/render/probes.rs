@@ -9,10 +9,10 @@ use crate::model::{
     DotProductAdapter, ExecutionControlOperation, ExtendedMinMaxFormat, IntrinsicBackend,
     MbarrierBasicOperation, MbarrierExtendedAdapter, PackedAtomicFormat,
     PackedConversionSourceFormat, ReduxAdapter, RegisterMmaAdapter, SparseMmaAccumulator,
-    SpecialRegisterObservation, Tcgen05LdShape, Tcgen05Mma, Tcgen05MmaBUsage, Tcgen05MmaForm,
-    Tcgen05MmaKind, Tcgen05Operation, TmaBulkDirection, TmaOperation, VoteAdapter, VoteMode,
-    WarpBarrierAdapter, WarpMatchMode, WarpShuffleAdapter, WarpShuffleMode, WarpShuffleValueKind,
-    WgmmaControlMode,
+    SpecialRegisterObservation, Tcgen05LdRedElement, Tcgen05LdShape, Tcgen05Mma, Tcgen05MmaBUsage,
+    Tcgen05MmaForm, Tcgen05MmaKind, Tcgen05Operation, TmaBulkDirection, TmaOperation, VoteAdapter,
+    VoteMode, WarpBarrierAdapter, WarpMatchMode, WarpShuffleAdapter, WarpShuffleMode,
+    WarpShuffleValueKind, WgmmaControlMode,
 };
 use crate::render::common::{backend_label, llvm, llvm_header};
 use crate::render::families::{
@@ -26,9 +26,10 @@ use crate::render::families::{
     scalar_math_llvm_mechanism, scalar_math_llvm_type, scalar_math_ptx_mnemonic,
     sparse_mma_constraints, sparse_mma_fragment_counts, sparse_mma_selector_values,
     sparse_mma_template, special_register_backend_mechanism, special_register_inline_template,
-    special_register_output_constraint, stmatrix_variant, tcgen05_inline_asm,
-    tcgen05_ld_register_count, tcgen05_mma_inline_asm, tcgen05_mma_is_ws,
-    tcgen05_mma_runtime_parameters, tcgen05_st_register_count, threadfence_ptx_level,
+    special_register_output_constraint, stmatrix_variant, tcgen05_inline_asm, tcgen05_ld_red,
+    tcgen05_ld_red_register_count, tcgen05_ld_register_count, tcgen05_mma_inline_asm,
+    tcgen05_mma_is_ws, tcgen05_mma_runtime_parameters, tcgen05_st_register_count,
+    threadfence_ptx_level,
 };
 use std::fmt::Write as _;
 
@@ -822,6 +823,30 @@ fn render_tcgen05_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, hash: 
                 template,
                 constraints,
                 if has_half_split_offset {
+                    "i32 %tmem, i64 16".into()
+                } else {
+                    "i32 %tmem".into()
+                },
+            )
+        }
+        Tcgen05Operation::LdRed => {
+            let count = tcgen05_ld_red_register_count(record);
+            let ld_red = tcgen05_ld_red(record);
+            let field = if ld_red.element == Tcgen05LdRedElement::F32 {
+                "float"
+            } else {
+                "i32"
+            };
+            let fields = std::iter::repeat_n(field, count + 1)
+                .collect::<Vec<_>>()
+                .join(", ");
+            let (template, constraints, _) = tcgen05_inline_asm(record);
+            (
+                "i32 %tmem".into(),
+                format!("{{ {fields} }}"),
+                template,
+                constraints,
+                if ld_red.shape == Tcgen05LdShape::M16x32bx2 {
                     "i32 %tmem, i64 16".into()
                 } else {
                     "i32 %tmem".into()

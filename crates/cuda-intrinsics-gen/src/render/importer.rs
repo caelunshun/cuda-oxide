@@ -7,9 +7,9 @@ use crate::model::{
     CatalogFile, CatalogIntrinsic, ClcOperation, ClusterBarrierMode, CpAsyncControlOperation,
     CpAsyncMbarrierAdapter, CpAsyncSourceSize, DebugControlOperation, ExecutionControlOperation,
     MbarrierBasicAdapter, MbarrierBasicOperation, MbarrierExtendedAdapter, PackedAtomicFormat,
-    PrmtMode, ReduxAdapter, RegisterMmaAdapter, Tcgen05LdShape, Tcgen05MmaForm,
-    Tcgen05MmaSelectorLayout, Tcgen05Operation, TmaAdapter, TmaOperation, VoteAdapter,
-    WarpBarrierAdapter, WarpShuffleAdapter, WgmmaControlMode,
+    PrmtMode, ReduxAdapter, RegisterMmaAdapter, Tcgen05LdRedElement, Tcgen05LdShape,
+    Tcgen05MmaForm, Tcgen05MmaSelectorLayout, Tcgen05Operation, TmaAdapter, TmaOperation,
+    VoteAdapter, WarpBarrierAdapter, WarpShuffleAdapter, WgmmaControlMode,
 };
 use crate::render::common::{intrinsic_marker, rust_header, uses_identifier};
 use crate::render::families::dialect_nvvm_ops_import_candidates;
@@ -28,9 +28,10 @@ use crate::render::families::{
     scalar_math_operation_attr, scalar_math_precision_attr, scalar_math_subnormal_attr,
     scalar_maths, sparse_mma_attr_variants, sparse_mma_import_adapter, sparse_mma_selector_error,
     sparse_mmas, sregs, stmatrices, stmatrix_compatibility_name, stmatrix_variant, sync_intrinsics,
-    tcgen05_intrinsics, tcgen05_ld_register_count, tcgen05_mma_b_usage_attr, tcgen05_mma_form_attr,
-    tcgen05_mma_intrinsics, tcgen05_mma_kind_attr, tcgen05_st_register_count, tma_intrinsics,
-    vote_intrinsics, warp_barriers, warp_matches, warp_shuffles, wgmma_controls,
+    tcgen05_intrinsics, tcgen05_ld_red, tcgen05_ld_red_register_count, tcgen05_ld_register_count,
+    tcgen05_mma_b_usage_attr, tcgen05_mma_form_attr, tcgen05_mma_intrinsics, tcgen05_mma_kind_attr,
+    tcgen05_st_register_count, tma_intrinsics, vote_intrinsics, warp_barriers, warp_matches,
+    warp_shuffles, wgmma_controls,
 };
 use crate::render::reference::{
     render_compiler_path_patterns, render_inline_patterns, render_string_patterns,
@@ -569,6 +570,9 @@ fn render_importer_tcgen05_non_mma_dispatch(
         .ld
         .is_some_and(|ld| ld.shape == Tcgen05LdShape::M16x32bx2)
         || tcgen05
+            .ld_red
+            .is_some_and(|ld_red| ld_red.shape == Tcgen05LdShape::M16x32bx2)
+        || tcgen05
             .st
             .is_some_and(|st| st.shape == Tcgen05LdShape::M16x32bx2);
     let mut path_refs = vec![record.rust.canonical_path.as_str()];
@@ -637,6 +641,11 @@ fn render_importer_tcgen05_non_mma_dispatch(
         output.push_str(
                 "            if operands.get(1).and_then(|value| value.defining_op()).and_then(|op| Operation::get_op::<MirConstantOp>(op, ctx)).is_none() {\n                return input_err!(\n                    loc,\n                    TranslationErr::unsupported(\n                        \"tcgen05 16x32bx2 half-split offset must lower to a constant\".to_owned()\n                    )\n                );\n            }\n",
             );
+    }
+    if operation == Tcgen05Operation::LdRed {
+        render_importer_tcgen05_ld_red_results(output, catalog, record);
+        output.push_str("        }\n");
+        return;
     }
     let load = match operation {
         Tcgen05Operation::Ld16x256bX8Pure => Some((32, "FP32Type::get(ctx).into()")),
@@ -726,6 +735,76 @@ fn render_importer_tcgen05_non_mma_dispatch(
         output.push_str("            }\n");
     }
     output.push_str("        }\n");
+}
+
+/// Bundles `N` loaded registers into the destination's first tuple field
+/// (a raw array, or the one-field `CuSimd` wrapper around it) and the
+/// reduction result into its second field.
+fn render_importer_tcgen05_ld_red_results(
+    output: &mut String,
+    catalog: &CatalogFile,
+    record: &CatalogIntrinsic,
+) {
+    let count = tcgen05_ld_red_register_count(record);
+    let element_ty = match tcgen05_ld_red(record).element {
+        Tcgen05LdRedElement::U32 => "IntegerType::get(ctx, 32, Signedness::Unsigned).into()",
+        Tcgen05LdRedElement::S32 => "IntegerType::get(ctx, 32, Signedness::Signed).into()",
+        Tcgen05LdRedElement::F32 => "FP32Type::get(ctx).into()",
+    };
+    writeln!(
+        output,
+        "            let result_ty: TypeHandle = {element_ty};"
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "            let result_types = (0..{}).map(|_| result_ty).collect();",
+        count + 1
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "            let intrinsic = Operation::new(ctx, {}::get_concrete_op_info(), result_types, operands, vec![], 0);",
+        record.dialect.op_type
+    )
+    .unwrap();
+    output.push_str("            intrinsic.deref_mut(ctx).set_loc(loc.clone());\n");
+    writeln!(
+        output,
+        "            helpers::set_generated_intrinsic_marker(ctx, intrinsic, {:?});",
+        intrinsic_marker(catalog, record)
+    )
+    .unwrap();
+    output.push_str(
+        "            let tuple_ty = types::translate_destination_type(ctx, body, destination, &loc)?;\n            let registers_ty = {\n                let ty = tuple_ty.deref(ctx);\n                match ty.downcast_ref::<MirTupleType>() {\n                    Some(tuple) if tuple.get_types().len() == 2 && tuple.get_types()[1] == result_ty => tuple.get_types()[0],\n                    _ => {\n                        return input_err!(\n                            loc.clone(),\n                            TranslationErr::unsupported(\n                                \"tcgen05 reducing-load destination must be a (registers, reduction) tuple\".to_owned()\n                            )\n                        );\n                    }\n                }\n            };\n",
+    );
+    render_prepare_destination_write(output, "last_op");
+    output
+        .push_str("            helpers::insert_op(ctx, intrinsic, block_ptr, prepared_last_op);\n");
+    writeln!(
+        output,
+        "            let registers: Vec<Value> = (0..{count}).map(|index| intrinsic.deref(ctx).get_result(index)).collect();"
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "            let reduction = intrinsic.deref(ctx).get_result({count});"
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "            let array_ty = MirArrayType::get(ctx, result_ty, {count});"
+    )
+    .unwrap();
+    output.push_str(
+        "            let array = Operation::new(ctx, MirConstructArrayOp::get_concrete_op_info(), vec![array_ty.into()], registers, vec![], 0);\n            array.deref_mut(ctx).set_loc(loc.clone());\n            array.insert_after(ctx, intrinsic);\n            let array_result = array.deref(ctx).get_result(0);\n            let (registers_value, registers_op) = if registers_ty == array_result.get_type(ctx) {\n                (array_result, array)\n            } else {\n                let value = Operation::new(ctx, MirConstructStructOp::get_concrete_op_info(), vec![registers_ty], vec![array_result], vec![], 0);\n                value.deref_mut(ctx).set_loc(loc.clone());\n                value.insert_after(ctx, array);\n                (value.deref(ctx).get_result(0), value)\n            };\n            let value = Operation::new(ctx, MirConstructTupleOp::get_concrete_op_info(), vec![tuple_ty], vec![registers_value, reduction], vec![], 0);\n            value.deref_mut(ctx).set_loc(loc.clone());\n            value.insert_after(ctx, registers_op);\n            let result = value.deref(ctx).get_result(0);\n            helpers::set_compiler_result_bundle_marker(ctx, value);\n",
+    );
+    writeln!(
+        output,
+        "            Ok(Some(helpers::emit_prepared_result_and_goto(\n                ctx, prepared_destination, result, target, block_ptr, value, value_map, block_map, loc,\n                {:?},\n            )?))",
+        format!("{} call without target block", record.rust.name)
+    )
+    .unwrap();
 }
 
 fn append_importer_classification(output: &mut String, catalog: &CatalogFile) {
@@ -2933,6 +3012,7 @@ const IMPORTER_GENERATED_DIR: &str =
 const TCGEN05_BUCKETS: &[&str] = &[
     "tcgen05_mma",
     "tcgen05_ld",
+    "tcgen05_ld_red",
     "tcgen05_st",
     "tcgen05_cp",
     "tcgen05_other",
@@ -2944,6 +3024,8 @@ fn tcgen05_member_bucket(record: &CatalogIntrinsic) -> &'static str {
         "tcgen05_mma"
     } else if tcgen05.ld.is_some() {
         "tcgen05_ld"
+    } else if tcgen05.ld_red.is_some() {
+        "tcgen05_ld_red"
     } else if tcgen05.st.is_some() {
         "tcgen05_st"
     } else if tcgen05.cp.is_some() {

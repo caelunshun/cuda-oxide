@@ -537,6 +537,20 @@ pub(super) fn render_raw_abi(catalog: &CatalogFile, hash: &str) -> Result<String
                             "/// `_arg1` must be a compile-time constant; inline PTX encodes its low 32 bits.\n",
                         );
                     }
+                } else if tcgen05.operation == Tcgen05Operation::LdRed {
+                    output.push_str(
+                        "/// `_arg0` must name a live tensor-memory allocation covering the selected tile.\n\
+                         /// All active warp lanes must execute convergently with the same address.\n\
+                         /// Complete the matching tensor-memory load wait before consuming the returned registers or reduction.\n",
+                    );
+                    if tcgen05
+                        .ld_red
+                        .is_some_and(|ld_red| ld_red.shape == Tcgen05LdShape::M16x32bx2)
+                    {
+                        output.push_str(
+                            "/// `_arg1` must be a compile-time constant; inline PTX encodes its low 32 bits.\n",
+                        );
+                    }
                 } else if tcgen05.operation == Tcgen05Operation::St {
                     output.push_str(
                         "/// `_arg0` must name a live tensor-memory allocation covering the selected tile.\n\

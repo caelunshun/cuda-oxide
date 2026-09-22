@@ -706,6 +706,7 @@ pub(in crate::resolve) fn materialize_tcgen05_mma_variant(
             operation: Tcgen05Operation::Mma,
             cp: None,
             ld: None,
+            ld_red: None,
             st: None,
             mma: Some(Tcgen05Mma {
                 form,
@@ -822,6 +823,7 @@ pub(in crate::resolve) fn validate_tcgen05_mma_policy(
             && tcgen05.operation == Tcgen05Operation::Mma
             && tcgen05.cp.is_none()
             && tcgen05.ld.is_none()
+            && tcgen05.ld_red.is_none()
             && tcgen05.st.is_none()
             && mma.selector_layout == tcgen05_mma_selector_layout(form)
             && mma.fixed_selectors == expected_fixed

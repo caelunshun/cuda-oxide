@@ -19,10 +19,11 @@ use crate::model::{
     RegisterMmaFp8Admission, RuntimeValidation, SparseMmaElement, SparseMmaF8F6F4Admission,
     SparseMmaF8F6F4F16Admission, SpecialRegisterAdmission, StmatrixAdmission, StmatrixLayout,
     StmatrixMultiplicity, Tcgen05Admission, Tcgen05CpAdmissionVariant, Tcgen05CpGroup,
-    Tcgen05LdAdmissionVariant, Tcgen05MmaAdmissionVariant, Tcgen05MmaForm, Tcgen05Operation,
-    Tcgen05StAdmissionVariant, ThreadfenceAdmission, ThreadfenceScope, TmaAdmission, VoteAdapter,
-    VoteMode, VoteParticipation, WarpShuffleAdapter, WarpShuffleMode, WarpShuffleParticipation,
-    WarpShuffleSourceLane, WarpShuffleValueKind, WgmmaControlAdmission, WgmmaControlMode,
+    Tcgen05LdAdmissionVariant, Tcgen05LdRedAdmissionVariant, Tcgen05MmaAdmissionVariant,
+    Tcgen05MmaForm, Tcgen05Operation, Tcgen05StAdmissionVariant, ThreadfenceAdmission,
+    ThreadfenceScope, TmaAdmission, VoteAdapter, VoteMode, VoteParticipation, WarpShuffleAdapter,
+    WarpShuffleMode, WarpShuffleParticipation, WarpShuffleSourceLane, WarpShuffleValueKind,
+    WgmmaControlAdmission, WgmmaControlMode,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use crate::util::read_json;
@@ -1570,6 +1571,8 @@ pub(super) fn test_tcgen05_admission() -> Tcgen05Admission {
         control_libnvvm_evidence_profile: Some("libnvvm-tcgen05-control-test".into()),
         mma_llvm_evidence_profile: None,
         mma_libnvvm_evidence_profile: None,
+        ld_red_llvm_evidence_profile: None,
+        ld_red_libnvvm_evidence_profile: None,
         mma_llvm_target_contracts: vec![],
         mma_libnvvm_target_contracts: vec![],
         runtime_validation: RuntimeValidation::Unexecuted,
@@ -1586,6 +1589,7 @@ pub(super) fn test_tcgen05_admission() -> Tcgen05Admission {
         ld_offset_variants: vec![],
         st_offset_variants: vec![],
         mma_variants: vec![],
+        ld_red_variants: vec![],
     }
 }
 
@@ -1637,6 +1641,26 @@ pub(super) fn test_tcgen05_ld_admission() -> Tcgen05Admission {
                 pack16,
             },
         )
+        .collect();
+    admission
+}
+
+pub(super) fn test_tcgen05_ld_red_admission() -> Tcgen05Admission {
+    let mut admission = test_tcgen05_admission();
+    admission.ld_red_llvm_evidence_profile = Some("llvm-tcgen05-ld-red-test".into());
+    admission.ld_red_libnvvm_evidence_profile = Some("libnvvm-tcgen05-ld-red-test".into());
+    admission.ld_red_variants = tcgen05_ld_red_variants()
+        .into_iter()
+        .enumerate()
+        .map(|(index, ld_red)| Tcgen05LdRedAdmissionVariant {
+            abi_id: format!("i{:04}", 1047 + index),
+            shape: ld_red.shape,
+            multiplicity: ld_red.multiplicity,
+            op: ld_red.op,
+            element: ld_red.element,
+            abs: ld_red.abs,
+            nan: ld_red.nan,
+        })
         .collect();
     admission
 }

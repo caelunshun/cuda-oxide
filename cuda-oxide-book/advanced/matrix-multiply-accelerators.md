@@ -319,6 +319,28 @@ unsafe {
 `stmatrix` is a warp-collective operation — all 32 threads participate,
 each contributing its register slice to form the shared memory tile.
 
+#### Reducing loads (sm_103a and sm_110a)
+
+`tcgen05.ld.red` loads the same tile and also returns the minimum or
+maximum across each thread's loaded registers, which saves a separate
+reduction pass in epilogues such as amax scaling. Each form returns a
+`(CuSimd<T, N>, T)` pair: the registers, then the reduction. The name
+encodes shape, repetition, `min`/`max`, the f32-only `abs` and `nan`
+modifiers, and the element type (`u32`, `s32`, or `f32`):
+
+```rust
+use cuda_device::tcgen05::{tcgen05_ld_red_32x32b_x32_max_abs_f32, tcgen05_load_wait};
+
+unsafe {
+    let (regs, amax) = tcgen05_ld_red_32x32b_x32_max_abs_f32(tmem.raw_address());
+    tcgen05_load_wait();
+}
+```
+
+The `16x32bx2` forms take the half-split offset as a const generic, like
+the plain `16x32bx2` loads. Only `sm_103a` and `sm_110a` (PTX 8.8+) provide
+these instructions; building for any other target is a compile-time error.
+
 ### CTA-group-2 (CG2)
 
 Blackwell also supports **CG2 mode**, where two CTAs (from a cluster) issue

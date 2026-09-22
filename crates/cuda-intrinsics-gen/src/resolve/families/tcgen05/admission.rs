@@ -237,6 +237,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
                     operation: recipe.operation,
                     cp: None,
                     ld: None,
+                    ld_red: None,
                     st: None,
                     mma: None,
                     adapter: recipe.adapter,
@@ -537,6 +538,54 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         }
     }
 
+    if admission.ld_red_variants.is_empty() {
+        ensure!(
+            admission.ld_red_llvm_evidence_profile.is_none()
+                && admission.ld_red_libnvvm_evidence_profile.is_none(),
+            "tcgen05 reducing-load evidence profiles require admitted reducing-load variants"
+        );
+    } else {
+        ensure!(
+            admission
+                .ld_red_llvm_evidence_profile
+                .as_deref()
+                .is_some_and(|profile| !profile.trim().is_empty())
+                && admission
+                    .ld_red_libnvvm_evidence_profile
+                    .as_deref()
+                    .is_some_and(|profile| !profile.trim().is_empty()),
+            "compact tcgen05 reducing-load admission requires both backend evidence profiles"
+        );
+        let expected = tcgen05_ld_red_variants();
+        ensure!(
+            admission
+                .ld_red_variants
+                .iter()
+                .map(|variant| crate::model::Tcgen05LdRed {
+                    shape: variant.shape,
+                    multiplicity: variant.multiplicity,
+                    op: variant.op,
+                    element: variant.element,
+                    abs: variant.abs,
+                    nan: variant.nan,
+                })
+                .eq(expected.iter().copied()),
+            "compact tcgen05 reducing-load admission must list all {} variants in canonical order",
+            expected.len()
+        );
+        let base = records
+            .iter()
+            .find(|record| record.id == "tcgen05_ld_16x256b_pure")
+            .expect("closed tcgen05 reducing-load base")
+            .clone();
+        for variant in &admission.ld_red_variants {
+            validate_abi_id(&variant.abi_id)?;
+            records.push(materialize_tcgen05_ld_red_variant(
+                &base, admission, variant,
+            ));
+        }
+    }
+
     if admission.mma_variants.is_empty() {
         ensure!(
             admission.mma_llvm_evidence_profile.is_none()
@@ -637,6 +686,9 @@ pub(in crate::resolve) fn validate_tcgen05_policy(
     if let Some(ld) = tcgen05.ld {
         return validate_tcgen05_ld_policy(policy, declaration, tcgen05, ld);
     }
+    if let Some(ld_red) = tcgen05.ld_red {
+        return validate_tcgen05_ld_red_policy(policy, declaration, tcgen05, ld_red);
+    }
     if let Some(st) = tcgen05.st {
         return validate_tcgen05_st_policy(policy, declaration, tcgen05, st);
     }
@@ -646,7 +698,10 @@ pub(in crate::resolve) fn validate_tcgen05_policy(
     ensure!(
         !matches!(
             tcgen05.operation,
-            Tcgen05Operation::Ld | Tcgen05Operation::St | Tcgen05Operation::Mma
+            Tcgen05Operation::Ld
+                | Tcgen05Operation::LdRed
+                | Tcgen05Operation::St
+                | Tcgen05Operation::Mma
         ),
         "{} has a tcgen05 load/store/MMA operation without its closed identity",
         policy.id
@@ -699,6 +754,7 @@ pub(in crate::resolve) fn validate_tcgen05_policy(
             && policy.convergent
             && policy.execution_scope == recipe.operation.execution_scope()
             && tcgen05.ld.is_none()
+            && tcgen05.ld_red.is_none()
             && tcgen05.st.is_none()
             && tcgen05.adapter == recipe.adapter
             && tcgen05.source_contract == recipe.source_contract

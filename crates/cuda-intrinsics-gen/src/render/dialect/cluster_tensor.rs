@@ -615,7 +615,7 @@ pub(in crate::render) fn render_dialect_tma(catalog: &CatalogFile, hash: &str) -
 }
 
 pub(in crate::render) fn render_dialect_tcgen05(catalog: &CatalogFile, hash: &str) -> String {
-    assert_eq!(tcgen05_intrinsics(catalog).count(), 233);
+    assert_eq!(tcgen05_intrinsics(catalog).count(), 401);
     let mut output = rust_header(catalog, hash);
     output.push_str(
         r#"//! Generated Tensor Core Generation 5 operations.
@@ -863,6 +863,7 @@ impl Verify for Tcgen05MmaOp {
                     tcgen05.adapter,
                     Tcgen05Adapter::TmemHalfSplitOffsetInjectPack16ToU32Registers
                         | Tcgen05Adapter::TmemHalfSplitOffsetU32RegistersInjectUnpack16ToVoid
+                        | Tcgen05Adapter::TmemHalfSplitOffsetInjectReductionToRegistersAndValue
                 )
             })
             .then_some(1);

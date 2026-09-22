@@ -1,0 +1,15 @@
+[package]
+name = "tcgen05_ld_red"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace]
+
+# `tcgen05.ld.red` needs sm_103a or sm_110a (PTX 8.8+). Build with:
+#   cargo oxide run tcgen05_ld_red --arch sm_103a
+
+[dependencies]
+cuda-core = "0.3.1"
+cuda-device = { path = "../../../cuda-device" }
+cuda-host = { path = "../../../cuda-host" }

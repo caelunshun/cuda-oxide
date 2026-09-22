@@ -6,9 +6,9 @@
 use crate::model::{
     BackendLoweringMechanism, CatalogHardwareAlternative, CatalogHardwareTarget, CatalogIntrinsic,
     IntrinsicBackend, RuntimeValidation, Tcgen05Adapter, Tcgen05CpGroup, Tcgen05CpMember,
-    Tcgen05LdMultiplicity, Tcgen05LdShape, Tcgen05Mma, Tcgen05MmaAlias, Tcgen05MmaBUsage,
-    Tcgen05MmaForm, Tcgen05MmaKind, Tcgen05MmaSelectorLayout, Tcgen05Operation,
-    Tcgen05SourceContract,
+    Tcgen05LdMultiplicity, Tcgen05LdRed, Tcgen05LdRedElement, Tcgen05LdShape, Tcgen05Mma,
+    Tcgen05MmaAlias, Tcgen05MmaBUsage, Tcgen05MmaForm, Tcgen05MmaKind, Tcgen05MmaSelectorLayout,
+    Tcgen05Operation, Tcgen05SourceContract,
 };
 use crate::render::common::llvm;
 use std::fmt::Write as _;
@@ -429,6 +429,164 @@ pub(in crate::render) fn tcgen05_ld_register_count(record: &CatalogIntrinsic) ->
     ld.shape.register_multiplier() * ld.multiplicity.count()
 }
 
+pub(in crate::render) fn tcgen05_ld_red(record: &CatalogIntrinsic) -> Tcgen05LdRed {
+    record
+        .tcgen05
+        .as_ref()
+        .and_then(|tcgen05| tcgen05.ld_red)
+        .expect("generated tcgen05 reducing-load identity")
+}
+
+/// Number of loaded registers, excluding the reduction result.
+pub(in crate::render) fn tcgen05_ld_red_register_count(record: &CatalogIntrinsic) -> usize {
+    let ld_red = tcgen05_ld_red(record);
+    ld_red.shape.register_multiplier() * ld_red.multiplicity.count()
+}
+
+/// Rust element type shared by the loaded registers and the reduction.
+pub(in crate::render) fn tcgen05_ld_red_rust_element(record: &CatalogIntrinsic) -> &'static str {
+    match tcgen05_ld_red(record).element {
+        Tcgen05LdRedElement::U32 => "u32",
+        Tcgen05LdRedElement::S32 => "i32",
+        Tcgen05LdRedElement::F32 => "f32",
+    }
+}
+
+/// Re-derives the f32 vector records of the pinned TableGen dump
+/// independently of the resolve half; i32 forms share the overloaded ld/st
+/// vector records.
+fn tcgen05_ld_red_llvm_results(ld_red: Tcgen05LdRed, count: usize) -> Vec<String> {
+    if ld_red.element == Tcgen05LdRedElement::F32 {
+        let vector = match count {
+            2 => 10022,
+            4 => 10031,
+            8 => 10038,
+            16 => 10045,
+            32 => 10052,
+            64 => 10059,
+            128 => 10066,
+            other => unreachable!("tcgen05.ld.red f32 count {other} has no imported record"),
+        };
+        vec![format!("anonymous_{vector}"), "anonymous_10023".into()]
+    } else {
+        vec![
+            tcgen05_overloaded_data_token(count),
+            "anonymous_10027".into(),
+        ]
+    }
+}
+
+fn tcgen05_ld_red_render_contract(
+    record: &CatalogIntrinsic,
+    tcgen05: &crate::model::Tcgen05,
+    ld_red: Tcgen05LdRed,
+    llvm_route: &crate::model::CatalogBackendLowering,
+    libnvvm_route: &crate::model::CatalogBackendLowering,
+) -> bool {
+    let hardware = CatalogHardwareTarget::AnyOf {
+        alternatives: vec![
+            CatalogHardwareAlternative::ExactArchitecture { sm: 103 },
+            CatalogHardwareAlternative::ExactArchitecture { sm: 110 },
+        ],
+    };
+    let has_half_split_offset = ld_red.shape == Tcgen05LdShape::M16x32bx2;
+    let is_float = ld_red.element == Tcgen05LdRedElement::F32;
+    let count = tcgen05_ld_red_register_count(record);
+    let element = tcgen05_ld_red_rust_element(record);
+    let carrier = if is_float { "f32" } else { "i32" };
+    let mut modifiers: Vec<String> = vec![
+        "ld".into(),
+        "red".into(),
+        "sync".into(),
+        "aligned".into(),
+        tcgen05_ld_shape_label(ld_red.shape).into(),
+        tcgen05_ld_multiplicity_label(ld_red.multiplicity).into(),
+        ld_red.op.name().into(),
+    ];
+    if ld_red.abs {
+        modifiers.push("abs".into());
+    }
+    if ld_red.nan {
+        modifiers.push("NaN".into());
+    }
+    modifiers.push(ld_red.element.ptx_name().into());
+    let mut operands = vec![
+        crate::ptx::OperandPattern::RegisterList { length: count },
+        crate::ptx::OperandPattern::Register,
+        crate::ptx::OperandPattern::Address,
+    ];
+    if has_half_split_offset {
+        operands.push(crate::ptx::OperandPattern::Immediate);
+    }
+    let mut llvm_arguments = vec!["tmem_ptr"];
+    if has_half_split_offset {
+        llvm_arguments.push("i64");
+    }
+    llvm_arguments.push("i32");
+    if is_float {
+        llvm_arguments.extend(["i1", "i1"]);
+    }
+    let llvm = llvm(record);
+    tcgen05.operation == Tcgen05Operation::LdRed
+        && tcgen05.cp.is_none()
+        && tcgen05.ld.is_none()
+        && tcgen05.st.is_none()
+        && tcgen05.mma.is_none()
+        && tcgen05.adapter
+            == if has_half_split_offset {
+                Tcgen05Adapter::TmemHalfSplitOffsetInjectReductionToRegistersAndValue
+            } else {
+                Tcgen05Adapter::TmemInjectReductionToRegistersAndValue
+            }
+        && tcgen05.source_contract == Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection
+        && tcgen05.runtime_validation == RuntimeValidation::Unexecuted
+        && !matches!(ld_red.multiplicity, Tcgen05LdMultiplicity::X1)
+        && matches!(
+            ld_red.shape,
+            Tcgen05LdShape::M32x32b | Tcgen05LdShape::M16x32bx2
+        )
+        && (is_float || (!ld_red.abs && !ld_red.nan))
+        && record.rust.module == "tcgen05"
+        && !record.rust.safe
+        && record.rust.must_use
+        && record.rust.arguments
+            == if has_half_split_offset {
+                vec!["u32", "i64"]
+            } else {
+                vec!["u32"]
+            }
+        && record.rust.result == format!("([{element}; {count}], {element})")
+        && record.dialect.operands
+            == if has_half_split_offset {
+                vec!["i32", "i64"]
+            } else {
+                vec!["i32"]
+            }
+        && record.dialect.results == vec![carrier; count + 1]
+        && llvm.arguments == llvm_arguments
+        && llvm.results == tcgen05_ld_red_llvm_results(ld_red, count)
+        && record.lowering == "generated_tcgen05"
+        && !record.semantics.pure
+        && record.semantics.memory == "read"
+        && record.semantics.convergent
+        && record.semantics.execution_scope == "warp"
+        && record.target.minimum_ptx.to_string() == "8.8"
+        && record.target.targets == "sm_103a|sm_110a"
+        && record.target.hardware == hardware
+        && [llvm_route, libnvvm_route]
+            .iter()
+            .zip([IntrinsicBackend::LlvmNvptx, IntrinsicBackend::LibNvvm])
+            .all(|(route, backend)| {
+                route.backend == backend
+                    && route.mechanism == BackendLoweringMechanism::InlinePtx
+                    && route.target.minimum_ptx.to_string() == "8.8"
+                    && route.target.hardware == hardware
+            })
+        && record.expected_ptx.mnemonic == "tcgen05"
+        && record.expected_ptx.modifiers == modifiers
+        && record.expected_ptx.operands == operands
+}
+
 pub(in crate::render) fn tcgen05_st_register_count(record: &CatalogIntrinsic) -> usize {
     let st = record
         .tcgen05
@@ -767,6 +925,9 @@ pub(in crate::render) fn tcgen05_render_contract(record: &CatalogIntrinsic) -> b
     };
     if let Some(mma) = &tcgen05.mma {
         return tcgen05_mma_render_contract(record, tcgen05, mma, llvm_route, libnvvm_route);
+    }
+    if let Some(ld_red) = tcgen05.ld_red {
+        return tcgen05_ld_red_render_contract(record, tcgen05, ld_red, llvm_route, libnvvm_route);
     }
     let llvm_hardware = CatalogHardwareTarget::AnyOf {
         alternatives: vec![
@@ -1337,6 +1498,41 @@ pub(in crate::render) fn tcgen05_inline_asm(
                 ),
                 constraints,
                 Some(count),
+            )
+        }
+        Tcgen05Operation::LdRed => {
+            let ld_red = tcgen05_ld_red(record);
+            let count = tcgen05_ld_red_register_count(record);
+            let has_half_split_offset = ld_red.shape == Tcgen05LdShape::M16x32bx2;
+            let output = if ld_red.element == Tcgen05LdRedElement::F32 {
+                "=f"
+            } else {
+                "=r"
+            };
+            let registers = (0..count)
+                .map(|index| format!("${index}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            let constraints = std::iter::repeat_n(output, count + 1)
+                .chain(std::iter::once("r"))
+                .chain(has_half_split_offset.then_some("n"))
+                .chain(std::iter::once("~{memory}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            (
+                format!(
+                    "{}.{} {{{registers}}}, ${count}, [${}]{};",
+                    record.expected_ptx.mnemonic,
+                    record.expected_ptx.modifiers.join("."),
+                    count + 1,
+                    if has_half_split_offset {
+                        format!(", ${}", count + 2)
+                    } else {
+                        String::new()
+                    }
+                ),
+                constraints,
+                Some(count + 1),
             )
         }
         Tcgen05Operation::St => {

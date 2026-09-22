@@ -318,9 +318,9 @@ pub(crate) fn test_catalog_with_tcgen05(repo_root: &Path) -> Result<CatalogFile>
         .filter(|record| record.family == "tcgen05")
         .count();
     match active_count {
-        233 => return Ok(catalog),
+        401 => return Ok(catalog),
         0 => {}
-        count => bail!("active tcgen05 catalog has {count} of 233 records"),
+        count => bail!("active tcgen05 catalog has {count} of 401 records"),
     }
     let imported: ImportedFile = read_json(&repo_root.join("intrinsics/imported.json"))?;
     let imported_by_record = index_imported_intrinsics(&imported)?;
@@ -368,6 +368,8 @@ pub(crate) fn test_catalog_with_tcgen05(repo_root: &Path) -> Result<CatalogFile>
         control_libnvvm_evidence_profile: Some("libnvvm-tcgen05-control-test".into()),
         mma_llvm_evidence_profile: None,
         mma_libnvvm_evidence_profile: None,
+        ld_red_llvm_evidence_profile: None,
+        ld_red_libnvvm_evidence_profile: None,
         mma_llvm_target_contracts: vec![],
         mma_libnvvm_target_contracts: vec![],
         runtime_validation: RuntimeValidation::Unexecuted,
@@ -416,6 +418,7 @@ pub(crate) fn test_catalog_with_tcgen05(repo_root: &Path) -> Result<CatalogFile>
             )
             .collect(),
         mma_variants: vec![],
+        ld_red_variants: vec![],
     };
     for policy in expand_tcgen05_admission(&admission)? {
         let source = resolve_policy_source(&policy)?;

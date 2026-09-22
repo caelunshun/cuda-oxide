@@ -1,4 +1,4 @@
-schema = 57
+schema = 66
 family = "tcgen05"
 
 [tcgen05]
@@ -16,6 +16,8 @@ control_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
 control_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05-control"
 mma_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tcgen05-mma"
 mma_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05-mma"
+ld_red_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
+ld_red_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tcgen05-ld-red"
 runtime_validation = "unexecuted"
 
 [[tcgen05.variant]]
@@ -1376,3 +1378,1294 @@ alias = "e3m2"
 abi_id = "i1015"
 form = "shared"
 alias = "e2m1"
+
+# `tcgen05.ld.red` (PTX ISA 8.8, sm_103a and sm_110a): every shape,
+# repetition, element type, and reduction CUDA 13.3 ptxas accepts.
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1047"
+shape = "32x32b"
+multiplicity = "x2"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1048"
+shape = "32x32b"
+multiplicity = "x2"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1049"
+shape = "32x32b"
+multiplicity = "x2"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1050"
+shape = "32x32b"
+multiplicity = "x2"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1051"
+shape = "32x32b"
+multiplicity = "x2"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1052"
+shape = "32x32b"
+multiplicity = "x2"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1053"
+shape = "32x32b"
+multiplicity = "x2"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1054"
+shape = "32x32b"
+multiplicity = "x2"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1055"
+shape = "32x32b"
+multiplicity = "x2"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1056"
+shape = "32x32b"
+multiplicity = "x2"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1057"
+shape = "32x32b"
+multiplicity = "x2"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1058"
+shape = "32x32b"
+multiplicity = "x2"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1059"
+shape = "32x32b"
+multiplicity = "x4"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1060"
+shape = "32x32b"
+multiplicity = "x4"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1061"
+shape = "32x32b"
+multiplicity = "x4"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1062"
+shape = "32x32b"
+multiplicity = "x4"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1063"
+shape = "32x32b"
+multiplicity = "x4"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1064"
+shape = "32x32b"
+multiplicity = "x4"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1065"
+shape = "32x32b"
+multiplicity = "x4"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1066"
+shape = "32x32b"
+multiplicity = "x4"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1067"
+shape = "32x32b"
+multiplicity = "x4"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1068"
+shape = "32x32b"
+multiplicity = "x4"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1069"
+shape = "32x32b"
+multiplicity = "x4"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1070"
+shape = "32x32b"
+multiplicity = "x4"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1071"
+shape = "32x32b"
+multiplicity = "x8"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1072"
+shape = "32x32b"
+multiplicity = "x8"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1073"
+shape = "32x32b"
+multiplicity = "x8"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1074"
+shape = "32x32b"
+multiplicity = "x8"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1075"
+shape = "32x32b"
+multiplicity = "x8"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1076"
+shape = "32x32b"
+multiplicity = "x8"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1077"
+shape = "32x32b"
+multiplicity = "x8"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1078"
+shape = "32x32b"
+multiplicity = "x8"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1079"
+shape = "32x32b"
+multiplicity = "x8"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1080"
+shape = "32x32b"
+multiplicity = "x8"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1081"
+shape = "32x32b"
+multiplicity = "x8"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1082"
+shape = "32x32b"
+multiplicity = "x8"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1083"
+shape = "32x32b"
+multiplicity = "x16"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1084"
+shape = "32x32b"
+multiplicity = "x16"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1085"
+shape = "32x32b"
+multiplicity = "x16"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1086"
+shape = "32x32b"
+multiplicity = "x16"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1087"
+shape = "32x32b"
+multiplicity = "x16"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1088"
+shape = "32x32b"
+multiplicity = "x16"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1089"
+shape = "32x32b"
+multiplicity = "x16"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1090"
+shape = "32x32b"
+multiplicity = "x16"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1091"
+shape = "32x32b"
+multiplicity = "x16"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1092"
+shape = "32x32b"
+multiplicity = "x16"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1093"
+shape = "32x32b"
+multiplicity = "x16"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1094"
+shape = "32x32b"
+multiplicity = "x16"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1095"
+shape = "32x32b"
+multiplicity = "x32"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1096"
+shape = "32x32b"
+multiplicity = "x32"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1097"
+shape = "32x32b"
+multiplicity = "x32"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1098"
+shape = "32x32b"
+multiplicity = "x32"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1099"
+shape = "32x32b"
+multiplicity = "x32"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1100"
+shape = "32x32b"
+multiplicity = "x32"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1101"
+shape = "32x32b"
+multiplicity = "x32"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1102"
+shape = "32x32b"
+multiplicity = "x32"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1103"
+shape = "32x32b"
+multiplicity = "x32"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1104"
+shape = "32x32b"
+multiplicity = "x32"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1105"
+shape = "32x32b"
+multiplicity = "x32"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1106"
+shape = "32x32b"
+multiplicity = "x32"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1107"
+shape = "32x32b"
+multiplicity = "x64"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1108"
+shape = "32x32b"
+multiplicity = "x64"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1109"
+shape = "32x32b"
+multiplicity = "x64"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1110"
+shape = "32x32b"
+multiplicity = "x64"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1111"
+shape = "32x32b"
+multiplicity = "x64"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1112"
+shape = "32x32b"
+multiplicity = "x64"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1113"
+shape = "32x32b"
+multiplicity = "x64"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1114"
+shape = "32x32b"
+multiplicity = "x64"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1115"
+shape = "32x32b"
+multiplicity = "x64"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1116"
+shape = "32x32b"
+multiplicity = "x64"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1117"
+shape = "32x32b"
+multiplicity = "x64"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1118"
+shape = "32x32b"
+multiplicity = "x64"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1119"
+shape = "32x32b"
+multiplicity = "x128"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1120"
+shape = "32x32b"
+multiplicity = "x128"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1121"
+shape = "32x32b"
+multiplicity = "x128"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1122"
+shape = "32x32b"
+multiplicity = "x128"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1123"
+shape = "32x32b"
+multiplicity = "x128"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1124"
+shape = "32x32b"
+multiplicity = "x128"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1125"
+shape = "32x32b"
+multiplicity = "x128"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1126"
+shape = "32x32b"
+multiplicity = "x128"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1127"
+shape = "32x32b"
+multiplicity = "x128"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1128"
+shape = "32x32b"
+multiplicity = "x128"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1129"
+shape = "32x32b"
+multiplicity = "x128"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1130"
+shape = "32x32b"
+multiplicity = "x128"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1131"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1132"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1133"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1134"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1135"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1136"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1137"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1138"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1139"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1140"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1141"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1142"
+shape = "16x32bx2"
+multiplicity = "x2"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1143"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1144"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1145"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1146"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1147"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1148"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1149"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1150"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1151"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1152"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1153"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1154"
+shape = "16x32bx2"
+multiplicity = "x4"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1155"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1156"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1157"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1158"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1159"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1160"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1161"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1162"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1163"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1164"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1165"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1166"
+shape = "16x32bx2"
+multiplicity = "x8"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1167"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1168"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1169"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1170"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1171"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1172"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1173"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1174"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1175"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1176"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1177"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1178"
+shape = "16x32bx2"
+multiplicity = "x16"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1179"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1180"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1181"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1182"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1183"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1184"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1185"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1186"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1187"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1188"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1189"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1190"
+shape = "16x32bx2"
+multiplicity = "x32"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1191"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1192"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1193"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1194"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1195"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1196"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1197"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1198"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1199"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1200"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1201"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1202"
+shape = "16x32bx2"
+multiplicity = "x64"
+op = "max"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1203"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "min"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1204"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "max"
+element = "u32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1205"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "min"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1206"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "max"
+element = "s32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1207"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "min"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1208"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "min"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1209"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "min"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1210"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "min"
+element = "f32"
+abs = true
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1211"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "max"
+element = "f32"
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1212"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "max"
+element = "f32"
+nan = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1213"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "max"
+element = "f32"
+abs = true
+
+[[tcgen05.ld_red_variant]]
+abi_id = "i1214"
+shape = "16x32bx2"
+multiplicity = "x128"
+op = "max"
+element = "f32"
+abs = true
+nan = true

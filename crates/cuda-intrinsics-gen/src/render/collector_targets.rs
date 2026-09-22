@@ -978,6 +978,9 @@ fn targets_record_shard(record: &CatalogIntrinsic) -> &'static str {
         if tcgen05.ld.is_some() {
             return "tcgen05_ld";
         }
+        if tcgen05.ld_red.is_some() {
+            return "tcgen05_ld_red";
+        }
         if tcgen05.st.is_some() {
             return "tcgen05_st";
         }

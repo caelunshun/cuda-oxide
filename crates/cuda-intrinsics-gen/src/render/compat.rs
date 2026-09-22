@@ -26,10 +26,10 @@ use crate::render::families::{
     sparse_mma_fragment_counts, sparse_mma_metadata_rule, sparse_mma_ptx_head,
     sparse_mma_selector_description, sparse_mmas, sregs, stmatrices, stmatrix_compatibility_name,
     stmatrix_variant, sync_intrinsics, tcgen05_intrinsics, tcgen05_is_commit,
-    tcgen05_is_multicast_commit, tcgen05_is_shift, tcgen05_ld_register_count,
-    tcgen05_mma_runtime_parameters, tcgen05_mma_selector_parameters, tcgen05_participation_doc,
-    tcgen05_st_register_count, threadfence_ptx_level, tma_intrinsics, wgmma_control,
-    wgmma_controls,
+    tcgen05_is_multicast_commit, tcgen05_is_shift, tcgen05_ld_red, tcgen05_ld_red_register_count,
+    tcgen05_ld_red_rust_element, tcgen05_ld_register_count, tcgen05_mma_runtime_parameters,
+    tcgen05_mma_selector_parameters, tcgen05_participation_doc, tcgen05_st_register_count,
+    threadfence_ptx_level, tma_intrinsics, wgmma_control, wgmma_controls,
 };
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -1327,14 +1327,74 @@ fn render_compat_tcgen05_mma_record(output: &mut String, record: &CatalogIntrins
     output.push_str("}\n\n");
 }
 
+fn render_compat_tcgen05_ld_red_record(output: &mut String, record: &CatalogIntrinsic) {
+    let ld_red = tcgen05_ld_red(record);
+    let count = tcgen05_ld_red_register_count(record);
+    let element = tcgen05_ld_red_rust_element(record);
+    let result = format!("(CuSimd<{element}, {count}>, {element})");
+    let has_half_split_offset = ld_red.shape == Tcgen05LdShape::M16x32bx2;
+    writeln!(output, "/// {}", record.summary).unwrap();
+    output.push_str(
+        "/// Returns the loaded registers and the reduction across them.\n\
+         /// One full warp must execute this instruction uniformly with the same operands.\n\
+         /// All tcgen05 operations in the kernel must use the same CTA-group mode.\n\
+         ///\n\
+         /// # Safety\n\
+         /// The tensor-memory address must remain live and cover the selected tile.\n\
+         /// All active warp lanes must execute convergently with the same address. Complete the load wait before using the result.\n",
+    );
+    if has_half_split_offset {
+        output.push_str("#[inline(always)]\n");
+        writeln!(
+            output,
+            "pub unsafe fn {}<const HALF_SPLIT_OFFSET: i32>(tmem_addr: u32) -> {result} {{",
+            record.rust.name
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "    unsafe {{ __{}(tmem_addr, HALF_SPLIT_OFFSET as i64) }}",
+            record.rust.name
+        )
+        .unwrap();
+        output.push_str("}\n\n#[doc(hidden)]\n#[inline(never)]\n");
+        writeln!(
+            output,
+            "pub(crate) unsafe fn __{}(_tmem_addr: u32, _half_split_offset: i64) -> {result} {{",
+            record.rust.name
+        )
+        .unwrap();
+    } else {
+        output.push_str("#[inline(never)]\n");
+        writeln!(
+            output,
+            "pub unsafe fn {}(tmem_addr: u32) -> {result} {{",
+            record.rust.name
+        )
+        .unwrap();
+        output.push_str("    let _ = tmem_addr;\n");
+    }
+    writeln!(
+        output,
+        "    unreachable!(\"{} called outside CUDA kernel context\")",
+        record.rust.name
+    )
+    .unwrap();
+    output.push_str("}\n\n");
+}
+
 pub(super) fn render_compat_tcgen05(catalog: &CatalogFile, hash: &str) -> String {
-    assert_eq!(tcgen05_intrinsics(catalog).count(), 233);
+    assert_eq!(tcgen05_intrinsics(catalog).count(), 401);
     let mut output = rust_header(catalog, hash);
     output.push_str("// Included inside `cuda_device::tcgen05` to keep its public API stable.\n\n");
     for record in tcgen05_intrinsics(catalog) {
         let tcgen05 = record.tcgen05.as_ref().unwrap();
         if tcgen05.mma.is_some() {
             render_compat_tcgen05_mma_record(&mut output, record);
+            continue;
+        }
+        if tcgen05.ld_red.is_some() {
+            render_compat_tcgen05_ld_red_record(&mut output, record);
             continue;
         }
         let operation = tcgen05.operation;
@@ -1479,6 +1539,7 @@ pub(super) fn render_compat_tcgen05(catalog: &CatalogFile, hash: &str) -> String
                     ("tmem_addr: u32", "tmem_addr")
                 }
                 Tcgen05Operation::St => unreachable!("store handled above"),
+                Tcgen05Operation::LdRed => unreachable!("reducing load handled above"),
                 Tcgen05Operation::Mma => unreachable!("generic MMA handled above"),
             };
             (arguments.into(), values.into())

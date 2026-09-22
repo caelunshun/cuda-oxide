@@ -565,6 +565,7 @@ fn generated_non_mma_tcgen05_targets_preserve_the_backend_split() {
     let targets = generated_intrinsic_targets()
         .filter(|target| {
             target.id.starts_with("tcgen05_")
+                && !target.id.starts_with("tcgen05_ld_red_")
                 && !matches!(target.variant, GeneratedIntrinsicVariant::Tcgen05Mma { .. })
         })
         .collect::<Vec<_>>();
@@ -621,6 +622,67 @@ fn generated_non_mma_tcgen05_targets_preserve_the_backend_split() {
             target.id
         );
     }
+}
+
+#[test]
+fn generated_tcgen05_ld_red_targets_require_sm103a_or_sm110a() {
+    use crate::generated_intrinsic_targets::{
+        GeneratedIntrinsicBackend, generated_intrinsic_target_by_marker,
+        generated_intrinsic_targets,
+    };
+
+    let targets = generated_intrinsic_targets()
+        .filter(|target| target.id.starts_with("tcgen05_ld_red_"))
+        .collect::<Vec<_>>();
+    assert_eq!(targets.len(), 168);
+
+    for target in targets {
+        for backend in [
+            GeneratedIntrinsicBackend::LlvmNvptx,
+            GeneratedIntrinsicBackend::LibNvvm,
+        ] {
+            let generated =
+                GeneratedModuleRequirements::from_targets(vec![target]).for_backend(backend);
+            assert_eq!(
+                generated_ptx_isa_requirement(&generated).unwrap(),
+                PtxIsaRequirement::new(88),
+                "{} {backend:?}",
+                target.id
+            );
+            for arch in ["sm_103a", "sm_110a"] {
+                assert!(
+                    generated_target_satisfied(&arch.parse().unwrap(), &generated),
+                    "{} {backend:?} {arch}",
+                    target.id
+                );
+            }
+            for arch in ["sm_100a", "sm_101a", "sm_103f", "sm_110f", "sm_120a"] {
+                assert!(
+                    !generated_target_satisfied(&arch.parse().unwrap(), &generated),
+                    "{} {backend:?} {arch}",
+                    target.id
+                );
+            }
+        }
+    }
+
+    let first = generated_intrinsic_target_by_marker("v1:i1047").unwrap();
+    assert_eq!(first.id, "tcgen05_ld_red_32x32b_x2_min_u32");
+    let first = GeneratedModuleRequirements::from_targets(vec![first]);
+    let error = resolve_ptx_target_with_generated(
+        Some("sm_100a"),
+        "CUDA_OXIDE_TARGET",
+        None,
+        DetectedFeatures::Blackwell,
+        &first,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        error.contains("tcgen05_ld_red_32x32b_x2_min_u32"),
+        "{error}"
+    );
+    assert!(error.contains("sm_103a exactly"), "{error}");
 }
 
 #[test]

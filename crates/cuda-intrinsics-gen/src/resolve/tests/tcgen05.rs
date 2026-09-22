@@ -841,6 +841,145 @@ fn compact_tcgen05_load_admission_matches_all_llvm_records_and_fails_closed() {
 }
 
 #[test]
+fn compact_tcgen05_ld_red_admission_matches_all_llvm_records_and_fails_closed() {
+    let records = expand_tcgen05_admission(&test_tcgen05_ld_red_admission()).unwrap();
+    assert_eq!(records.len(), 27 + 168);
+    let loads = &records[27..];
+    assert_eq!(
+        (loads[0].abi_id.as_str(), loads[0].id.as_str()),
+        ("i1047", "tcgen05_ld_red_32x32b_x2_min_u32")
+    );
+    assert_eq!(
+        (loads[167].abi_id.as_str(), loads[167].id.as_str()),
+        ("i1214", "tcgen05_ld_red_16x32bx2_x128_max_abs_nan_f32")
+    );
+
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let imported: ImportedFile = read_json(&repo_root.join("intrinsics/imported.json")).unwrap();
+    let declarations = imported
+        .intrinsics
+        .iter()
+        .map(|record| (record.source_record.as_str(), record))
+        .collect::<BTreeMap<_, _>>();
+    let mut source_counts = BTreeMap::new();
+    for record in loads {
+        let source_record = record.source_record.as_deref().unwrap();
+        *source_counts.entry(source_record).or_insert(0) += 1;
+        validate_imported_policy(record, declarations[source_record]).unwrap();
+        assert!(record.must_use && !record.safe && !record.pure);
+        assert_eq!(record.memory, "read");
+        assert_eq!(record.execution_scope, "warp");
+        assert_eq!(record.targets, "sm_103a|sm_110a");
+        assert_eq!(record.minimum_ptx, "8.8");
+        assert_eq!(
+            record.backend_lowerings[1].targets.as_deref(),
+            Some("sm_103a|sm_110a")
+        );
+    }
+    // Every imported record is shared by its min/max (and u32/s32 or
+    // .abs/.NaN) leaves.
+    assert_eq!(source_counts.len(), 28);
+    assert!(
+        source_counts
+            .iter()
+            .all(|(record, count)| { *count == if record.ends_with("_f32") { 8 } else { 4 } })
+    );
+    validate_unique_overlay(&records, 1).unwrap();
+
+    let first = &loads[0];
+    assert_eq!(first.rust_arguments, ["u32"]);
+    assert_eq!(first.rust_result, "([u32; 2], u32)");
+    assert_eq!(first.dialect_results, ["i32", "i32", "i32"]);
+    assert_eq!(first.llvm_arguments, ["tmem_ptr", "i32"]);
+    assert_eq!(first.llvm_results, ["anonymous_9937", "anonymous_10027"]);
+    assert!(
+        first
+            .expected_ptx
+            .matches("tcgen05.ld.red.sync.aligned.32x32b.x2.min.u32 {%r1, %r2}, %r3, [%r4];")
+            .unwrap()
+    );
+    assert!(
+        !first
+            .expected_ptx
+            .matches("tcgen05.ld.red.sync.aligned.32x32b.x2.min.s32 {%r1, %r2}, %r3, [%r4];")
+            .unwrap()
+    );
+    let last = &loads[167];
+    assert_eq!(last.rust_arguments, ["u32", "i64"]);
+    assert_eq!(last.rust_result, "([f32; 128], f32)");
+    assert_eq!(last.dialect_results.len(), 129);
+    assert_eq!(
+        last.compatibility_rust_paths,
+        ["cuda_device::tcgen05::__tcgen05_ld_red_16x32bx2_x128_max_abs_nan_f32"]
+    );
+    assert_eq!(last.llvm_arguments, ["tmem_ptr", "i64", "i32", "i1", "i1"]);
+    assert_eq!(last.llvm_results, ["anonymous_10066", "anonymous_10023"]);
+    assert_eq!(
+        last.expected_ptx.modifiers,
+        [
+            "ld", "red", "sync", "aligned", "16x32bx2", "x128", "max", "abs", "NaN", "f32"
+        ]
+    );
+    assert_eq!(
+        last.expected_ptx.operands,
+        [
+            OperandPattern::RegisterList { length: 128 },
+            OperandPattern::Register,
+            OperandPattern::Address,
+            OperandPattern::Immediate,
+        ]
+    );
+
+    let mut missing = test_tcgen05_ld_red_admission();
+    missing.ld_red_variants.pop();
+    assert!(expand_tcgen05_admission(&missing).is_err());
+
+    let mut reordered = test_tcgen05_ld_red_admission();
+    reordered.ld_red_variants.swap(0, 1);
+    assert!(expand_tcgen05_admission(&reordered).is_err());
+
+    let mut integer_abs = test_tcgen05_ld_red_admission();
+    integer_abs.ld_red_variants[0].abs = true;
+    assert!(expand_tcgen05_admission(&integer_abs).is_err());
+
+    let mut missing_evidence = test_tcgen05_ld_red_admission();
+    missing_evidence.ld_red_libnvvm_evidence_profile = None;
+    assert!(expand_tcgen05_admission(&missing_evidence).is_err());
+
+    let mut orphan_evidence = test_tcgen05_admission();
+    orphan_evidence.ld_red_llvm_evidence_profile = Some("llvm-tcgen05-ld-red-test".into());
+    assert!(expand_tcgen05_admission(&orphan_evidence).is_err());
+
+    let declaration = declarations[first.source_record.as_deref().unwrap()];
+    let mut wrong_element = first.clone();
+    wrong_element
+        .tcgen05
+        .as_mut()
+        .unwrap()
+        .ld_red
+        .as_mut()
+        .unwrap()
+        .element = crate::model::Tcgen05LdRedElement::S32;
+    assert!(validate_imported_policy(&wrong_element, declaration).is_err());
+
+    let mut sm100 = first.clone();
+    sm100.targets = "sm_100a|sm_103a|sm_110a".into();
+    assert!(validate_imported_policy(&sm100, declaration).is_err());
+
+    let mut plain_load = first.clone();
+    plain_load.tcgen05.as_mut().unwrap().operation = Tcgen05Operation::Ld;
+    assert!(validate_imported_policy(&plain_load, declaration).is_err());
+
+    let mut changed_declaration = declaration.clone();
+    changed_declaration.results.pop();
+    assert!(validate_imported_policy(first, &changed_declaration).is_err());
+
+    let mut unreviewed_sharing = records.clone();
+    unreviewed_sharing[28].tcgen05.as_mut().unwrap().operation = Tcgen05Operation::Alloc;
+    assert!(validate_unique_overlay(&unreviewed_sharing, 1).is_err());
+}
+
+#[test]
 fn compact_tcgen05_store_admission_matches_all_llvm_records_and_fails_closed() {
     let records = expand_tcgen05_admission(&test_tcgen05_st_admission()).unwrap();
     assert_eq!(records.len(), 177);

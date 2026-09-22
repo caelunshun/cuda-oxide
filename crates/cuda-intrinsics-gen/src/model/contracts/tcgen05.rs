@@ -17,6 +17,8 @@ pub struct Tcgen05 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ld: Option<Tcgen05Ld>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ld_red: Option<Tcgen05LdRed>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub st: Option<Tcgen05St>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mma: Option<Tcgen05Mma>,
@@ -187,6 +189,80 @@ pub struct Tcgen05Ld {
     pub pack16: bool,
 }
 
+/// Closed identity for one tcgen05 tensor-memory load with an inline
+/// min/max reduction across the loaded registers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Tcgen05LdRed {
+    pub shape: Tcgen05LdShape,
+    pub multiplicity: Tcgen05LdMultiplicity,
+    pub op: Tcgen05LdRedOp,
+    pub element: Tcgen05LdRedElement,
+    pub abs: bool,
+    pub nan: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Tcgen05LdRedOp {
+    Min,
+    Max,
+}
+
+impl Tcgen05LdRedOp {
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Min => "min",
+            Self::Max => "max",
+        }
+    }
+}
+
+/// Element type of the loaded registers and of the reduction result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Tcgen05LdRedElement {
+    U32,
+    S32,
+    F32,
+}
+
+impl Tcgen05LdRedElement {
+    /// PTX type suffix.
+    pub const fn ptx_name(self) -> &'static str {
+        match self {
+            Self::U32 => "u32",
+            Self::S32 => "s32",
+            Self::F32 => "f32",
+        }
+    }
+
+    /// Rust element type of the public API.
+    pub const fn rust_type(self) -> &'static str {
+        match self {
+            Self::U32 => "u32",
+            Self::S32 => "i32",
+            Self::F32 => "f32",
+        }
+    }
+
+    /// Dialect carrier of every result.
+    pub const fn dialect_type(self) -> &'static str {
+        match self {
+            Self::U32 | Self::S32 => "i32",
+            Self::F32 => "f32",
+        }
+    }
+
+    /// Imported LLVM record suffix (`.i32` or `.f32`).
+    pub const fn llvm_suffix(self) -> &'static str {
+        match self {
+            Self::U32 | Self::S32 => "i32",
+            Self::F32 => "f32",
+        }
+    }
+}
+
 /// Closed identity for one tcgen05 tensor-memory store.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -281,6 +357,7 @@ pub enum Tcgen05Operation {
     ShiftDown,
     ShiftDownCg2,
     Mma,
+    LdRed,
 }
 
 impl Tcgen05Operation {
@@ -297,6 +374,7 @@ impl Tcgen05Operation {
             | Self::DeallocCg2
             | Self::RelinquishAllocPermitCg2
             | Self::Ld
+            | Self::LdRed
             | Self::St => "warp",
             Self::FenceBeforeThreadSync
             | Self::FenceAfterThreadSync
@@ -340,6 +418,8 @@ pub enum Tcgen05Adapter {
     TmemAddressToVoid,
     MmaDirectSelectors,
     MmaWsFixedSelectorsDropLegacyADescriptor,
+    TmemInjectReductionToRegistersAndValue,
+    TmemHalfSplitOffsetInjectReductionToRegistersAndValue,
 }
 
 /// Relationship between the public operation and LLVM's NVPTX selection.
@@ -369,6 +449,7 @@ mod tests {
             Tcgen05Operation::LoadWait,
             Tcgen05Operation::StoreWait,
             Tcgen05Operation::Ld,
+            Tcgen05Operation::LdRed,
             Tcgen05Operation::St,
         ] {
             assert_eq!(operation.execution_scope(), "warp");

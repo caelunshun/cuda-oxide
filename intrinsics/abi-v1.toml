@@ -7292,3 +7292,1179 @@ status = "active"
 catalog_id = "createpolicy_fractional_evict_unchanged_evict_first"
 operation_key = "memory.cache_policy.l2.fractional.evict_unchanged.evict_first"
 raw_rust_signature = { safe = true, arguments = ["f32"], result = "u64" }
+
+[[entry]]
+abi_id = "i1047"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_min_u32"
+operation_key = "tcgen05.ld.red.32x32b.x2.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 2], u32)" }
+
+[[entry]]
+abi_id = "i1048"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_max_u32"
+operation_key = "tcgen05.ld.red.32x32b.x2.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 2], u32)" }
+
+[[entry]]
+abi_id = "i1049"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_min_s32"
+operation_key = "tcgen05.ld.red.32x32b.x2.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 2], i32)" }
+
+[[entry]]
+abi_id = "i1050"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_max_s32"
+operation_key = "tcgen05.ld.red.32x32b.x2.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 2], i32)" }
+
+[[entry]]
+abi_id = "i1051"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_min_f32"
+operation_key = "tcgen05.ld.red.32x32b.x2.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1052"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_min_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x2.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1053"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_min_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x2.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1054"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x2.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1055"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_max_f32"
+operation_key = "tcgen05.ld.red.32x32b.x2.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1056"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_max_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x2.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1057"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_max_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x2.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1058"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x2_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x2.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1059"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_min_u32"
+operation_key = "tcgen05.ld.red.32x32b.x4.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 4], u32)" }
+
+[[entry]]
+abi_id = "i1060"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_max_u32"
+operation_key = "tcgen05.ld.red.32x32b.x4.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 4], u32)" }
+
+[[entry]]
+abi_id = "i1061"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_min_s32"
+operation_key = "tcgen05.ld.red.32x32b.x4.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 4], i32)" }
+
+[[entry]]
+abi_id = "i1062"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_max_s32"
+operation_key = "tcgen05.ld.red.32x32b.x4.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 4], i32)" }
+
+[[entry]]
+abi_id = "i1063"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_min_f32"
+operation_key = "tcgen05.ld.red.32x32b.x4.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1064"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_min_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x4.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1065"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_min_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x4.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1066"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x4.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1067"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_max_f32"
+operation_key = "tcgen05.ld.red.32x32b.x4.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1068"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_max_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x4.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1069"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_max_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x4.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1070"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x4_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x4.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1071"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_min_u32"
+operation_key = "tcgen05.ld.red.32x32b.x8.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 8], u32)" }
+
+[[entry]]
+abi_id = "i1072"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_max_u32"
+operation_key = "tcgen05.ld.red.32x32b.x8.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 8], u32)" }
+
+[[entry]]
+abi_id = "i1073"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_min_s32"
+operation_key = "tcgen05.ld.red.32x32b.x8.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 8], i32)" }
+
+[[entry]]
+abi_id = "i1074"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_max_s32"
+operation_key = "tcgen05.ld.red.32x32b.x8.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 8], i32)" }
+
+[[entry]]
+abi_id = "i1075"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_min_f32"
+operation_key = "tcgen05.ld.red.32x32b.x8.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1076"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_min_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x8.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1077"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_min_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x8.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1078"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x8.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1079"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_max_f32"
+operation_key = "tcgen05.ld.red.32x32b.x8.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1080"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_max_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x8.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1081"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_max_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x8.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1082"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x8_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x8.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1083"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_min_u32"
+operation_key = "tcgen05.ld.red.32x32b.x16.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 16], u32)" }
+
+[[entry]]
+abi_id = "i1084"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_max_u32"
+operation_key = "tcgen05.ld.red.32x32b.x16.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 16], u32)" }
+
+[[entry]]
+abi_id = "i1085"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_min_s32"
+operation_key = "tcgen05.ld.red.32x32b.x16.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 16], i32)" }
+
+[[entry]]
+abi_id = "i1086"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_max_s32"
+operation_key = "tcgen05.ld.red.32x32b.x16.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 16], i32)" }
+
+[[entry]]
+abi_id = "i1087"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_min_f32"
+operation_key = "tcgen05.ld.red.32x32b.x16.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1088"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_min_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x16.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1089"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_min_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x16.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1090"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x16.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1091"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_max_f32"
+operation_key = "tcgen05.ld.red.32x32b.x16.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1092"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_max_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x16.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1093"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_max_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x16.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1094"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x16_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x16.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1095"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_min_u32"
+operation_key = "tcgen05.ld.red.32x32b.x32.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 32], u32)" }
+
+[[entry]]
+abi_id = "i1096"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_max_u32"
+operation_key = "tcgen05.ld.red.32x32b.x32.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 32], u32)" }
+
+[[entry]]
+abi_id = "i1097"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_min_s32"
+operation_key = "tcgen05.ld.red.32x32b.x32.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 32], i32)" }
+
+[[entry]]
+abi_id = "i1098"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_max_s32"
+operation_key = "tcgen05.ld.red.32x32b.x32.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 32], i32)" }
+
+[[entry]]
+abi_id = "i1099"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_min_f32"
+operation_key = "tcgen05.ld.red.32x32b.x32.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1100"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_min_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x32.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1101"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_min_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x32.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1102"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x32.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1103"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_max_f32"
+operation_key = "tcgen05.ld.red.32x32b.x32.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1104"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_max_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x32.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1105"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_max_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x32.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1106"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x32_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x32.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1107"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_min_u32"
+operation_key = "tcgen05.ld.red.32x32b.x64.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 64], u32)" }
+
+[[entry]]
+abi_id = "i1108"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_max_u32"
+operation_key = "tcgen05.ld.red.32x32b.x64.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 64], u32)" }
+
+[[entry]]
+abi_id = "i1109"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_min_s32"
+operation_key = "tcgen05.ld.red.32x32b.x64.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 64], i32)" }
+
+[[entry]]
+abi_id = "i1110"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_max_s32"
+operation_key = "tcgen05.ld.red.32x32b.x64.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 64], i32)" }
+
+[[entry]]
+abi_id = "i1111"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_min_f32"
+operation_key = "tcgen05.ld.red.32x32b.x64.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1112"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_min_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x64.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1113"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_min_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x64.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1114"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x64.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1115"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_max_f32"
+operation_key = "tcgen05.ld.red.32x32b.x64.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1116"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_max_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x64.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1117"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_max_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x64.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1118"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x64_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x64.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1119"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_min_u32"
+operation_key = "tcgen05.ld.red.32x32b.x128.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 128], u32)" }
+
+[[entry]]
+abi_id = "i1120"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_max_u32"
+operation_key = "tcgen05.ld.red.32x32b.x128.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([u32; 128], u32)" }
+
+[[entry]]
+abi_id = "i1121"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_min_s32"
+operation_key = "tcgen05.ld.red.32x32b.x128.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 128], i32)" }
+
+[[entry]]
+abi_id = "i1122"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_max_s32"
+operation_key = "tcgen05.ld.red.32x32b.x128.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([i32; 128], i32)" }
+
+[[entry]]
+abi_id = "i1123"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_min_f32"
+operation_key = "tcgen05.ld.red.32x32b.x128.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1124"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_min_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x128.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1125"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_min_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x128.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1126"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x128.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1127"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_max_f32"
+operation_key = "tcgen05.ld.red.32x32b.x128.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1128"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_max_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x128.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1129"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_max_abs_f32"
+operation_key = "tcgen05.ld.red.32x32b.x128.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1130"
+status = "active"
+catalog_id = "tcgen05_ld_red_32x32b_x128_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.32x32b.x128.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1131"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_min_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 2], u32)" }
+
+[[entry]]
+abi_id = "i1132"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_max_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 2], u32)" }
+
+[[entry]]
+abi_id = "i1133"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_min_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 2], i32)" }
+
+[[entry]]
+abi_id = "i1134"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_max_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 2], i32)" }
+
+[[entry]]
+abi_id = "i1135"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_min_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1136"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_min_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1137"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_min_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1138"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1139"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_max_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1140"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_max_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1141"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_max_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1142"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x2_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x2.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 2], f32)" }
+
+[[entry]]
+abi_id = "i1143"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_min_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 4], u32)" }
+
+[[entry]]
+abi_id = "i1144"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_max_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 4], u32)" }
+
+[[entry]]
+abi_id = "i1145"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_min_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 4], i32)" }
+
+[[entry]]
+abi_id = "i1146"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_max_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 4], i32)" }
+
+[[entry]]
+abi_id = "i1147"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_min_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1148"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_min_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1149"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_min_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1150"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1151"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_max_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1152"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_max_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1153"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_max_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1154"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x4_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x4.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 4], f32)" }
+
+[[entry]]
+abi_id = "i1155"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_min_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 8], u32)" }
+
+[[entry]]
+abi_id = "i1156"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_max_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 8], u32)" }
+
+[[entry]]
+abi_id = "i1157"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_min_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 8], i32)" }
+
+[[entry]]
+abi_id = "i1158"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_max_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 8], i32)" }
+
+[[entry]]
+abi_id = "i1159"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_min_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1160"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_min_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1161"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_min_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1162"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1163"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_max_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1164"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_max_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1165"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_max_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1166"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x8_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x8.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 8], f32)" }
+
+[[entry]]
+abi_id = "i1167"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_min_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 16], u32)" }
+
+[[entry]]
+abi_id = "i1168"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_max_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 16], u32)" }
+
+[[entry]]
+abi_id = "i1169"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_min_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 16], i32)" }
+
+[[entry]]
+abi_id = "i1170"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_max_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 16], i32)" }
+
+[[entry]]
+abi_id = "i1171"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_min_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1172"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_min_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1173"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_min_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1174"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1175"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_max_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1176"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_max_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1177"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_max_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1178"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x16_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x16.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 16], f32)" }
+
+[[entry]]
+abi_id = "i1179"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_min_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 32], u32)" }
+
+[[entry]]
+abi_id = "i1180"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_max_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 32], u32)" }
+
+[[entry]]
+abi_id = "i1181"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_min_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 32], i32)" }
+
+[[entry]]
+abi_id = "i1182"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_max_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 32], i32)" }
+
+[[entry]]
+abi_id = "i1183"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_min_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1184"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_min_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1185"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_min_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1186"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1187"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_max_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1188"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_max_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1189"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_max_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1190"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x32_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x32.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 32], f32)" }
+
+[[entry]]
+abi_id = "i1191"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_min_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 64], u32)" }
+
+[[entry]]
+abi_id = "i1192"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_max_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 64], u32)" }
+
+[[entry]]
+abi_id = "i1193"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_min_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 64], i32)" }
+
+[[entry]]
+abi_id = "i1194"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_max_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 64], i32)" }
+
+[[entry]]
+abi_id = "i1195"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_min_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1196"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_min_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1197"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_min_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1198"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1199"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_max_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1200"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_max_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1201"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_max_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1202"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x64_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x64.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 64], f32)" }
+
+[[entry]]
+abi_id = "i1203"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_min_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.min.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 128], u32)" }
+
+[[entry]]
+abi_id = "i1204"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_max_u32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.max.u32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([u32; 128], u32)" }
+
+[[entry]]
+abi_id = "i1205"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_min_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.min.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 128], i32)" }
+
+[[entry]]
+abi_id = "i1206"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_max_s32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.max.s32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([i32; 128], i32)" }
+
+[[entry]]
+abi_id = "i1207"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_min_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.min.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1208"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_min_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.min.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1209"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_min_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.min.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1210"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_min_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.min.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1211"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_max_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.max.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1212"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_max_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.max.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1213"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_max_abs_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.max.abs.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 128], f32)" }
+
+[[entry]]
+abi_id = "i1214"
+status = "active"
+catalog_id = "tcgen05_ld_red_16x32bx2_x128_max_abs_nan_f32"
+operation_key = "tcgen05.ld.red.16x32bx2.x128.max.abs.nan.f32"
+raw_rust_signature = { safe = false, arguments = ["u32", "i64"], result = "([f32; 128], f32)" }

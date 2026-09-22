@@ -19,9 +19,10 @@ use super::contracts::{
     ScalarMathOperation, ScalarMathPrecision, ScalarMathSubnormal, SparseMma, SparseMmaAccumulator,
     SparseMmaElement, SparseMmaMetadata, SparseMmaOverflow, SparseMmaShape, SpecialRegister,
     SpecialRegisterKind, StmatrixLayout, StmatrixMultiplicity, Tcgen05, Tcgen05CpGroup,
-    Tcgen05CpMember, Tcgen05LdMultiplicity, Tcgen05LdShape, Tcgen05MmaAlias, Tcgen05MmaForm,
-    Tcgen05Operation, Tma, TmaOperation, TmaReductionLoadMode, TmaReductionOperation, Vote,
-    WarpBarrier, WarpMatch, WarpShuffle, WgmmaControl, WgmmaControlMode,
+    Tcgen05CpMember, Tcgen05LdMultiplicity, Tcgen05LdRedElement, Tcgen05LdRedOp, Tcgen05LdShape,
+    Tcgen05MmaAlias, Tcgen05MmaForm, Tcgen05Operation, Tma, TmaOperation, TmaReductionLoadMode,
+    TmaReductionOperation, Vote, WarpBarrier, WarpMatch, WarpShuffle, WgmmaControl,
+    WgmmaControlMode,
 };
 use super::core::{BackendLoweringMechanism, IntrinsicBackend, IntrinsicSource, RuntimeValidation};
 use super::imported::ImportedAddressSpace;
@@ -383,6 +384,10 @@ pub struct Tcgen05Admission {
     pub mma_llvm_evidence_profile: Option<String>,
     #[serde(default)]
     pub mma_libnvvm_evidence_profile: Option<String>,
+    #[serde(default)]
+    pub ld_red_llvm_evidence_profile: Option<String>,
+    #[serde(default)]
+    pub ld_red_libnvvm_evidence_profile: Option<String>,
     #[serde(rename = "mma_llvm_target_contract", default)]
     pub mma_llvm_target_contracts: Vec<TargetContract>,
     #[serde(rename = "mma_libnvvm_target_contract", default)]
@@ -402,6 +407,8 @@ pub struct Tcgen05Admission {
     pub st_offset_variants: Vec<Tcgen05StAdmissionVariant>,
     #[serde(rename = "mma_variant", default)]
     pub mma_variants: Vec<Tcgen05MmaAdmissionVariant>,
+    #[serde(rename = "ld_red_variant", default)]
+    pub ld_red_variants: Vec<Tcgen05LdRedAdmissionVariant>,
 }
 
 /// One reviewed tcgen05 operation and its reserved ABI ID.
@@ -429,6 +436,21 @@ pub struct Tcgen05LdAdmissionVariant {
     pub shape: Tcgen05LdShape,
     pub multiplicity: Tcgen05LdMultiplicity,
     pub pack16: bool,
+}
+
+/// One reviewed tcgen05 reducing-load shape, repetition, and reduction.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Tcgen05LdRedAdmissionVariant {
+    pub abi_id: String,
+    pub shape: Tcgen05LdShape,
+    pub multiplicity: Tcgen05LdMultiplicity,
+    pub op: Tcgen05LdRedOp,
+    pub element: Tcgen05LdRedElement,
+    #[serde(default)]
+    pub abs: bool,
+    #[serde(default)]
+    pub nan: bool,
 }
 
 /// One reviewed tcgen05 store shape, repetition, and unpacking mode.

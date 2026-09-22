@@ -19,7 +19,7 @@ use super::guards::*;
 
 pub(super) const OVERLAY_SCHEMA: u32 = 44;
 pub(super) const MINIMUM_OVERLAY_SHARD_SCHEMA: u32 = 26;
-pub(super) const OVERLAY_SHARD_SCHEMA: u32 = 65;
+pub(super) const OVERLAY_SHARD_SCHEMA: u32 = 66;
 pub(super) const REGISTER_MMA_F8F6F4_SHARD_SCHEMA: u32 = 46;
 pub(super) const REGISTER_MMA_F8F6F4_F16_SHARD_SCHEMA: u32 = 47;
 pub(super) const REGISTER_MMA_MXF8F6F4_SHARD_SCHEMA: u32 = 60;
@@ -55,6 +55,7 @@ pub(super) const TCGEN05_ST_SHARD_SCHEMA: u32 = 54;
 pub(super) const TCGEN05_OFFSET_LDST_SHARD_SCHEMA: u32 = 55;
 pub(super) const TCGEN05_CONTROL_SHARD_SCHEMA: u32 = 56;
 pub(super) const TCGEN05_MMA_SHARD_SCHEMA: u32 = 57;
+pub(super) const TCGEN05_LD_RED_SHARD_SCHEMA: u32 = 66;
 pub(super) const SCALAR_MATH_SHARD_SCHEMA: u32 = 58;
 pub(crate) const CATALOG_SCHEMA: u32 = 46;
 pub(super) fn read_overlay(
@@ -596,6 +597,15 @@ pub(super) fn validate_overlay_shard_schema_with_max(
     );
     ensure!(
         shard.tcgen05.as_ref().is_none_or(|admission| {
+            admission.ld_red_variants.is_empty()
+                && admission.ld_red_llvm_evidence_profile.is_none()
+                && admission.ld_red_libnvvm_evidence_profile.is_none()
+        }) || shard.schema >= TCGEN05_LD_RED_SHARD_SCHEMA,
+        "compact tcgen05 reducing-load admission requires overlay shard schema {}",
+        TCGEN05_LD_RED_SHARD_SCHEMA
+    );
+    ensure!(
+        shard.tcgen05.as_ref().is_none_or(|admission| {
             admission.ld_offset_variants.is_empty() && admission.st_offset_variants.is_empty()
         }) || shard.schema >= TCGEN05_OFFSET_LDST_SHARD_SCHEMA,
         "compact tcgen05 offset load/store admission requires overlay shard schema {}",
@@ -799,6 +809,17 @@ pub(super) fn shares_tcgen05_ld_symbol(record: &OverlayIntrinsic, symbol: &str) 
     )
 }
 
+pub(super) fn shares_tcgen05_ld_red_symbol(record: &OverlayIntrinsic, symbol: &str) -> bool {
+    record.tcgen05.as_ref().is_some_and(|tcgen05| {
+        tcgen05.ld_red.is_some_and(|ld_red| {
+            tcgen05.operation == Tcgen05Operation::LdRed
+                && record.source_record.as_deref()
+                    == Some(tcgen05_ld_red_source_record(ld_red).as_str())
+                && symbol == tcgen05_ld_red_llvm_symbol(ld_red)
+        })
+    })
+}
+
 pub(super) fn shares_tcgen05_st_symbol(record: &OverlayIntrinsic, symbol: &str) -> bool {
     record.tcgen05.as_ref().is_some_and(|tcgen05| {
         tcgen05.st.is_some_and(|st| {
@@ -881,6 +902,7 @@ pub(super) fn validate_unique_overlay(
                 || shares_tma_bulk_symbol(record, symbol)
                 || shares_tcgen05_mma_symbol(record, symbol)
                 || shares_tcgen05_ld_symbol(record, symbol)
+                || shares_tcgen05_ld_red_symbol(record, symbol)
                 || shares_tcgen05_st_symbol(record, symbol);
             if let Some((previous_was_resolved, previous_shared_symbol)) =
                 symbol_bases.insert(symbol, (is_resolved, shares_reviewed_symbol))
