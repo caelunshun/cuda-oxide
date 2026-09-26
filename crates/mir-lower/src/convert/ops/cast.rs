@@ -585,6 +585,30 @@ fn try_emit_slice_fat_pointer_cast(
     ))
 }
 
+/// Address space of an LLVM struct's first field, if that field is a pointer.
+fn struct_field0_address_space(ctx: &Context, ty: pliron::r#type::TypeHandle) -> Option<u32> {
+    let ty_ref = ty.deref(ctx);
+    let struct_ty = ty_ref.downcast_ref::<llvm_export::types::StructType>()?;
+    if struct_ty.num_fields() == 0 {
+        return None;
+    }
+    struct_ty
+        .field_type(0)
+        .deref(ctx)
+        .downcast_ref::<PointerType>()
+        .map(PointerType::address_space)
+}
+
+/// Field type of an LLVM struct with exactly one field.
+fn single_field_struct_type(
+    ctx: &Context,
+    ty: pliron::r#type::TypeHandle,
+) -> Option<pliron::r#type::TypeHandle> {
+    let ty_ref = ty.deref(ctx);
+    let struct_ty = ty_ref.downcast_ref::<llvm_export::types::StructType>()?;
+    (struct_ty.num_fields() == 1).then(|| struct_ty.field_type(0))
+}
+
 /// Emit a pointer-compatible cast, handling the struct↔ptr patterns that arise
 /// because our type system represents fat pointers (slices) as `{ ptr, i64 }` structs.
 ///
@@ -623,13 +647,32 @@ fn emit_pointer_cast(
     let dst_is_array = llvm_ty.deref(ctx).is::<llvm_export::types::ArrayType>();
 
     if src_is_struct && dst_is_ptr {
-        Ok(llvm::ExtractValueOp::new(ctx, val, vec![0])
-            .map_err(|e| pliron::input_error_noloc!("pointer cast ExtractValueOp: {e}"))?
-            .get_operation())
+        let extract = llvm::ExtractValueOp::new(ctx, val, vec![0])
+            .map_err(|e| pliron::input_error_noloc!("pointer cast ExtractValueOp: {e}"))?;
+        // The fat pointer's data field may live in a different address space
+        // than the thin destination (e.g. a generic slice whose element
+        // pointer was inferred to be shared).
+        let data_as = struct_field0_address_space(ctx, val_ty);
+        if data_as.is_some() && data_as != dst_as {
+            rewriter.insert_operation(ctx, extract.get_operation());
+            let data = extract.get_operation().deref(ctx).get_result(0);
+            Ok(llvm::AddrSpaceCastOp::new(ctx, data, llvm_ty).get_operation())
+        } else {
+            Ok(extract.get_operation())
+        }
     } else if src_is_ptr && dst_is_struct {
         let undef = llvm::UndefOp::new(ctx, llvm_ty);
         rewriter.insert_operation(ctx, undef.get_operation());
         let undef_val = undef.get_operation().deref(ctx).get_result(0);
+        let val = match struct_field0_address_space(ctx, llvm_ty) {
+            Some(field_as) if Some(field_as) != src_as => {
+                let field_ty = PointerType::get(ctx, field_as).into();
+                let cast = llvm::AddrSpaceCastOp::new(ctx, val, field_ty);
+                rewriter.insert_operation(ctx, cast.get_operation());
+                cast.get_operation().deref(ctx).get_result(0)
+            }
+            _ => val,
+        };
         Ok(llvm::InsertValueOp::new(ctx, undef_val, val, vec![0]).get_operation())
     } else if src_is_ptr && llvm_ty.deref(ctx).is::<IntegerType>() {
         Ok(emit_ptr_to_int(ctx, rewriter, val, val_ty, llvm_ty))
@@ -744,6 +787,25 @@ fn emit_transmute(
     };
     if is_aggregate(val_ty, ctx) || is_aggregate(llvm_ty, ctx) {
         if involves_shared_pointer {
+            // Single-field wrappers such as `NonNull<T>` (`{ ptr }`) are
+            // representation-identical to their field, so peel them in SSA
+            // and transmute the scalar instead of rejecting.
+            if let Some(field_ty) = single_field_struct_type(ctx, val_ty) {
+                let extract = llvm::ExtractValueOp::new(ctx, val, vec![0])
+                    .map_err(|e| pliron::input_error_noloc!("transmute ExtractValueOp: {e}"))?;
+                rewriter.insert_operation(ctx, extract.get_operation());
+                let inner = extract.get_operation().deref(ctx).get_result(0);
+                return emit_transmute(ctx, rewriter, inner, field_ty, llvm_ty);
+            }
+            if let Some(field_ty) = single_field_struct_type(ctx, llvm_ty) {
+                let inner_op = emit_transmute(ctx, rewriter, val, val_ty, field_ty)?;
+                rewriter.insert_operation(ctx, inner_op);
+                let inner = inner_op.deref(ctx).get_result(0);
+                let undef = llvm::UndefOp::new(ctx, llvm_ty);
+                rewriter.insert_operation(ctx, undef.get_operation());
+                let undef_val = undef.get_operation().deref(ctx).get_result(0);
+                return Ok(llvm::InsertValueOp::new(ctx, undef_val, inner, vec![0]).get_operation());
+            }
             return reject_shared_pointer_memory_transmute(ctx, val_ty, llvm_ty);
         }
         return emit_transmute_via_memory(ctx, rewriter, val, val_ty, llvm_ty);
