@@ -5,7 +5,7 @@
 
 //! Launch-configuration attributes: `#[launch_bounds]`,
 //! `#[launch_contract]`, `#[cluster_launch]`, `#[cooperative_launch]`,
-//! and `#[unroll]` loop-attribute rewriting.
+//! `#[unroll]` loop-attribute rewriting, and `#[cuda_annotate]`.
 
 use crate::common::attr_path_ends_with;
 use crate::cuda_module::contract::{
@@ -466,6 +466,9 @@ pub(crate) struct LoopUnrollAttrVisitor {
     /// caller surfaces this as a compile error.
     pub(crate) error: Option<syn::Error>,
     pub(crate) const_expressions: Vec<ConstU32Expr>,
+    /// Reject `#[unroll]` and accept only `#[llvm_unroll]`, as
+    /// `#[cuda_annotate]` does.
+    pub(crate) llvm_only: bool,
 }
 
 impl LoopUnrollAttrVisitor {
@@ -509,6 +512,17 @@ impl LoopUnrollAttrVisitor {
         };
         let attr = attrs.remove(idx);
         let name = kind.attr_name();
+
+        if self.llvm_only && kind == UnrollKind::Oxide {
+            if self.error.is_none() {
+                self.error = Some(syn::Error::new_spanned(
+                    &attr,
+                    "#[cuda_annotate] supports only #[llvm_unroll]; \
+                     use #[device] or #[kernel] for #[unroll]",
+                ));
+            }
+            return None;
+        }
 
         // A bare attribute is `Meta::Path`; one with a factor is `Meta::List`.
         let factor = match &attr.meta {
@@ -597,7 +611,22 @@ impl VisitMut for LoopUnrollAttrVisitor {
 /// Consume per-loop unroll annotations in a kernel or device function and
 /// replace them with the marker calls understood by the MIR importer.
 pub(crate) fn rewrite_loop_unroll_attrs(input: &mut ItemFn) -> syn::Result<()> {
-    let mut visitor = LoopUnrollAttrVisitor::default();
+    rewrite_with(input, LoopUnrollAttrVisitor::default())
+}
+
+/// Consume `#[llvm_unroll]` annotations in a `#[cuda_annotate]` function,
+/// rejecting `#[unroll]`.
+pub(crate) fn rewrite_llvm_unroll_attrs(input: &mut ItemFn) -> syn::Result<()> {
+    rewrite_with(
+        input,
+        LoopUnrollAttrVisitor {
+            llvm_only: true,
+            ..Default::default()
+        },
+    )
+}
+
+fn rewrite_with(input: &mut ItemFn, mut visitor: LoopUnrollAttrVisitor) -> syn::Result<()> {
     visitor.visit_block_mut(&mut input.block);
     if let Some(err) = visitor.error {
         return Err(err);
@@ -606,6 +635,22 @@ pub(crate) fn rewrite_loop_unroll_attrs(input: &mut ItemFn) -> syn::Result<()> {
         add_const_evaluatable_bound(&mut input.sig.generics, expression);
     }
     Ok(())
+}
+
+pub(crate) fn cuda_annotate_entry(attr: TokenStream, item: TokenStream) -> TokenStream {
+    if !attr.is_empty() {
+        return syn::Error::new_spanned(
+            proc_macro2::TokenStream::from(attr),
+            "#[cuda_annotate] takes no arguments",
+        )
+        .to_compile_error()
+        .into();
+    }
+    let mut input = parse_macro_input!(item as ItemFn);
+    if let Err(err) = rewrite_llvm_unroll_attrs(&mut input) {
+        return err.to_compile_error().into();
+    }
+    quote! { #input }.into()
 }
 
 pub(crate) fn cluster_launch_entry(attr: TokenStream, item: TokenStream) -> TokenStream {

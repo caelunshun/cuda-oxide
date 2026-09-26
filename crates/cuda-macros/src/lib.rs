@@ -898,6 +898,34 @@ pub fn device(_attr: TokenStream, item: TokenStream) -> TokenStream {
     device::device_entry(_attr, item)
 }
 
+/// Enables `#[llvm_unroll]` / `#[llvm_unroll(N)]` loop annotations in an
+/// ordinary function, without making it a `#[device]` function.
+///
+/// The function keeps its name, signature, and callers; only the annotated
+/// loops change. This works on free functions and on individual methods,
+/// including ones with a `self` receiver or `impl Trait` parameters. When the
+/// function is compiled as part of a kernel, the annotation behaves exactly as
+/// it does inside `#[kernel]` or `#[device]`. See [`macro@kernel`] for the
+/// semantics.
+///
+/// ```ignore
+/// #[cuda_annotate]
+/// fn accumulate(values: &[f32; 8]) -> f32 {
+///     let mut sum = 0.0;
+///     #[llvm_unroll]
+///     for v in values { sum += v; }
+///     sum
+/// }
+/// ```
+///
+/// Only `#[llvm_unroll]` is accepted; `#[unroll]` still requires `#[device]` or
+/// `#[kernel]`. If the function also runs on the host, each annotated loop
+/// iteration there calls an empty marker function.
+#[proc_macro_attribute]
+pub fn cuda_annotate(attr: TokenStream, item: TokenStream) -> TokenStream {
+    launch_attrs::cuda_annotate_entry(attr, item)
+}
+
 // ============================================================================
 // NVVM Attributes for Device FFI
 // ============================================================================

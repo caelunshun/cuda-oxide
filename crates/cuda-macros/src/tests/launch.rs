@@ -10,7 +10,8 @@ use crate::launch::{
 };
 use crate::launch_attrs::{
     LaunchBoundsArgs, LoopUnrollAttrVisitor, UnrollArgs, add_const_evaluatable_bound,
-    inject_launch_contract_markers, rewrite_loop_unroll_attrs, standalone_requires_params,
+    inject_launch_contract_markers, rewrite_llvm_unroll_attrs, rewrite_loop_unroll_attrs,
+    standalone_requires_params,
 };
 use quote::{format_ident, quote};
 use reserved_oxide_symbols::INSTANTIATE_PREFIX;
@@ -609,5 +610,46 @@ fn llvm_unroll_and_unroll_on_neighbouring_loops_are_independent() {
     assert!(
         out.contains("cuda_device::thread::__llvm_unroll_config::<{2}>()"),
         "the second loop goes to LLVM:\n{out}"
+    );
+}
+
+#[test]
+fn cuda_annotate_injects_the_llvm_marker_in_a_method() {
+    let mut func: ItemFn = parse_quote! {
+        fn sum(&self, values: impl Iterator<Item = f32>) -> f32 {
+            let mut acc = 0.0;
+            #[llvm_unroll(4)]
+            for v in values { acc += v; }
+            acc
+        }
+    };
+    rewrite_llvm_unroll_attrs(&mut func)
+        .unwrap_or_else(|err| panic!("unexpected unroll-attr error: {err}"));
+    let out = quote!(#func).to_string().replace(' ', "");
+    assert!(
+        out.contains("cuda_device::thread::__llvm_unroll_config::<{4}>()"),
+        "expected the LLVM factor-4 marker:\n{out}"
+    );
+    assert!(
+        out.starts_with("fnsum(&self,"),
+        "the signature must be left alone:\n{out}"
+    );
+}
+
+#[test]
+fn cuda_annotate_rejects_oxide_unroll() {
+    let mut func: ItemFn = parse_quote! {
+        fn k() {
+            let mut i = 0u32;
+            #[unroll]
+            while i < 4 { i += 1; }
+        }
+    };
+    let error = rewrite_llvm_unroll_attrs(&mut func)
+        .expect_err("expected an unroll-attr error")
+        .to_string();
+    assert!(
+        error.contains("supports only #[llvm_unroll]"),
+        "#[unroll] needs #[device] or #[kernel]: {error}"
     );
 }
