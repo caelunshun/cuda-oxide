@@ -21,6 +21,7 @@ use pliron::op::Op;
 use pliron::operation::Operation;
 use pliron::result::Result;
 use pliron::r#type::Typed;
+use pliron::value::Value;
 
 /// Convert TMA G2S (global to shared) operations using LLVM intrinsics.
 pub(crate) fn convert_g2s(
@@ -31,28 +32,75 @@ pub(crate) fn convert_g2s(
     dims: usize,
     multicast: bool,
 ) -> Result<()> {
-    convert_g2s_impl(ctx, rewriter, op, dims, multicast, 0)
+    let operands = g2s_default_operands(ctx, op, dims)?;
+    convert_g2s_impl(ctx, rewriter, op, operands, multicast, 0, false)
 }
 
-fn g2s_inline_asm(dims: usize, multicast: bool, cta_group: i32) -> (String, String) {
+/// The operands of one G2S tensor copy, in the typed declaration's order.
+struct G2sOperands {
+    destination: Value,
+    barrier: Value,
+    tensor_map: Value,
+    coordinates: Vec<Value>,
+    cta_mask: Option<Value>,
+    cache_hint: Option<Value>,
+}
+
+/// Split the importer's `dst, barrier, tensor_map, coords..., cta_mask,
+/// cache_hint` layout, where the importer already injected the defaults.
+fn g2s_default_operands(ctx: &Context, op: Ptr<Operation>, dims: usize) -> Result<G2sOperands> {
+    let operands: Vec<_> = op.deref(ctx).operands().collect();
+    let expected_operands = 3 + dims + 2;
+    if operands.len() != expected_operands {
+        return pliron::input_err_noloc!(
+            "TMA G2S {}D requires {} operands, got {}",
+            dims,
+            expected_operands,
+            operands.len()
+        );
+    }
+    Ok(G2sOperands {
+        destination: operands[0],
+        barrier: operands[1],
+        tensor_map: operands[2],
+        coordinates: operands[3..3 + dims].to_vec(),
+        cta_mask: Some(operands[3 + dims]),
+        cache_hint: Some(operands[4 + dims]),
+    })
+}
+
+fn g2s_inline_asm(
+    dims: usize,
+    multicast: bool,
+    cta_group: i32,
+    cache_hint: bool,
+) -> (String, String) {
     let coordinates = (0..dims)
         .map(|index| format!("${}", 3 + index))
         .collect::<Vec<_>>()
         .join(", ");
     let multicast_modifier = if multicast { ".multicast::cluster" } else { "" };
+    let cache_hint_modifier = if cache_hint { ".L2::cache_hint" } else { "" };
     let cta_group_modifier = if cta_group == 2 { ".cta_group::2" } else { "" };
-    let mask = if multicast {
-        format!(", ${}", 3 + dims)
-    } else {
-        String::new()
-    };
+    let mut trailing = String::new();
+    let mut next = 3 + dims;
+    if multicast {
+        trailing.push_str(&format!(", ${next}"));
+        next += 1;
+    }
+    if cache_hint {
+        trailing.push_str(&format!(", ${next}"));
+    }
     let template = format!(
-        "{{ .reg .u64 %cluster_dst; cvta.to.shared::cluster.u64 %cluster_dst, $0; cp.async.bulk.tensor.{dims}d.shared::cluster.global.tile.mbarrier::complete_tx::bytes{multicast_modifier}{cta_group_modifier} [%cluster_dst], [$2, {{{coordinates}}}], [$1]{mask}; }}"
+        "{{ .reg .u64 %cluster_dst; cvta.to.shared::cluster.u64 %cluster_dst, $0; cp.async.bulk.tensor.{dims}d.shared::cluster.global.tile.mbarrier::complete_tx::bytes{multicast_modifier}{cache_hint_modifier}{cta_group_modifier} [%cluster_dst], [$2, {{{coordinates}}}], [$1]{trailing}; }}"
     );
     let mut constraints = vec!["l"; 3];
     constraints.extend(std::iter::repeat_n("r", dims));
     if multicast {
         constraints.push("h");
+    }
+    if cache_hint {
+        constraints.push("l");
     }
     constraints.push("~{memory}");
     (template, constraints.join(","))
@@ -62,9 +110,10 @@ fn convert_g2s_impl(
     ctx: &mut Context,
     rewriter: &mut DialectConversionRewriter,
     op: Ptr<Operation>,
-    dims: usize,
+    operands: G2sOperands,
     multicast: bool,
     cta_group: i32,
+    use_cache_hint: bool,
 ) -> Result<()> {
     let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
     let i16_ty = IntegerType::get(ctx, 16, Signedness::Signless);
@@ -75,19 +124,20 @@ fn convert_g2s_impl(
     let smem_ptr_ty = llvm_types::PointerType::get(ctx, 3);
     let generic_ptr_ty = llvm_types::PointerType::get(ctx, 0);
 
-    let operands: Vec<_> = op.deref(ctx).operands().collect();
-
-    let expected_operands = 3 + dims + 2;
-    if operands.len() != expected_operands {
-        return pliron::input_err_noloc!(
-            "TMA G2S {}D requires {} operands, got {}",
-            dims,
-            expected_operands,
-            operands.len()
-        );
+    let G2sOperands {
+        destination,
+        barrier,
+        tensor_map,
+        coordinates,
+        cta_mask,
+        cache_hint,
+    } = operands;
+    let dims = coordinates.len();
+    if (multicast && cta_mask.is_none()) || (use_cache_hint && cache_hint.is_none()) {
+        return pliron::input_err_noloc!("TMA G2S {dims}D is missing a CTA mask or cache hint");
     }
 
-    let barrier_casted = cast_to_shared_addrspace(ctx, rewriter, operands[1]);
+    let barrier_casted = cast_to_shared_addrspace(ctx, rewriter, barrier);
 
     if context::lowering_options(ctx).intrinsic_backend == IntrinsicBackend::LibNvvm {
         // LLVM's shared-cluster address space (7) is not part of the legacy
@@ -95,7 +145,6 @@ fn convert_g2s_impl(
         // ::cluster qualifier is essential: ::cta would exclude another CTA's
         // destination, and a local shared address may need CTA-rank bits when
         // converted to the cluster window. Keep the 64-bit address throughout.
-        let destination = operands[0];
         let destination_type = destination.get_type(ctx);
         let destination_space = destination_type
             .deref(ctx)
@@ -112,13 +161,16 @@ fn convert_g2s_impl(
             rewriter.insert_operation(ctx, cast.get_operation());
             cast.get_operation().deref(ctx).get_result(0)
         };
-        let mut inputs = vec![destination, barrier_casted, operands[2]];
-        inputs.extend(operands[3..3 + dims].iter().copied());
+        let mut inputs = vec![destination, barrier_casted, tensor_map];
+        inputs.extend(coordinates);
         if multicast {
-            inputs.push(operands[3 + dims]);
+            inputs.extend(cta_mask);
+        }
+        if use_cache_hint {
+            inputs.extend(cache_hint);
         }
 
-        let (template, constraints) = g2s_inline_asm(dims, multicast, cta_group);
+        let (template, constraints) = g2s_inline_asm(dims, multicast, cta_group, use_cache_hint);
 
         inline_asm_convergent(
             ctx,
@@ -133,7 +185,7 @@ fn convert_g2s_impl(
         return Ok(());
     }
 
-    let dst_casted = cast_to_cluster_shared_addrspace(ctx, rewriter, operands[0]);
+    let dst_casted = cast_to_cluster_shared_addrspace(ctx, rewriter, destination);
     let mut arg_types: Vec<pliron::r#type::TypeHandle> = vec![
         shared_cluster_ptr_ty.into(),
         smem_ptr_ty.into(),
@@ -155,11 +207,19 @@ fn convert_g2s_impl(
     helpers::ensure_intrinsic_declared(ctx, parent_block, &intrinsic_name, func_ty)
         .map_err(|e| pliron::input_error_noloc!("{}", e))?;
 
-    let mut call_args = vec![dst_casted, barrier_casted];
-    call_args.extend(operands[2..].iter().copied());
+    let mut call_args = vec![dst_casted, barrier_casted, tensor_map];
+    call_args.extend(coordinates);
+    call_args.push(match cta_mask {
+        Some(mask) => mask,
+        None => create_i16_const(ctx, rewriter, 0),
+    });
+    call_args.push(match cache_hint {
+        Some(hint) => hint,
+        None => create_i64_const(ctx, rewriter, 0),
+    });
 
     let use_cta_mask = create_i1_const(ctx, rewriter, multicast);
-    let use_cache_hint = create_i1_const(ctx, rewriter, false);
+    let use_cache_hint = create_i1_const(ctx, rewriter, use_cache_hint);
     let cta_group_val = create_i32_const(ctx, rewriter, cta_group);
     call_args.push(use_cta_mask);
     call_args.push(use_cache_hint);
@@ -182,19 +242,30 @@ pub(crate) fn convert_g2s_multicast_cg2(
     op: Ptr<Operation>,
     _operands_info: &OperandsInfo,
 ) -> Result<()> {
-    convert_g2s_impl(ctx, rewriter, op, 2, true, 2)
+    let operands = g2s_default_operands(ctx, op, 2)?;
+    convert_g2s_impl(ctx, rewriter, op, operands, true, 2, false)
 }
 
-fn s2g_inline_asm(dims: usize) -> (String, String) {
+fn s2g_inline_asm(dims: usize, cache_hint: bool) -> (String, String) {
     let coordinates = (0..dims)
         .map(|index| format!("${}", 2 + index))
         .collect::<Vec<_>>()
         .join(", ");
-    let template = format!(
-        "cp.async.bulk.tensor.{dims}d.global.shared::cta.tile.bulk_group [$1, {{{coordinates}}}], [$0];"
-    );
+    let template = if cache_hint {
+        format!(
+            "cp.async.bulk.tensor.{dims}d.global.shared::cta.tile.bulk_group.L2::cache_hint [$1, {{{coordinates}}}], [$0], ${};",
+            2 + dims
+        )
+    } else {
+        format!(
+            "cp.async.bulk.tensor.{dims}d.global.shared::cta.tile.bulk_group [$1, {{{coordinates}}}], [$0];"
+        )
+    };
     let mut constraints = vec!["l"; 2];
     constraints.extend(std::iter::repeat_n("r", dims));
+    if cache_hint {
+        constraints.push("l");
+    }
     constraints.push("~{memory}");
     (template, constraints.join(","))
 }
@@ -207,13 +278,6 @@ pub(crate) fn convert_s2g(
     _operands_info: &OperandsInfo,
     dims: usize,
 ) -> Result<()> {
-    let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
-    let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
-    let i1_ty = IntegerType::get(ctx, 1, Signedness::Signless);
-    let void_ty = llvm_types::VoidType::get(ctx);
-    let smem_ptr_ty = llvm_types::PointerType::get(ctx, 3);
-    let generic_ptr_ty = llvm_types::PointerType::get(ctx, 0);
-
     let operands: Vec<_> = op.deref(ctx).operands().collect();
 
     let expected_operands = 2 + dims;
@@ -226,12 +290,33 @@ pub(crate) fn convert_s2g(
         );
     }
 
+    convert_s2g_impl(ctx, rewriter, op, &operands, None)
+}
+
+/// Lower one S2G copy whose operands are `src, tensor_map, coords...`, with
+/// an optional explicit cache hint.
+fn convert_s2g_impl(
+    ctx: &mut Context,
+    rewriter: &mut DialectConversionRewriter,
+    op: Ptr<Operation>,
+    operands: &[Value],
+    cache_hint: Option<Value>,
+) -> Result<()> {
+    let i32_ty = IntegerType::get(ctx, 32, Signedness::Signless);
+    let i64_ty = IntegerType::get(ctx, 64, Signedness::Signless);
+    let i1_ty = IntegerType::get(ctx, 1, Signedness::Signless);
+    let void_ty = llvm_types::VoidType::get(ctx);
+    let smem_ptr_ty = llvm_types::PointerType::get(ctx, 3);
+    let generic_ptr_ty = llvm_types::PointerType::get(ctx, 0);
+    let dims = operands.len() - 2;
+
     let src_casted = cast_to_shared_addrspace(ctx, rewriter, operands[0]);
 
     if context::lowering_options(ctx).intrinsic_backend == IntrinsicBackend::LibNvvm {
         let mut inputs = vec![src_casted, operands[1]];
         inputs.extend(operands[2..].iter().copied());
-        let (template, constraints) = s2g_inline_asm(dims);
+        inputs.extend(cache_hint);
+        let (template, constraints) = s2g_inline_asm(dims, cache_hint.is_some());
         inline_asm_convergent(
             ctx,
             rewriter,
@@ -262,8 +347,11 @@ pub(crate) fn convert_s2g(
 
     let mut call_args = vec![src_casted];
     call_args.extend(operands[1..].iter().copied());
-    call_args.push(create_i64_const(ctx, rewriter, 0));
-    call_args.push(create_i1_const(ctx, rewriter, false));
+    call_args.push(match cache_hint {
+        Some(hint) => hint,
+        None => create_i64_const(ctx, rewriter, 0),
+    });
+    call_args.push(create_i1_const(ctx, rewriter, cache_hint.is_some()));
 
     let sym_name: pliron::identifier::Identifier = intrinsic_name.as_str().try_into().unwrap();
     let callee = CallOpCallable::Direct(sym_name);
@@ -273,6 +361,92 @@ pub(crate) fn convert_s2g(
     rewriter.erase_operation(ctx, op);
 
     Ok(())
+}
+
+/// The reviewed shape of one tensor copy that takes an explicit cache hint.
+pub(crate) struct TensorCopyCacheHintConfig<'a> {
+    direction: &'a str,
+    dims: usize,
+    multicast: bool,
+    cta_group: i32,
+    intrinsic_name: &'a str,
+}
+
+impl<'a> TensorCopyCacheHintConfig<'a> {
+    pub(crate) const fn new(
+        direction: &'a str,
+        dims: usize,
+        multicast: bool,
+        cta_group: i32,
+        intrinsic_name: &'a str,
+    ) -> Self {
+        Self {
+            direction,
+            dims,
+            multicast,
+            cta_group,
+            intrinsic_name,
+        }
+    }
+}
+
+/// Convert one tensor copy that carries an explicit `.L2::cache_hint`.
+///
+/// Unlike the plain forms, the importer keeps these operands in the order the
+/// safe wrapper spells them: `dst, tensor_map, coords..., barrier, [cta_mask,]
+/// cache_hint` for G2S and `src, tensor_map, coords..., cache_hint` for S2G.
+pub(crate) fn convert_tensor_copy_cache_hint(
+    ctx: &mut Context,
+    rewriter: &mut DialectConversionRewriter,
+    op: Ptr<Operation>,
+    _operands_info: &OperandsInfo,
+    config: TensorCopyCacheHintConfig<'_>,
+) -> Result<()> {
+    let TensorCopyCacheHintConfig {
+        direction,
+        dims,
+        multicast,
+        cta_group,
+        intrinsic_name,
+    } = config;
+    let operands: Vec<_> = op.deref(ctx).operands().collect();
+    if !(1..=5).contains(&dims) || op.deref(ctx).get_num_results() != 0 {
+        return pliron::input_err_noloc!(
+            "TMA cache-hint copy {intrinsic_name} requires 1 through 5 dimensions and no results"
+        );
+    }
+    match direction {
+        "g2s" => {
+            let expected_operands = 3 + dims + usize::from(multicast) + 1;
+            if operands.len() != expected_operands {
+                return pliron::input_err_noloc!(
+                    "TMA G2S {dims}D cache-hint copy requires {expected_operands} operands, got {}",
+                    operands.len()
+                );
+            }
+            let barrier_index = 2 + dims;
+            let g2s_operands = G2sOperands {
+                destination: operands[0],
+                barrier: operands[barrier_index],
+                tensor_map: operands[1],
+                coordinates: operands[2..barrier_index].to_vec(),
+                cta_mask: multicast.then(|| operands[barrier_index + 1]),
+                cache_hint: operands.last().copied(),
+            };
+            convert_g2s_impl(ctx, rewriter, op, g2s_operands, multicast, cta_group, true)
+        }
+        "s2g" => {
+            let expected_operands = 2 + dims + 1;
+            if operands.len() != expected_operands || multicast || cta_group != 0 {
+                return pliron::input_err_noloc!(
+                    "TMA S2G {dims}D cache-hint copy requires {expected_operands} operands and no multicast"
+                );
+            }
+            let (cache_hint, copy_operands) = operands.split_last().unwrap();
+            convert_s2g_impl(ctx, rewriter, op, copy_operands, Some(*cache_hint))
+        }
+        _ => pliron::input_err_noloc!("unsupported TMA tensor-copy direction `{direction}`"),
+    }
 }
 
 pub(crate) struct ReduceConfig<'a> {
@@ -1121,24 +1295,45 @@ mod tests {
     #[test]
     fn inline_tma_templates_keep_exact_ptx_shapes() {
         assert_eq!(
-            g2s_inline_asm(1, false, 0),
+            g2s_inline_asm(1, false, 0, false),
             (
                 "{ .reg .u64 %cluster_dst; cvta.to.shared::cluster.u64 %cluster_dst, $0; cp.async.bulk.tensor.1d.shared::cluster.global.tile.mbarrier::complete_tx::bytes [%cluster_dst], [$2, {$3}], [$1]; }".into(),
                 "l,l,l,r,~{memory}".into(),
             )
         );
         assert_eq!(
-            g2s_inline_asm(2, true, 2),
+            g2s_inline_asm(2, true, 2, false),
             (
                 "{ .reg .u64 %cluster_dst; cvta.to.shared::cluster.u64 %cluster_dst, $0; cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster.cta_group::2 [%cluster_dst], [$2, {$3, $4}], [$1], $5; }".into(),
                 "l,l,l,r,r,h,~{memory}".into(),
             )
         );
         assert_eq!(
-            s2g_inline_asm(5),
+            s2g_inline_asm(5, false),
             (
                 "cp.async.bulk.tensor.5d.global.shared::cta.tile.bulk_group [$1, {$2, $3, $4, $5, $6}], [$0];".into(),
                 "l,l,r,r,r,r,r,~{memory}".into(),
+            )
+        );
+        assert_eq!(
+            g2s_inline_asm(3, false, 0, true),
+            (
+                "{ .reg .u64 %cluster_dst; cvta.to.shared::cluster.u64 %cluster_dst, $0; cp.async.bulk.tensor.3d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.L2::cache_hint [%cluster_dst], [$2, {$3, $4, $5}], [$1], $6; }".into(),
+                "l,l,l,r,r,r,l,~{memory}".into(),
+            )
+        );
+        assert_eq!(
+            g2s_inline_asm(2, true, 2, true),
+            (
+                "{ .reg .u64 %cluster_dst; cvta.to.shared::cluster.u64 %cluster_dst, $0; cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster.L2::cache_hint.cta_group::2 [%cluster_dst], [$2, {$3, $4}], [$1], $5, $6; }".into(),
+                "l,l,l,r,r,h,l,~{memory}".into(),
+            )
+        );
+        assert_eq!(
+            s2g_inline_asm(2, true),
+            (
+                "cp.async.bulk.tensor.2d.global.shared::cta.tile.bulk_group.L2::cache_hint [$1, {$2, $3}], [$0], $4;".into(),
+                "l,l,r,r,l,~{memory}".into(),
             )
         );
     }

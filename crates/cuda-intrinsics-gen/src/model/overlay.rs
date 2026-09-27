@@ -329,6 +329,10 @@ pub struct TmaAdmission {
     pub bulk_llvm_evidence_profile: Option<String>,
     #[serde(default)]
     pub bulk_libnvvm_evidence_profile: Option<String>,
+    #[serde(default)]
+    pub tensor_cache_hint_llvm_evidence_profile: Option<String>,
+    #[serde(default)]
+    pub tensor_cache_hint_libnvvm_evidence_profile: Option<String>,
     pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<TmaAdmissionVariant>,

@@ -1645,41 +1645,47 @@ mod tests {
         }
     }
 
+    /// Build a shared-memory pointer and a `NonNull`-like one-field wrapper
+    /// around it.
+    fn shared_pointer_and_wrapper(ctx: &mut Context) -> (TypeHandle, TypeHandle) {
+        let pointee = int_ty(ctx, 32, Signedness::Unsigned);
+        let shared_pointer: TypeHandle = MirPtrType::get(ctx, pointee, false, 3).into();
+        let wrapper = MirStructType::get_with_full_layout(
+            ctx,
+            "SharedPointerWrapper".into(),
+            vec!["pointer".into()],
+            vec![shared_pointer],
+            vec![0],
+            vec![0],
+            8,
+            8,
+        )
+        .into();
+        (shared_pointer, wrapper)
+    }
+
     #[test]
     fn aggregate_transmutes_containing_shared_pointers_are_rejected() {
-        for (wrap_pointer, pointer_is_source) in [(true, false), (true, true), (false, true)] {
+        for (wrap_pointer, pointer_is_source) in
+            [(false, true), (false, false), (true, true), (true, false)]
+        {
             let mut ctx = make_ctx();
-            let pointee = int_ty(&mut ctx, 32, Signedness::Unsigned);
-            let shared_pointer: TypeHandle = MirPtrType::get(&mut ctx, pointee, false, 3).into();
-            let pointer_shape: TypeHandle = if wrap_pointer {
-                MirStructType::get_with_full_layout(
-                    &mut ctx,
-                    "SharedPointerWrapper".into(),
-                    vec!["pointer".into()],
-                    vec![shared_pointer],
-                    vec![0],
-                    vec![0],
-                    8,
-                    8,
-                )
-                .into()
+            let (shared_pointer, wrapper) = shared_pointer_and_wrapper(&mut ctx);
+            let pointer_shape = if wrap_pointer {
+                wrapper
             } else {
                 shared_pointer
             };
+            // A byte array is a genuine multi-byte aggregate: transmuting a
+            // shared pointer into or out of it would round-trip the pointer's
+            // physical bytes through memory. One-field wrappers are peeled
+            // first, so they reach the same rejection.
             let byte = int_ty(&mut ctx, 8, Signedness::Unsigned);
-            let other_side: TypeHandle = if wrap_pointer {
-                // Wrapped pointer against a plain integer: the wrapper is the
-                // aggregate that forces the memory round-trip.
-                int_ty(&mut ctx, 64, Signedness::Unsigned)
-            } else {
-                // Bare shared pointer against a byte array: the array is the
-                // aggregate that forces the memory round-trip.
-                dialect_mir::types::MirArrayType::get(&mut ctx, byte, 8).into()
-            };
+            let bytes: TypeHandle = dialect_mir::types::MirArrayType::get(&mut ctx, byte, 8).into();
             let (source, destination) = if pointer_is_source {
-                (pointer_shape, other_side)
+                (pointer_shape, bytes)
             } else {
-                (other_side, pointer_shape)
+                (bytes, pointer_shape)
             };
             let module =
                 build_single_cast(&mut ctx, source, destination, MirCastKindAttr::Transmute);
@@ -1691,6 +1697,41 @@ mod tests {
                 error.to_string().contains("intentionally unsupported"),
                 "unexpected diagnostic: {error}"
             );
+        }
+    }
+
+    #[test]
+    fn single_field_shared_pointer_wrapper_transmutes_bridge_through_generic() {
+        for wrapper_is_source in [true, false] {
+            let mut ctx = make_ctx();
+            let (_, wrapper) = shared_pointer_and_wrapper(&mut ctx);
+            let integer = int_ty(&mut ctx, 64, Signedness::Unsigned);
+            let (source, destination) = if wrapper_is_source {
+                (wrapper, integer)
+            } else {
+                (integer, wrapper)
+            };
+            let module =
+                build_single_cast(&mut ctx, source, destination, MirCastKindAttr::Transmute);
+
+            crate::lower_mir_to_llvm(&mut ctx, module)
+                .expect("a one-field shared-pointer wrapper transmutes as its scalar field");
+            let blocks = kernel_blocks(&ctx, module);
+            // The wrapper is peeled in SSA, never spilled: no raw shared-local
+            // bytes are observable.
+            assert_eq!(count_ops::<llvm::AllocaOp>(&ctx, &blocks), 0);
+            assert_eq!(count_ops::<llvm::StoreOp>(&ctx, &blocks), 0);
+            assert_eq!(count_ops::<llvm::LoadOp>(&ctx, &blocks), 0);
+            // The scalar crosses between shared and generic exactly once, so
+            // the integer is always the 64-bit generic address.
+            assert_eq!(count_ops::<llvm::AddrSpaceCastOp>(&ctx, &blocks), 1);
+            if wrapper_is_source {
+                assert_eq!(count_ops::<llvm::ExtractValueOp>(&ctx, &blocks), 1);
+                assert_eq!(count_ops::<llvm::PtrToIntOp>(&ctx, &blocks), 1);
+            } else {
+                assert_eq!(count_ops::<llvm::IntToPtrOp>(&ctx, &blocks), 1);
+                assert_eq!(count_ops::<llvm::InsertValueOp>(&ctx, &blocks), 1);
+            }
         }
     }
 

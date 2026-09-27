@@ -19,7 +19,7 @@ use crate::resolve::guards::*;
 pub(in crate::resolve) const TMA_BLACKWELL_TARGETS: &str = "sm_100a|sm_101a|sm_103a|sm_110a";
 pub(in crate::resolve) const TENSOR_MAP_REPLACE_TARGETS: &str =
     "sm_100a|sm_100f|sm_103a|sm_103f|sm_110a|sm_110f|sm_120a|sm_120f|sm_121a|sm_121f|sm_90a";
-pub(in crate::resolve) const TMA_OPERATIONS: [TmaOperation; 60] = [
+pub(in crate::resolve) const TMA_OPERATIONS: [TmaOperation; 72] = [
     TmaOperation::G2sTile1d,
     TmaOperation::G2sTile2d,
     TmaOperation::G2sTile2dMulticast,
@@ -80,6 +80,18 @@ pub(in crate::resolve) const TMA_OPERATIONS: [TmaOperation; 60] = [
     TmaOperation::BulkCtaToCluster,
     TmaOperation::BulkPrefetchL2,
     TmaOperation::BulkPrefetchL2CacheHint,
+    TmaOperation::G2sTile1dCacheHint,
+    TmaOperation::G2sTile2dCacheHint,
+    TmaOperation::G2sTile2dMulticastCacheHint,
+    TmaOperation::G2sTile2dMulticastCg2CacheHint,
+    TmaOperation::G2sTile3dCacheHint,
+    TmaOperation::G2sTile4dCacheHint,
+    TmaOperation::G2sTile5dCacheHint,
+    TmaOperation::S2gTile1dCacheHint,
+    TmaOperation::S2gTile2dCacheHint,
+    TmaOperation::S2gTile3dCacheHint,
+    TmaOperation::S2gTile4dCacheHint,
+    TmaOperation::S2gTile5dCacheHint,
 ];
 
 pub(in crate::resolve) const TMA_REDUCTION_OPERATIONS: [TmaReductionOperation; 8] = [
@@ -572,6 +584,114 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
             "CpAsyncBulkTensorS2gTile5dOp",
             "nvvm.cp_async_bulk_tensor_s2g_tile_5d",
         ),
+        TmaOperation::G2sTile1dCacheHint => (
+            "i1215",
+            "cp_async_bulk_tensor_1d_g2s_cache_hint",
+            "memory.copy.async.bulk.tensor.g2s.tile.1d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_g2s_tile_1d",
+            "llvm.nvvm.cp.async.bulk.tensor.g2s.tile.1d",
+            "CpAsyncBulkTensorG2sTile1dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_g2s_tile_1d_cache_hint",
+        ),
+        TmaOperation::G2sTile2dCacheHint => (
+            "i1216",
+            "cp_async_bulk_tensor_2d_g2s_cache_hint",
+            "memory.copy.async.bulk.tensor.g2s.tile.2d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_g2s_tile_2d",
+            "llvm.nvvm.cp.async.bulk.tensor.g2s.tile.2d",
+            "CpAsyncBulkTensorG2sTile2dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_g2s_tile_2d_cache_hint",
+        ),
+        TmaOperation::G2sTile2dMulticastCacheHint => (
+            "i1217",
+            "cp_async_bulk_tensor_2d_g2s_multicast_cache_hint",
+            "memory.copy.async.bulk.tensor.g2s.tile.2d.multicast.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_g2s_tile_2d",
+            "llvm.nvvm.cp.async.bulk.tensor.g2s.tile.2d",
+            "CpAsyncBulkTensorG2sTile2dMulticastCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_g2s_tile_2d_multicast_cache_hint",
+        ),
+        TmaOperation::G2sTile2dMulticastCg2CacheHint => (
+            "i1218",
+            "cp_async_bulk_tensor_2d_g2s_multicast_cg2_cache_hint",
+            "memory.copy.async.bulk.tensor.g2s.tile.2d.multicast.cta_group_2.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_g2s_tile_2d",
+            "llvm.nvvm.cp.async.bulk.tensor.g2s.tile.2d",
+            "CpAsyncBulkTensorG2sTile2dMulticastCg2CacheHintOp",
+            "nvvm.cp_async_bulk_tensor_g2s_tile_2d_multicast_cg2_cache_hint",
+        ),
+        TmaOperation::G2sTile3dCacheHint => (
+            "i1219",
+            "cp_async_bulk_tensor_3d_g2s_cache_hint",
+            "memory.copy.async.bulk.tensor.g2s.tile.3d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_g2s_tile_3d",
+            "llvm.nvvm.cp.async.bulk.tensor.g2s.tile.3d",
+            "CpAsyncBulkTensorG2sTile3dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_g2s_tile_3d_cache_hint",
+        ),
+        TmaOperation::G2sTile4dCacheHint => (
+            "i1220",
+            "cp_async_bulk_tensor_4d_g2s_cache_hint",
+            "memory.copy.async.bulk.tensor.g2s.tile.4d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_g2s_tile_4d",
+            "llvm.nvvm.cp.async.bulk.tensor.g2s.tile.4d",
+            "CpAsyncBulkTensorG2sTile4dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_g2s_tile_4d_cache_hint",
+        ),
+        TmaOperation::G2sTile5dCacheHint => (
+            "i1221",
+            "cp_async_bulk_tensor_5d_g2s_cache_hint",
+            "memory.copy.async.bulk.tensor.g2s.tile.5d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_g2s_tile_5d",
+            "llvm.nvvm.cp.async.bulk.tensor.g2s.tile.5d",
+            "CpAsyncBulkTensorG2sTile5dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_g2s_tile_5d_cache_hint",
+        ),
+        TmaOperation::S2gTile1dCacheHint => (
+            "i1222",
+            "cp_async_bulk_tensor_1d_s2g_cache_hint",
+            "memory.copy.async.bulk.tensor.s2g.tile.1d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_s2g_tile_1d",
+            "llvm.nvvm.cp.async.bulk.tensor.s2g.tile.1d",
+            "CpAsyncBulkTensorS2gTile1dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_s2g_tile_1d_cache_hint",
+        ),
+        TmaOperation::S2gTile2dCacheHint => (
+            "i1223",
+            "cp_async_bulk_tensor_2d_s2g_cache_hint",
+            "memory.copy.async.bulk.tensor.s2g.tile.2d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_s2g_tile_2d",
+            "llvm.nvvm.cp.async.bulk.tensor.s2g.tile.2d",
+            "CpAsyncBulkTensorS2gTile2dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_s2g_tile_2d_cache_hint",
+        ),
+        TmaOperation::S2gTile3dCacheHint => (
+            "i1224",
+            "cp_async_bulk_tensor_3d_s2g_cache_hint",
+            "memory.copy.async.bulk.tensor.s2g.tile.3d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_s2g_tile_3d",
+            "llvm.nvvm.cp.async.bulk.tensor.s2g.tile.3d",
+            "CpAsyncBulkTensorS2gTile3dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_s2g_tile_3d_cache_hint",
+        ),
+        TmaOperation::S2gTile4dCacheHint => (
+            "i1225",
+            "cp_async_bulk_tensor_4d_s2g_cache_hint",
+            "memory.copy.async.bulk.tensor.s2g.tile.4d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_s2g_tile_4d",
+            "llvm.nvvm.cp.async.bulk.tensor.s2g.tile.4d",
+            "CpAsyncBulkTensorS2gTile4dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_s2g_tile_4d_cache_hint",
+        ),
+        TmaOperation::S2gTile5dCacheHint => (
+            "i1226",
+            "cp_async_bulk_tensor_5d_s2g_cache_hint",
+            "memory.copy.async.bulk.tensor.s2g.tile.5d.cache_hint",
+            "int_nvvm_cp_async_bulk_tensor_s2g_tile_5d",
+            "llvm.nvvm.cp.async.bulk.tensor.s2g.tile.5d",
+            "CpAsyncBulkTensorS2gTile5dCacheHintOp",
+            "nvvm.cp_async_bulk_tensor_s2g_tile_5d_cache_hint",
+        ),
         TmaOperation::BulkG2s => (
             "i1026",
             "cp_async_bulk_g2s",
@@ -1007,29 +1127,12 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
     };
 
     let dimensions = operation.dimensions();
-    let is_g2s = matches!(
-        operation,
-        TmaOperation::G2sTile1d
-            | TmaOperation::G2sTile2d
-            | TmaOperation::G2sTile2dMulticast
-            | TmaOperation::G2sTile2dMulticastCg2
-            | TmaOperation::G2sTile3d
-            | TmaOperation::G2sTile4d
-            | TmaOperation::G2sTile5d
-    );
-    let is_s2g = matches!(
-        operation,
-        TmaOperation::S2gTile1d
-            | TmaOperation::S2gTile2d
-            | TmaOperation::S2gTile3d
-            | TmaOperation::S2gTile4d
-            | TmaOperation::S2gTile5d
-    );
-    let multicast = matches!(
-        operation,
-        TmaOperation::G2sTile2dMulticast | TmaOperation::G2sTile2dMulticastCg2
-    );
-    let cg2 = operation == TmaOperation::G2sTile2dMulticastCg2;
+    let tensor_copy = operation.tensor_copy();
+    let is_g2s = tensor_copy.is_some_and(|copy| copy.is_g2s());
+    let is_s2g = tensor_copy.is_some_and(|copy| copy.is_s2g());
+    let multicast = tensor_copy.is_some_and(|copy| copy.multicast);
+    let cg2 = tensor_copy.is_some_and(|copy| copy.cta_group_2);
+    let tensor_cache_hint = tensor_copy.is_some_and(|copy| copy.cache_hint);
     let prefetch_coordinates = operation.prefetch_coordinate_count();
     let bulk = operation.bulk();
     let is_release_fence = matches!(
@@ -1057,25 +1160,46 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
         if multicast {
             rust_arguments.push("u16");
         }
-        dialect_operands.extend(["ptr", "ptr", "ptr"]);
-        dialect_operands.extend(std::iter::repeat_n("i32", dimensions.unwrap()));
-        dialect_operands.extend(["i16", "i64"]);
+        if tensor_cache_hint {
+            // The cache-hint forms keep the Rust argument order in the dialect
+            // op; their lowering reorders operands for the typed declaration.
+            rust_arguments.push("u64");
+            dialect_operands.extend(["ptr", "ptr"]);
+            dialect_operands.extend(std::iter::repeat_n("i32", dimensions.unwrap()));
+            dialect_operands.push("ptr");
+            if multicast {
+                dialect_operands.push("i16");
+            }
+            dialect_operands.push("i64");
+        } else {
+            dialect_operands.extend(["ptr", "ptr", "ptr"]);
+            dialect_operands.extend(std::iter::repeat_n("i32", dimensions.unwrap()));
+            dialect_operands.extend(["i16", "i64"]);
+        }
         llvm_arguments.extend(["shared_cluster_ptr", "shared_ptr", "ptr"]);
         llvm_arguments.extend(std::iter::repeat_n("i32", dimensions.unwrap()));
         llvm_arguments.extend(["i16", "i64", "i1", "i1", "i32"]);
         (
-            if multicast {
-                TmaAdapter::G2sPointersCoordinatesBarrierMaskInjectDefaults
-            } else {
-                TmaAdapter::G2sPointersCoordinatesBarrierInjectDefaults
+            match (multicast, tensor_cache_hint) {
+                (false, false) => TmaAdapter::G2sPointersCoordinatesBarrierInjectDefaults,
+                (true, false) => TmaAdapter::G2sPointersCoordinatesBarrierMaskInjectDefaults,
+                (false, true) => TmaAdapter::G2sPointersCoordinatesBarrierCacheHintInjectFlag,
+                (true, true) => TmaAdapter::G2sPointersCoordinatesBarrierMaskCacheHintInjectFlags,
             },
             false,
             None,
             true,
-            if multicast {
-                "Starts a multicast TMA tile copy from global to cluster shared memory."
-            } else {
-                "Starts a TMA tile copy from global to cluster shared memory."
+            match (multicast, tensor_cache_hint) {
+                (false, false) => "Starts a TMA tile copy from global to cluster shared memory.",
+                (true, false) => {
+                    "Starts a multicast TMA tile copy from global to cluster shared memory."
+                }
+                (false, true) => {
+                    "Starts a TMA tile copy from global to cluster shared memory using an explicit cache hint."
+                }
+                (true, true) => {
+                    "Starts a multicast TMA tile copy from global to cluster shared memory using an explicit cache hint."
+                }
             },
         )
     } else if is_s2g {
@@ -1083,16 +1207,30 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
         rust_arguments.extend(std::iter::repeat_n("i32", dimensions.unwrap()));
         dialect_operands.extend(["ptr", "ptr"]);
         dialect_operands.extend(std::iter::repeat_n("i32", dimensions.unwrap()));
+        if tensor_cache_hint {
+            rust_arguments.push("u64");
+            dialect_operands.push("i64");
+        }
         llvm_arguments.extend(["shared_ptr", "ptr"]);
         llvm_arguments.extend(std::iter::repeat_n("i32", dimensions.unwrap()));
         llvm_arguments.extend(["i64", "i1"]);
-        (
-            TmaAdapter::S2gPointersCoordinatesInjectDefaults,
-            false,
-            None,
-            true,
-            "Starts a TMA tile copy from shared to global memory.",
-        )
+        if tensor_cache_hint {
+            (
+                TmaAdapter::S2gPointersCoordinatesCacheHintInjectFlag,
+                false,
+                None,
+                true,
+                "Starts a TMA tile copy from shared to global memory using an explicit cache hint.",
+            )
+        } else {
+            (
+                TmaAdapter::S2gPointersCoordinatesInjectDefaults,
+                false,
+                None,
+                true,
+                "Starts a TMA tile copy from shared to global memory.",
+            )
+        }
     } else if let Some(bulk) = bulk {
         // Every non-tensor bulk copy takes its two addresses and a byte count;
         // the optional cache hint, CTA mask, and byte mask follow in the same
@@ -1384,6 +1522,9 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
         if multicast {
             modifiers.push("multicast::cluster".into());
         }
+        if tensor_cache_hint {
+            modifiers.push("L2::cache_hint".into());
+        }
         if cg2 {
             modifiers.push("cta_group::2".into());
         }
@@ -1395,22 +1536,27 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
         if multicast {
             operands.push(OperandPattern::Register);
         }
+        if tensor_cache_hint {
+            operands.push(OperandPattern::Register);
+        }
         ("cp", modifiers, operands)
     } else if is_s2g {
-        (
-            "cp",
-            vec![
-                "async".into(),
-                "bulk".into(),
-                "tensor".into(),
-                format!("{}d", dimensions.unwrap()),
-                "global".into(),
-                "shared::cta".into(),
-                "tile".into(),
-                "bulk_group".into(),
-            ],
-            vec![OperandPattern::Address, OperandPattern::Address],
-        )
+        let mut modifiers = vec![
+            "async".into(),
+            "bulk".into(),
+            "tensor".into(),
+            format!("{}d", dimensions.unwrap()),
+            "global".into(),
+            "shared::cta".into(),
+            "tile".into(),
+            "bulk_group".into(),
+        ];
+        let mut operands = vec![OperandPattern::Address, OperandPattern::Address];
+        if tensor_cache_hint {
+            modifiers.push("L2::cache_hint".into());
+            operands.push(OperandPattern::Register);
+        }
+        ("cp", modifiers, operands)
     } else if let Some(bulk) = bulk {
         let mut modifiers = vec!["async".into(), "bulk".into()];
         let mut operands = match bulk.direction {
@@ -1757,20 +1903,27 @@ fn tma_evidence_profile(
     operation: TmaOperation,
     backend: IntrinsicBackend,
 ) -> String {
-    let (shared, bulk) = match backend {
+    let (shared, bulk, tensor_cache_hint) = match backend {
         IntrinsicBackend::LlvmNvptx => (
             &admission.llvm_evidence_profile,
             &admission.bulk_llvm_evidence_profile,
+            &admission.tensor_cache_hint_llvm_evidence_profile,
         ),
         IntrinsicBackend::LibNvvm => (
             &admission.libnvvm_evidence_profile,
             &admission.bulk_libnvvm_evidence_profile,
+            &admission.tensor_cache_hint_libnvvm_evidence_profile,
         ),
     };
-    match bulk {
-        Some(profile) if operation.bulk().is_some() => profile.clone(),
+    match (bulk, tensor_cache_hint) {
+        (Some(profile), _) if operation.bulk().is_some() => profile.clone(),
+        (_, Some(profile)) if uses_tensor_copy_cache_hint(operation) => profile.clone(),
         _ => shared.clone(),
     }
+}
+
+fn uses_tensor_copy_cache_hint(operation: TmaOperation) -> bool {
+    operation.tensor_copy().is_some_and(|copy| copy.cache_hint)
 }
 
 pub(in crate::resolve) fn expand_tma_admission(
@@ -1800,6 +1953,20 @@ pub(in crate::resolve) fn expand_tma_admission(
                     .as_ref()
                     .is_some_and(|profile| !profile.trim().is_empty())),
         "compact TMA admission requires both non-tensor bulk-copy evidence profiles"
+    );
+    // The tensor-copy cache-hint forms were likewise measured on their own
+    // probe modules.
+    ensure!(
+        !TMA_OPERATIONS.into_iter().any(uses_tensor_copy_cache_hint)
+            || (admission
+                .tensor_cache_hint_llvm_evidence_profile
+                .as_ref()
+                .is_some_and(|profile| !profile.trim().is_empty())
+                && admission
+                    .tensor_cache_hint_libnvvm_evidence_profile
+                    .as_ref()
+                    .is_some_and(|profile| !profile.trim().is_empty())),
+        "compact TMA admission requires both tensor-copy cache-hint evidence profiles"
     );
     ensure!(
         admission
@@ -2202,16 +2369,8 @@ pub(in crate::resolve) fn validate_tma_reduction_policy(
 pub(in crate::resolve) fn tma_imported_properties(operation: TmaOperation) -> Vec<String> {
     assert_ne!(operation, TmaOperation::Reduce);
     let dimensions = operation.dimensions();
-    if matches!(
-        operation,
-        TmaOperation::G2sTile1d
-            | TmaOperation::G2sTile2d
-            | TmaOperation::G2sTile2dMulticast
-            | TmaOperation::G2sTile2dMulticastCg2
-            | TmaOperation::G2sTile3d
-            | TmaOperation::G2sTile4d
-            | TmaOperation::G2sTile5d
-    ) {
+    let tensor_copy = operation.tensor_copy();
+    if tensor_copy.is_some_and(|copy| copy.is_g2s()) {
         let dimensions = dimensions.unwrap();
         let mut properties = vec![
             format!("ImmArg<arg{}>", dimensions + 5),
@@ -2225,14 +2384,7 @@ pub(in crate::resolve) fn tma_imported_properties(operation: TmaOperation) -> Ve
         properties.sort();
         return properties;
     }
-    if matches!(
-        operation,
-        TmaOperation::S2gTile1d
-            | TmaOperation::S2gTile2d
-            | TmaOperation::S2gTile3d
-            | TmaOperation::S2gTile4d
-            | TmaOperation::S2gTile5d
-    ) {
+    if tensor_copy.is_some_and(|copy| copy.is_s2g()) {
         return vec![
             format!("ImmArg<arg{}>", dimensions.unwrap() + 3),
             "IntrConvergent".into(),

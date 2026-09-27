@@ -352,6 +352,54 @@ pub(super) fn selection_matches_tma_policy(
             "TMA_TENSOR_S2G_TILE_5D",
             "cp.async.bulk.tensor.5d.global.shared::cta.tile.bulk_group [$tmap, {{$d0, $d1, $d2, $d3, $d4}}], [$src];",
         ),
+        TmaOperation::G2sTile1dCacheHint => (
+            "TMA_G2S_TILE_CG0_1D_CH",
+            "cp.async.bulk.tensor.1d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.L2::cache_hint$cg [$dst], [$tmap, {{$d0}}], [$mbar], $ch;",
+        ),
+        TmaOperation::G2sTile2dCacheHint => (
+            "TMA_G2S_TILE_CG0_2D_CH",
+            "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.L2::cache_hint$cg [$dst], [$tmap, {{$d0, $d1}}], [$mbar], $ch;",
+        ),
+        TmaOperation::G2sTile2dMulticastCacheHint => (
+            "TMA_G2S_TILE_CG0_2D_MC_CH",
+            "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster.L2::cache_hint$cg [$dst], [$tmap, {{$d0, $d1}}], [$mbar], $mc, $ch;",
+        ),
+        TmaOperation::G2sTile2dMulticastCg2CacheHint => (
+            "TMA_G2S_TILE_2D_MC_CH",
+            "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster.L2::cache_hint$cg [$dst], [$tmap, {{$d0, $d1}}], [$mbar], $mc, $ch;",
+        ),
+        TmaOperation::G2sTile3dCacheHint => (
+            "TMA_G2S_TILE_CG0_3D_CH",
+            "cp.async.bulk.tensor.3d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.L2::cache_hint$cg [$dst], [$tmap, {{$d0, $d1, $d2}}], [$mbar], $ch;",
+        ),
+        TmaOperation::G2sTile4dCacheHint => (
+            "TMA_G2S_TILE_CG0_4D_CH",
+            "cp.async.bulk.tensor.4d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.L2::cache_hint$cg [$dst], [$tmap, {{$d0, $d1, $d2, $d3}}], [$mbar], $ch;",
+        ),
+        TmaOperation::G2sTile5dCacheHint => (
+            "TMA_G2S_TILE_CG0_5D_CH",
+            "cp.async.bulk.tensor.5d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.L2::cache_hint$cg [$dst], [$tmap, {{$d0, $d1, $d2, $d3, $d4}}], [$mbar], $ch;",
+        ),
+        TmaOperation::S2gTile1dCacheHint => (
+            "TMA_TENSOR_S2G_TILE_1D_CH",
+            "cp.async.bulk.tensor.1d.global.shared::cta.tile.bulk_group.L2::cache_hint [$tmap, {{$d0}}], [$src], $ch;",
+        ),
+        TmaOperation::S2gTile2dCacheHint => (
+            "TMA_TENSOR_S2G_TILE_2D_CH",
+            "cp.async.bulk.tensor.2d.global.shared::cta.tile.bulk_group.L2::cache_hint [$tmap, {{$d0, $d1}}], [$src], $ch;",
+        ),
+        TmaOperation::S2gTile3dCacheHint => (
+            "TMA_TENSOR_S2G_TILE_3D_CH",
+            "cp.async.bulk.tensor.3d.global.shared::cta.tile.bulk_group.L2::cache_hint [$tmap, {{$d0, $d1, $d2}}], [$src], $ch;",
+        ),
+        TmaOperation::S2gTile4dCacheHint => (
+            "TMA_TENSOR_S2G_TILE_4D_CH",
+            "cp.async.bulk.tensor.4d.global.shared::cta.tile.bulk_group.L2::cache_hint [$tmap, {{$d0, $d1, $d2, $d3}}], [$src], $ch;",
+        ),
+        TmaOperation::S2gTile5dCacheHint => (
+            "TMA_TENSOR_S2G_TILE_5D_CH",
+            "cp.async.bulk.tensor.5d.global.shared::cta.tile.bulk_group.L2::cache_hint [$tmap, {{$d0, $d1, $d2, $d3, $d4}}], [$src], $ch;",
+        ),
         TmaOperation::BulkG2s => (
             "CP_ASYNC_BULK_G2S",
             "cp.async.bulk.shared::cluster.global.mbarrier::complete_tx::bytes [$dst], [$src], $size, [$mbar];",
@@ -506,44 +554,25 @@ pub(super) fn selection_matches_tma_policy(
     };
 
     let mut immediate_bindings = Vec::new();
-    if matches!(
-        operation,
-        TmaOperation::G2sTile1d
-            | TmaOperation::G2sTile2d
-            | TmaOperation::G2sTile2dMulticast
-            | TmaOperation::G2sTile2dMulticastCg2
-            | TmaOperation::G2sTile3d
-            | TmaOperation::G2sTile4d
-            | TmaOperation::G2sTile5d
-    ) {
-        let dimensions = operation.dimensions().unwrap();
-        immediate_bindings.push(crate::model::ImportedImmediateBinding {
-            argument_index: dimensions + 5,
-            value: if matches!(
-                operation,
-                TmaOperation::G2sTile2dMulticast | TmaOperation::G2sTile2dMulticastCg2
-            ) {
-                -1
-            } else {
-                0
-            },
-        });
-        immediate_bindings.push(crate::model::ImportedImmediateBinding {
-            argument_index: dimensions + 6,
-            value: 0,
-        });
-    } else if matches!(
-        operation,
-        TmaOperation::S2gTile1d
-            | TmaOperation::S2gTile2d
-            | TmaOperation::S2gTile3d
-            | TmaOperation::S2gTile4d
-            | TmaOperation::S2gTile5d
-    ) {
-        immediate_bindings.push(crate::model::ImportedImmediateBinding {
-            argument_index: operation.dimensions().unwrap() + 3,
-            value: 0,
-        });
+    // Tensor copies are picked out by their trailing `i1` flags: the CTA mask
+    // first (global-to-shared only), then the cache hint.
+    let flag = |enabled: bool| if enabled { -1 } else { 0 };
+    if let Some(copy) = operation.tensor_copy() {
+        if copy.is_g2s() {
+            immediate_bindings.push(crate::model::ImportedImmediateBinding {
+                argument_index: copy.dimensions + 5,
+                value: flag(copy.multicast),
+            });
+            immediate_bindings.push(crate::model::ImportedImmediateBinding {
+                argument_index: copy.dimensions + 6,
+                value: flag(copy.cache_hint),
+            });
+        } else {
+            immediate_bindings.push(crate::model::ImportedImmediateBinding {
+                argument_index: copy.dimensions + 3,
+                value: flag(copy.cache_hint),
+            });
+        }
     } else if let Some(coordinate_count) = operation.prefetch_coordinate_count() {
         immediate_bindings.push(crate::model::ImportedImmediateBinding {
             argument_index: coordinate_count + 2,
@@ -556,7 +585,6 @@ pub(super) fn selection_matches_tma_policy(
     } else if let Some(bulk) = operation.bulk() {
         // Each bulk selection is picked out by the trailing `i1` flags LLVM
         // folds into the instruction: the CTA mask first, then the cache hint.
-        let flag = |enabled: bool| if enabled { -1 } else { 0 };
         match bulk.direction {
             TmaBulkDirection::GlobalToCluster => {
                 immediate_bindings.push(crate::model::ImportedImmediateBinding {

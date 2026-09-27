@@ -1561,6 +1561,30 @@ fn tma_impls(catalog: &CatalogFile) -> String {
                 )
                 .unwrap();
             }
+            TmaOperation::G2sTile1dCacheHint
+            | TmaOperation::G2sTile2dCacheHint
+            | TmaOperation::G2sTile2dMulticastCacheHint
+            | TmaOperation::G2sTile2dMulticastCg2CacheHint
+            | TmaOperation::G2sTile3dCacheHint
+            | TmaOperation::G2sTile4dCacheHint
+            | TmaOperation::G2sTile5dCacheHint
+            | TmaOperation::S2gTile1dCacheHint
+            | TmaOperation::S2gTile2dCacheHint
+            | TmaOperation::S2gTile3dCacheHint
+            | TmaOperation::S2gTile4dCacheHint
+            | TmaOperation::S2gTile5dCacheHint => {
+                let copy = operation.tensor_copy().expect("tensor-copy contract");
+                let direction = if copy.is_g2s() { "g2s" } else { "s2g" };
+                writeln!(
+                    output,
+                    "        convert_tensor_copy_cache_hint(ctx, rewriter, self.get_operation(), operands_info, TensorCopyCacheHintConfig::new({direction:?}, {}, {}, {}, {:?}))",
+                    copy.dimensions,
+                    copy.multicast,
+                    if copy.cta_group_2 { 2 } else { 0 },
+                    record.resolved_llvm_identifier()
+                )
+                .unwrap();
+            }
             TmaOperation::Reduce => {
                 let reduction = record
                     .tma
@@ -2164,6 +2188,10 @@ const LOWERING_INTRINSIC_HELPERS: &[(&str, &str)] = &[
     ("BulkConfig", "tma::BulkConfig"),
     ("PrefetchTileConfig", "tma::PrefetchTileConfig"),
     ("ReduceConfig", "tma::ReduceConfig"),
+    (
+        "TensorCopyCacheHintConfig",
+        "tma::TensorCopyCacheHintConfig",
+    ),
     ("convert_bulk", "tma::convert_bulk"),
     ("convert_control", "tma::convert_control"),
     ("convert_g2s", "tma::convert_g2s"),
@@ -2178,6 +2206,10 @@ const LOWERING_INTRINSIC_HELPERS: &[(&str, &str)] = &[
     ("convert_prefetch_tile", "tma::convert_prefetch_tile"),
     ("convert_reduce_s2g", "tma::convert_reduce_s2g"),
     ("convert_s2g", "tma::convert_s2g"),
+    (
+        "convert_tensor_copy_cache_hint",
+        "tma::convert_tensor_copy_cache_hint",
+    ),
     ("convert_tensormap_fence", "tma::convert_tensormap_fence"),
     (
         "convert_tensormap_replace",

@@ -1141,7 +1141,7 @@ mod tests {
         assert_eq!(count_ops::<llvm::CondBrOp>(&ctx, &blocks), 3);
         for (store, expected) in stores.iter().zip([carried, middle, final_value]) {
             assert_eq!(store.get_operation().deref(&ctx).get_operand(0), expected);
-            assert!(llvm_export::ops::op_volatile(&ctx, store.get_operation()));
+            assert!(llvm_export::op_interfaces::VolatilityOpInterface::is_volatile(store, &ctx));
         }
         for (index, condition) in [first_condition, second_condition].into_iter().enumerate() {
             let block = stores[index]

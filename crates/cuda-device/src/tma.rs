@@ -38,6 +38,12 @@
 //! 3. **Barrier Integration**: TMA completion is tracked via `mbarrier` - the
 //!    hardware automatically signals the barrier when transfer completes.
 //!
+//!    Every tile copy, in both directions, also has a `_cache_hint` variant
+//!    (for example `cp_async_bulk_tensor_2d_g2s_cache_hint` and
+//!    `cp_async_bulk_tensor_2d_s2g_cache_hint`) that takes a trailing 64-bit L2
+//!    eviction policy built with the `createpolicy` intrinsics in
+//!    [`crate::cache_policy`].
+//!
 //! 4. **Non-tensor bulk copies**: the plain `cp.async.bulk.*` forms move a flat,
 //!    sixteen-byte-aligned byte range instead of a tensor tile, so they need no
 //!    descriptor. `cp_async_bulk_g2s` and `cp_async_bulk_g2s_cta` fill cluster

@@ -57,6 +57,18 @@ pub enum TmaOperation {
     BulkPrefetchL2,
     #[serde(rename = "bulk_prefetch_l2_cache_hint")]
     BulkPrefetchL2CacheHint,
+    G2sTile1dCacheHint,
+    G2sTile2dCacheHint,
+    G2sTile2dMulticastCacheHint,
+    G2sTile2dMulticastCg2CacheHint,
+    G2sTile3dCacheHint,
+    G2sTile4dCacheHint,
+    G2sTile5dCacheHint,
+    S2gTile1dCacheHint,
+    S2gTile2dCacheHint,
+    S2gTile3dCacheHint,
+    S2gTile4dCacheHint,
+    S2gTile5dCacheHint,
     CommitGroup,
     WaitGroup,
     WaitGroupRead,
@@ -98,64 +110,9 @@ pub enum TmaOperation {
 
 impl TmaOperation {
     pub const fn dimensions(self) -> Option<usize> {
-        match self {
-            Self::G2sTile1d | Self::S2gTile1d => Some(1),
-            Self::G2sTile2d
-            | Self::G2sTile2dMulticast
-            | Self::G2sTile2dMulticastCg2
-            | Self::S2gTile2d => Some(2),
-            Self::G2sTile3d | Self::S2gTile3d => Some(3),
-            Self::G2sTile4d | Self::S2gTile4d => Some(4),
-            Self::G2sTile5d | Self::S2gTile5d => Some(5),
-            Self::Reduce
-            | Self::BulkG2s
-            | Self::BulkG2sCacheHint
-            | Self::BulkG2sMulticast
-            | Self::BulkG2sMulticastCacheHint
-            | Self::BulkG2sCta
-            | Self::BulkG2sCtaCacheHint
-            | Self::BulkS2g
-            | Self::BulkS2gCacheHint
-            | Self::BulkS2gByteMask
-            | Self::BulkS2gByteMaskCacheHint
-            | Self::BulkCtaToCluster
-            | Self::BulkPrefetchL2
-            | Self::BulkPrefetchL2CacheHint
-            | Self::CommitGroup
-            | Self::WaitGroup
-            | Self::WaitGroupRead
-            | Self::PrefetchTensorMap
-            | Self::PrefetchTile1d
-            | Self::PrefetchTile2d
-            | Self::PrefetchTile3d
-            | Self::PrefetchTile4d
-            | Self::PrefetchTile5d
-            | Self::PrefetchTileGather4TwoDimensional
-            | Self::PrefetchTile1dCacheHint
-            | Self::PrefetchTile2dCacheHint
-            | Self::PrefetchTile3dCacheHint
-            | Self::PrefetchTile4dCacheHint
-            | Self::PrefetchTile5dCacheHint
-            | Self::PrefetchTileGather4TwoDimensionalCacheHint
-            | Self::ReplaceBoxDim
-            | Self::ReplaceElementStride
-            | Self::ReplaceElementType
-            | Self::ReplaceFillMode
-            | Self::ReplaceGlobalAddress
-            | Self::ReplaceGlobalDim
-            | Self::ReplaceGlobalStride
-            | Self::ReplaceInterleaveLayout
-            | Self::ReplaceRank
-            | Self::ReplaceSwizzleAtomicity
-            | Self::ReplaceSwizzleMode
-            | Self::FenceProxyTensorMapAcquireCluster
-            | Self::FenceProxyTensorMapAcquireCta
-            | Self::FenceProxyTensorMapAcquireGpu
-            | Self::FenceProxyTensorMapAcquireSystem
-            | Self::FenceProxyTensorMapReleaseCluster
-            | Self::FenceProxyTensorMapReleaseCta
-            | Self::FenceProxyTensorMapReleaseGpu
-            | Self::FenceProxyTensorMapReleaseSystem => None,
+        match self.tensor_copy() {
+            Some(copy) => Some(copy.dimensions),
+            None => None,
         }
     }
 
@@ -169,6 +126,61 @@ impl TmaOperation {
             | Self::PrefetchTile5dCacheHint
             | Self::PrefetchTileGather4TwoDimensional
             | Self::PrefetchTileGather4TwoDimensionalCacheHint => Some(5),
+            _ => None,
+        }
+    }
+
+    /// Return the closed shape of one tiled `cp.async.bulk.tensor` copy.
+    pub const fn tensor_copy(self) -> Option<TmaTensorCopy> {
+        const fn g2s(
+            dimensions: usize,
+            multicast: bool,
+            cta_group_2: bool,
+            cache_hint: bool,
+        ) -> Option<TmaTensorCopy> {
+            Some(TmaTensorCopy {
+                direction: TmaTensorCopyDirection::GlobalToShared,
+                dimensions,
+                multicast,
+                cta_group_2,
+                cache_hint,
+            })
+        }
+        const fn s2g(dimensions: usize, cache_hint: bool) -> Option<TmaTensorCopy> {
+            Some(TmaTensorCopy {
+                direction: TmaTensorCopyDirection::SharedToGlobal,
+                dimensions,
+                multicast: false,
+                cta_group_2: false,
+                cache_hint,
+            })
+        }
+
+        match self {
+            Self::G2sTile1d => g2s(1, false, false, false),
+            Self::G2sTile2d => g2s(2, false, false, false),
+            Self::G2sTile2dMulticast => g2s(2, true, false, false),
+            Self::G2sTile2dMulticastCg2 => g2s(2, true, true, false),
+            Self::G2sTile3d => g2s(3, false, false, false),
+            Self::G2sTile4d => g2s(4, false, false, false),
+            Self::G2sTile5d => g2s(5, false, false, false),
+            Self::G2sTile1dCacheHint => g2s(1, false, false, true),
+            Self::G2sTile2dCacheHint => g2s(2, false, false, true),
+            Self::G2sTile2dMulticastCacheHint => g2s(2, true, false, true),
+            Self::G2sTile2dMulticastCg2CacheHint => g2s(2, true, true, true),
+            Self::G2sTile3dCacheHint => g2s(3, false, false, true),
+            Self::G2sTile4dCacheHint => g2s(4, false, false, true),
+            Self::G2sTile5dCacheHint => g2s(5, false, false, true),
+            Self::S2gTile1d => s2g(1, false),
+            Self::S2gTile2d => s2g(2, false),
+            Self::S2gTile3d => s2g(3, false),
+            Self::S2gTile4d => s2g(4, false),
+            Self::S2gTile5d => s2g(5, false),
+            Self::S2gTile1dCacheHint => s2g(1, true),
+            Self::S2gTile2dCacheHint => s2g(2, true),
+            Self::S2gTile3dCacheHint => s2g(3, true),
+            Self::S2gTile4dCacheHint => s2g(4, true),
+            Self::S2gTile5dCacheHint => s2g(5, true),
             _ => None,
         }
     }
@@ -223,6 +235,35 @@ impl TmaOperation {
                 | Self::PrefetchTile5dCacheHint
                 | Self::PrefetchTileGather4TwoDimensionalCacheHint
         )
+    }
+}
+
+/// The state spaces one tiled `cp.async.bulk.tensor` copy moves between.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TmaTensorCopyDirection {
+    /// `.global` to `.shared::cluster`, completed through an mbarrier.
+    GlobalToShared,
+    /// `.shared::cta` to `.global`, completed through the bulk async-group.
+    SharedToGlobal,
+}
+
+/// Closed shape of one tiled `cp.async.bulk.tensor` copy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TmaTensorCopy {
+    pub direction: TmaTensorCopyDirection,
+    pub dimensions: usize,
+    pub multicast: bool,
+    pub cta_group_2: bool,
+    pub cache_hint: bool,
+}
+
+impl TmaTensorCopy {
+    pub const fn is_g2s(self) -> bool {
+        matches!(self.direction, TmaTensorCopyDirection::GlobalToShared)
+    }
+
+    pub const fn is_s2g(self) -> bool {
+        matches!(self.direction, TmaTensorCopyDirection::SharedToGlobal)
     }
 }
 
@@ -325,6 +366,9 @@ pub enum TmaAdapter {
     BulkCopyCacheHintByteMaskInjectFlag,
     BulkPrefetchInjectDefaults,
     BulkPrefetchCacheHintInjectFlag,
+    G2sPointersCoordinatesBarrierCacheHintInjectFlag,
+    G2sPointersCoordinatesBarrierMaskCacheHintInjectFlags,
+    S2gPointersCoordinatesCacheHintInjectFlag,
 }
 
 #[cfg(test)]

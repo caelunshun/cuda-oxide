@@ -911,24 +911,10 @@ pub(super) fn render_compat_tma(catalog: &CatalogFile, hash: &str) -> String {
         let operation = tma.operation;
         writeln!(output, "/// {}", record.summary).unwrap();
         let dimensions = tma.dimensions();
-        let is_g2s = matches!(
-            operation,
-            TmaOperation::G2sTile1d
-                | TmaOperation::G2sTile2d
-                | TmaOperation::G2sTile2dMulticast
-                | TmaOperation::G2sTile2dMulticastCg2
-                | TmaOperation::G2sTile3d
-                | TmaOperation::G2sTile4d
-                | TmaOperation::G2sTile5d
-        );
-        let is_s2g = matches!(
-            operation,
-            TmaOperation::S2gTile1d
-                | TmaOperation::S2gTile2d
-                | TmaOperation::S2gTile3d
-                | TmaOperation::S2gTile4d
-                | TmaOperation::S2gTile5d
-        );
+        let tensor_copy = operation.tensor_copy();
+        let is_g2s = tensor_copy.is_some_and(|copy| copy.is_g2s());
+        let is_s2g = tensor_copy.is_some_and(|copy| copy.is_s2g());
+        let tensor_cache_hint = tensor_copy.is_some_and(|copy| copy.cache_hint);
         let is_reduction = operation == TmaOperation::Reduce;
         let bulk = operation.bulk();
         if !record.rust.safe {
@@ -1028,12 +1014,13 @@ pub(super) fn render_compat_tma(catalog: &CatalogFile, hash: &str) -> String {
             }
             arguments.push("barrier: *mut Barrier".into());
             values.push("barrier".into());
-            if matches!(
-                operation,
-                TmaOperation::G2sTile2dMulticast | TmaOperation::G2sTile2dMulticastCg2
-            ) {
+            if tensor_copy.is_some_and(|copy| copy.multicast) {
                 arguments.push("cta_mask: u16".into());
                 values.push("cta_mask".into());
+            }
+            if tensor_cache_hint {
+                arguments.push("cache_hint: u64".into());
+                values.push("cache_hint".into());
             }
             if arguments.len() > 7 {
                 output.push_str("#[allow(clippy::too_many_arguments)]\n");
@@ -1056,6 +1043,13 @@ pub(super) fn render_compat_tma(catalog: &CatalogFile, hash: &str) -> String {
             for index in 0..dimensions {
                 arguments.push(format!("coord{index}: i32"));
                 values.push(format!("coord{index}"));
+            }
+            if tensor_cache_hint {
+                arguments.push("cache_hint: u64".into());
+                values.push("cache_hint".into());
+            }
+            if arguments.len() > 7 {
+                output.push_str("#[allow(clippy::too_many_arguments)]\n");
             }
             writeln!(
                 output,

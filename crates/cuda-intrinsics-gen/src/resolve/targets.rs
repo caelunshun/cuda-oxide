@@ -126,6 +126,7 @@ pub(super) fn validate_selected_target_predicates(
                         matches!(
                             tma.operation,
                             TmaOperation::G2sTile2dMulticastCg2
+                                | TmaOperation::G2sTile2dMulticastCg2CacheHint
                                 | TmaOperation::PrefetchTileGather4TwoDimensional
                                 | TmaOperation::PrefetchTileGather4TwoDimensionalCacheHint
                         )
@@ -442,6 +443,7 @@ pub(super) fn validate_selected_target_predicates(
             matches!(
                 tma.operation,
                 TmaOperation::G2sTile2dMulticastCg2
+                    | TmaOperation::G2sTile2dMulticastCg2CacheHint
                     | TmaOperation::PrefetchTileGather4TwoDimensional
                     | TmaOperation::PrefetchTileGather4TwoDimensionalCacheHint
             )

@@ -10,6 +10,8 @@ reduce_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma-reduce"
 reduce_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma-reduce"
 bulk_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma-bulk"
 bulk_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma-bulk"
+tensor_cache_hint_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma-tensor-cache-hint"
+tensor_cache_hint_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma-tensor-cache-hint"
 runtime_validation = "unexecuted"
 
 [[tma.variant]]
@@ -251,6 +253,54 @@ operation = "bulk_prefetch_l2"
 [[tma.variant]]
 abi_id = "i1038"
 operation = "bulk_prefetch_l2_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1215"
+operation = "g2s_tile1d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1216"
+operation = "g2s_tile2d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1217"
+operation = "g2s_tile2d_multicast_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1218"
+operation = "g2s_tile2d_multicast_cg2_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1219"
+operation = "g2s_tile3d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1220"
+operation = "g2s_tile4d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1221"
+operation = "g2s_tile5d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1222"
+operation = "s2g_tile1d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1223"
+operation = "s2g_tile2d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1224"
+operation = "s2g_tile3d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1225"
+operation = "s2g_tile4d_cache_hint"
+
+[[tma.variant]]
+abi_id = "i1226"
+operation = "s2g_tile5d_cache_hint"
 
 [[tma.reduce_variant]]
 abi_id = "i0923"

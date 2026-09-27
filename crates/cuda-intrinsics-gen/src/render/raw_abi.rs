@@ -331,12 +331,15 @@ pub(super) fn render_raw_abi(catalog: &CatalogFile, hash: &str) -> Result<String
             } else if let Some(tma) = &record.tma {
                 match tma.adapter {
                     TmaAdapter::G2sPointersCoordinatesBarrierInjectDefaults
-                    | TmaAdapter::G2sPointersCoordinatesBarrierMaskInjectDefaults => output
+                    | TmaAdapter::G2sPointersCoordinatesBarrierMaskInjectDefaults
+                    | TmaAdapter::G2sPointersCoordinatesBarrierCacheHintInjectFlag
+                    | TmaAdapter::G2sPointersCoordinatesBarrierMaskCacheHintInjectFlags => output
                         .push_str(
                             "/// The destination and barrier must be valid shared-memory objects, and the tensor map must be a live descriptor for this dimensionality.\n\
                              /// Keep every object alive until the asynchronous copy completes. Only the designated issuing thread may start this transfer.\n",
                         ),
-                    TmaAdapter::S2gPointersCoordinatesInjectDefaults => output.push_str(
+                    TmaAdapter::S2gPointersCoordinatesInjectDefaults
+                    | TmaAdapter::S2gPointersCoordinatesCacheHintInjectFlag => output.push_str(
                         "/// The source must name a live shared-memory tile, and the tensor map must be a live descriptor for this dimensionality.\n\
                          /// Keep both objects alive until the committed bulk-copy group completes.\n",
                     ),

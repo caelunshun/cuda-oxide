@@ -458,13 +458,22 @@ fn tma_rendering_preserves_api_and_injects_backend_defaults() {
     assert!(compatibility.contains(
             "pub unsafe fn cp_async_bulk_prefetch_l2_cache_hint(src: *const u8, size: u32, cache_hint: u64)"
         ));
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_tensor_3d_g2s_cache_hint(dst: *mut u8, tensor_map: *const TmaDescriptor, coord0: i32, coord1: i32, coord2: i32, barrier: *mut Barrier, cache_hint: u64)"
+        ));
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_tensor_2d_g2s_multicast_cg2_cache_hint(dst: *mut u8, tensor_map: *const TmaDescriptor, coord0: i32, coord1: i32, barrier: *mut Barrier, cta_mask: u16, cache_hint: u64)"
+        ));
+    assert!(compatibility.contains(
+            "pub unsafe fn cp_async_bulk_tensor_2d_s2g_cache_hint(src: *const u8, tensor_map: *const TmaDescriptor, coord0: i32, coord1: i32, cache_hint: u64)"
+        ));
     assert!(compatibility.contains("pub unsafe fn tensormap_replace_swizzle_atomicity("));
     assert!(compatibility.contains("pub unsafe fn fence_proxy_tensormap_generic_acquire_system("));
     assert!(compatibility.contains("pub fn fence_proxy_tensormap_generic_release_system()"));
 
     let dialect = render_dialect_tma(&catalog, "test-hash");
-    assert_eq!(dialect.matches("pub struct ").count(), 124);
-    assert_eq!(dialect.matches("NResultsInterface<0>").count(), 124);
+    assert_eq!(dialect.matches("pub struct ").count(), 136);
+    assert_eq!(dialect.matches("NResultsInterface<0>").count(), 136);
     assert!(dialect.contains("NOpdsInterface<10>"));
     assert!(dialect.contains("CpAsyncBulkWaitGroupReadOp::register(ctx)"));
     assert!(dialect.contains("CpAsyncBulkPrefetchTensorGather4TwoDimensionalL2Op::register(ctx)"));
@@ -475,6 +484,8 @@ fn tma_rendering_preserves_api_and_injects_backend_defaults() {
     assert!(dialect.contains("CpAsyncBulkG2sMulticastCacheHintOp::register(ctx)"));
     assert!(dialect.contains("CpAsyncBulkS2gByteMaskCacheHintOp::register(ctx)"));
     assert!(dialect.contains("CpAsyncBulkCtaToClusterOp::register(ctx)"));
+    assert!(dialect.contains("CpAsyncBulkTensorG2sTile5dCacheHintOp::register(ctx)"));
+    assert!(dialect.contains("CpAsyncBulkTensorS2gTile1dCacheHintOp::register(ctx)"));
     assert!(dialect.contains("CpAsyncBulkPrefetchL2CacheHintOp::register(ctx)"));
     assert!(dialect.contains("ReplaceTensorMapSwizzleAtomicityOp::register(ctx)"));
     assert!(dialect.contains("FenceProxyTensorMapGenericReleaseSystemOp::register(ctx)"));
@@ -514,6 +525,8 @@ fn tma_rendering_preserves_api_and_injects_backend_defaults() {
         "tma::convert_tensormap_replace",
         "tma::PrefetchTileConfig",
         "tma::ReduceConfig",
+        "tma::TensorCopyCacheHintConfig",
+        "tma::convert_tensor_copy_cache_hint",
     ] {
         assert!(lowering.contains(tma_import), "{tma_import}");
     }
@@ -524,6 +537,12 @@ fn tma_rendering_preserves_api_and_injects_backend_defaults() {
     assert!(
         lowering.contains("convert_s2g(ctx, rewriter, self.get_operation(), operands_info, 5)")
     );
+    assert!(lowering.contains(
+            "convert_tensor_copy_cache_hint(ctx, rewriter, self.get_operation(), operands_info, TensorCopyCacheHintConfig::new(\"g2s\", 2, true, 2, \"llvm_nvvm_cp_async_bulk_tensor_g2s_tile_2d\"))"
+        ));
+    assert!(lowering.contains(
+            "convert_tensor_copy_cache_hint(ctx, rewriter, self.get_operation(), operands_info, TensorCopyCacheHintConfig::new(\"s2g\", 4, false, 0, \"llvm_nvvm_cp_async_bulk_tensor_s2g_tile_4d\"))"
+        ));
     assert!(lowering.contains(
             "convert_control(ctx, rewriter, self.get_operation(), operands_info, \"commit_group\", \"llvm_nvvm_cp_async_bulk_commit_group\")"
         ));
@@ -556,6 +575,24 @@ fn tma_rendering_preserves_api_and_injects_backend_defaults() {
         .unwrap();
     let s2g_probe = render_probe(&catalog, s2g, "test-hash");
     assert!(s2g_probe.contains("ptr %tensor_map, i32 %coord0, i32 %coord1, i64 0, i1 false"));
+
+    let g2s_cache_hint = tma_intrinsics(&catalog)
+        .find(|record| record.id == "cp_async_bulk_tensor_2d_g2s_multicast_cg2_cache_hint")
+        .unwrap();
+    let g2s_cache_hint_probe = render_probe(&catalog, g2s_cache_hint, "test-hash");
+    assert!(g2s_cache_hint_probe.contains("i16 %cta_mask, i64 %cache_hint)"));
+    assert!(
+        g2s_cache_hint_probe.contains("i16 %cta_mask, i64 %cache_hint, i1 true, i1 true, i32 2")
+    );
+
+    let s2g_cache_hint = tma_intrinsics(&catalog)
+        .find(|record| record.id == "cp_async_bulk_tensor_2d_s2g_cache_hint")
+        .unwrap();
+    let s2g_cache_hint_probe = render_probe(&catalog, s2g_cache_hint, "test-hash");
+    assert!(
+        s2g_cache_hint_probe
+            .contains("ptr %tensor_map, i32 %coord0, i32 %coord1, i64 %cache_hint, i1 true")
+    );
 
     let reduce = tma_intrinsics(&catalog)
         .find(|record| record.id == "cp_async_bulk_tensor_reduce_add_tile_2d")

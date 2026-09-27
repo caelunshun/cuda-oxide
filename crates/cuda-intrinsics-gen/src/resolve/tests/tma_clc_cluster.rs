@@ -251,6 +251,21 @@ fn compact_tma_admission_matches_llvm_and_fails_closed() {
             ("i1036", "cp_async_bulk_cta_to_cluster"),
             ("i1037", "cp_async_bulk_prefetch_l2"),
             ("i1038", "cp_async_bulk_prefetch_l2_cache_hint"),
+            ("i1215", "cp_async_bulk_tensor_1d_g2s_cache_hint"),
+            ("i1216", "cp_async_bulk_tensor_2d_g2s_cache_hint"),
+            ("i1217", "cp_async_bulk_tensor_2d_g2s_multicast_cache_hint"),
+            (
+                "i1218",
+                "cp_async_bulk_tensor_2d_g2s_multicast_cg2_cache_hint"
+            ),
+            ("i1219", "cp_async_bulk_tensor_3d_g2s_cache_hint"),
+            ("i1220", "cp_async_bulk_tensor_4d_g2s_cache_hint"),
+            ("i1221", "cp_async_bulk_tensor_5d_g2s_cache_hint"),
+            ("i1222", "cp_async_bulk_tensor_1d_s2g_cache_hint"),
+            ("i1223", "cp_async_bulk_tensor_2d_s2g_cache_hint"),
+            ("i1224", "cp_async_bulk_tensor_3d_s2g_cache_hint"),
+            ("i1225", "cp_async_bulk_tensor_4d_s2g_cache_hint"),
+            ("i1226", "cp_async_bulk_tensor_5d_s2g_cache_hint"),
         ]
     );
 

@@ -707,16 +707,23 @@ pub(super) fn append_overlay_hash_input(output: &mut Vec<u8>, path: &str, conten
     output.extend_from_slice(contents);
 }
 
-pub(super) fn shares_tma_2d_g2s_symbol(record: &OverlayIntrinsic, symbol: &str) -> bool {
-    symbol == "llvm.nvvm.cp.async.bulk.tensor.g2s.tile.2d"
-        && record.tma.as_ref().is_some_and(|tma| {
-            matches!(
-                tma.operation,
-                TmaOperation::G2sTile2d
-                    | TmaOperation::G2sTile2dMulticast
-                    | TmaOperation::G2sTile2dMulticastCg2
-            )
-        })
+/// Tensor copies fold their multicast, cache-hint, and CTA-group qualifiers
+/// into trailing operands, so several reviewed operations share one imported
+/// LLVM declaration per direction and dimensionality.
+pub(super) fn shares_tma_tensor_copy_symbol(record: &OverlayIntrinsic, symbol: &str) -> bool {
+    let Some(copy) = record
+        .tma
+        .as_ref()
+        .and_then(|tma| tma.operation.tensor_copy())
+    else {
+        return false;
+    };
+    let direction = if copy.is_g2s() { "g2s" } else { "s2g" };
+    symbol
+        == format!(
+            "llvm.nvvm.cp.async.bulk.tensor.{direction}.tile.{}d",
+            copy.dimensions
+        )
 }
 
 pub(super) fn shares_tma_prefetch_tile_symbol(record: &OverlayIntrinsic, symbol: &str) -> bool {
@@ -897,7 +904,7 @@ pub(super) fn validate_unique_overlay(
         insert_unique(&mut op_variants, &op_variant, "dialect op variant")?;
         if let Some(symbol) = &record.llvm_symbol {
             let is_resolved = record.resolved_llvm_symbol.is_some();
-            let shares_reviewed_symbol = shares_tma_2d_g2s_symbol(record, symbol)
+            let shares_reviewed_symbol = shares_tma_tensor_copy_symbol(record, symbol)
                 || shares_tma_prefetch_tile_symbol(record, symbol)
                 || shares_tma_bulk_symbol(record, symbol)
                 || shares_tcgen05_mma_symbol(record, symbol)

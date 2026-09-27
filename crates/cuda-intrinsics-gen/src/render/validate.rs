@@ -765,6 +765,31 @@ pub(super) fn validate_renderable(catalog: &CatalogFile) -> Result<()> {
                                         && record.semantics.memory == "read_write"
                                 }
                                 (
+                                    TmaOperation::G2sTile1dCacheHint
+                                    | TmaOperation::G2sTile2dCacheHint
+                                    | TmaOperation::G2sTile3dCacheHint
+                                    | TmaOperation::G2sTile4dCacheHint
+                                    | TmaOperation::G2sTile5dCacheHint,
+                                    TmaAdapter::G2sPointersCoordinatesBarrierCacheHintInjectFlag,
+                                )
+                                | (
+                                    TmaOperation::G2sTile2dMulticastCacheHint
+                                    | TmaOperation::G2sTile2dMulticastCg2CacheHint,
+                                    TmaAdapter::G2sPointersCoordinatesBarrierMaskCacheHintInjectFlags,
+                                )
+                                | (
+                                    TmaOperation::S2gTile1dCacheHint
+                                    | TmaOperation::S2gTile2dCacheHint
+                                    | TmaOperation::S2gTile3dCacheHint
+                                    | TmaOperation::S2gTile4dCacheHint
+                                    | TmaOperation::S2gTile5dCacheHint,
+                                    TmaAdapter::S2gPointersCoordinatesCacheHintInjectFlag,
+                                ) => {
+                                    !record.rust.safe
+                                        && record.semantics.convergent
+                                        && record.semantics.memory == "read_write"
+                                }
+                                (
                                     TmaOperation::Reduce,
                                     TmaAdapter::ReductionPointersCoordinatesInjectDefaults,
                                 ) => {

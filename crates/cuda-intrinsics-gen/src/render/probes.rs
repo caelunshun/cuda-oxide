@@ -195,16 +195,11 @@ fn render_tma_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, hash: &str
         writeln!(output, "  call void @{symbol}({}) #0", arguments.join(", ")).unwrap();
         output.push_str("  ret void\n}\n\nattributes #0 = { convergent }\n");
     } else if let Some(dimensions) = tma.dimensions() {
-        let is_g2s = matches!(
-            operation,
-            TmaOperation::G2sTile1d
-                | TmaOperation::G2sTile2d
-                | TmaOperation::G2sTile2dMulticast
-                | TmaOperation::G2sTile2dMulticastCg2
-                | TmaOperation::G2sTile3d
-                | TmaOperation::G2sTile4d
-                | TmaOperation::G2sTile5d
-        );
+        let tensor_copy = operation.tensor_copy();
+        let is_g2s = tensor_copy.is_some_and(|copy| copy.is_g2s());
+        let cache_hint = tensor_copy.is_some_and(|copy| copy.cache_hint);
+        let cache_hint_parameter = if cache_hint { ", i64 %cache_hint" } else { "" };
+        let cache_hint_argument = if cache_hint { "%cache_hint" } else { "0" };
         let coordinates = std::iter::repeat_n("i32", dimensions)
             .collect::<Vec<_>>()
             .join(", ");
@@ -217,10 +212,7 @@ fn render_tma_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, hash: &str
             .collect::<Vec<_>>()
             .join(", ");
         if is_g2s {
-            let multicast = matches!(
-                operation,
-                TmaOperation::G2sTile2dMulticast | TmaOperation::G2sTile2dMulticastCg2
-            );
+            let multicast = tensor_copy.is_some_and(|copy| copy.multicast);
             let declaration_coordinates = if coordinates.is_empty() {
                 String::new()
             } else {
@@ -239,7 +231,7 @@ fn render_tma_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, hash: &str
             let mask_parameter = if multicast { ", i16 %cta_mask" } else { "" };
             writeln!(
                 output,
-                "define void @probe_{}(ptr %dst_generic, ptr %barrier_generic, ptr %tensor_map{parameters}{mask_parameter}) #0 {{",
+                "define void @probe_{}(ptr %dst_generic, ptr %barrier_generic, ptr %tensor_map{parameters}{mask_parameter}{cache_hint_parameter}) #0 {{",
                 record.id
             )
             .unwrap();
@@ -252,14 +244,14 @@ fn render_tma_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, hash: &str
                 format!(", {coordinate_arguments}")
             };
             let mask = if multicast { "%cta_mask" } else { "0" };
-            let group = if operation == TmaOperation::G2sTile2dMulticastCg2 {
+            let group = if tensor_copy.is_some_and(|copy| copy.cta_group_2) {
                 2
             } else {
                 0
             };
             writeln!(
                 output,
-                "  call void @{symbol}(ptr addrspace(7) %dst, ptr addrspace(3) %barrier, ptr %tensor_map{arguments}, i16 {mask}, i64 0, i1 {multicast}, i1 false, i32 {group}) #0"
+                "  call void @{symbol}(ptr addrspace(7) %dst, ptr addrspace(3) %barrier, ptr %tensor_map{arguments}, i16 {mask}, i64 {cache_hint_argument}, i1 {multicast}, i1 {cache_hint}, i32 {group}) #0"
             )
             .unwrap();
         } else {
@@ -280,7 +272,7 @@ fn render_tma_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, hash: &str
             };
             writeln!(
                 output,
-                "define void @probe_{}(ptr %src_generic, ptr %tensor_map{parameters}) #0 {{",
+                "define void @probe_{}(ptr %src_generic, ptr %tensor_map{parameters}{cache_hint_parameter}) #0 {{",
                 record.id
             )
             .unwrap();
@@ -292,7 +284,7 @@ fn render_tma_probe(catalog: &CatalogFile, record: &CatalogIntrinsic, hash: &str
             };
             writeln!(
                 output,
-                "  call void @{symbol}(ptr addrspace(3) %src, ptr %tensor_map{arguments}, i64 0, i1 false) #0"
+                "  call void @{symbol}(ptr addrspace(3) %src, ptr %tensor_map{arguments}, i64 {cache_hint_argument}, i1 {cache_hint}) #0"
             )
             .unwrap();
         }
