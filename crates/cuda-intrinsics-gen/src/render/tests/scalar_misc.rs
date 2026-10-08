@@ -8,17 +8,14 @@ use crate::model::ImportedSelectionConstraints;
 
 use crate::model::{
     BackendLoweringMechanism, CatalogSelection, ClcAdapter, DebugControlAdapter,
-    ExtendedMinMaxAdapter, ImportedAddressSpace, PackedConversionSourceFormat, RuntimeValidation,
-    ScalarArithmeticOperation,
+    ExtendedMinMaxAdapter, ImportedAddressSpace, ScalarArithmeticOperation,
 };
 use crate::render::collector_targets::generated_selection_alternatives;
-use crate::render::common::llvm;
 use crate::render::compat::render_compat_float;
 use crate::render::families::{
-    dot_products, packed_alu_register_constraint, packed_alus, packed_conversion_constraint,
-    packed_conversion_ptx_mnemonic, packed_conversion_source, packed_conversion_source_width,
-    packed_conversion_typed_llvm_name, packed_conversions, prmts, scalar_conversion_ptx_mnemonic,
-    scalar_conversion_rounding_attr, scalar_conversion_saturation_attr,
+    dot_products, packed_alus, packed_conversion_typed_llvm_name, packed_conversions, prmts,
+    scalar_conversion_ptx_mnemonic, scalar_conversion_rounding_attr,
+    scalar_conversion_saturation_attr,
 };
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -243,50 +240,12 @@ fn packed_alu_and_conversion_render_exact_pure_inline_ptx_adapters() {
             )));
     }
 
-    for record in packed_alus(&catalog) {
-        let probe = render_probe(&catalog, record, "test-hash");
-        let register = packed_alu_register_constraint(record);
-        let constraints = std::iter::once(format!("={register}"))
-            .chain(std::iter::repeat_n(
-                register.to_owned(),
-                record.rust.arguments.len(),
-            ))
-            .collect::<Vec<_>>()
-            .join(",");
-        assert!(probe.contains(&format!("\", \"{constraints}\"")));
-        assert!(!probe.contains("asm sideeffect"));
-        assert!(!probe.contains("~{memory}"));
-    }
-    let mut typed_probe_count = 0;
-    for conversion in packed_conversions(&catalog) {
-        let probe = render_probe(&catalog, conversion, "test-hash");
-        if packed_conversion_typed_llvm_name(conversion).is_some() {
-            typed_probe_count += 1;
-            let llvm = llvm(conversion);
-            let symbol = llvm.resolved_symbol.as_deref().unwrap_or(&llvm.symbol);
-            assert!(probe.contains(&format!("declare i16 @{symbol}(float, float)")));
-            assert!(probe.contains(&format!("call i16 @{symbol}(float %high, float %low)")));
-            assert!(!probe.contains(" asm "));
-        } else if packed_conversion_source(conversion) == PackedConversionSourceFormat::F32x2 {
-            assert!(probe.contains(&format!(
-                "asm \"{} $0, $2, $1;\", \"{}\"(float %low, float %high)",
-                packed_conversion_ptx_mnemonic(conversion),
-                packed_conversion_constraint(conversion),
-            )));
-            assert!(!probe.contains("declare "));
-        } else {
-            // One packed source operand, so no high/low reordering.
-            let source_ty = format!("i{}", packed_conversion_source_width(conversion));
-            assert!(probe.contains(&format!(
-                "asm \"{} $0, $1;\", \"{}\"({source_ty} %packed)",
-                packed_conversion_ptx_mnemonic(conversion),
-                packed_conversion_constraint(conversion),
-            )));
-            assert!(!probe.contains("declare "));
-        }
-        assert!(!probe.contains("asm sideeffect"));
-    }
-    assert_eq!(typed_probe_count, 4);
+    assert_eq!(
+        packed_conversions(&catalog)
+            .filter(|conversion| packed_conversion_typed_llvm_name(conversion).is_some())
+            .count(),
+        4
+    );
 
     let raw = render_raw_abi(&catalog, "test-hash").unwrap();
     assert!(raw.contains("pub fn i0062(_arg0: u32, _arg1: u32, _arg2: u32) -> u32"));
@@ -408,8 +367,6 @@ fn scalar_tf32_conversions_render_one_exact_attribute_carrier() {
     for record in &records {
         assert!(lowering.contains(&record.llvm_identifier()));
         assert!(lowering.contains(&scalar_conversion_ptx_mnemonic(record)));
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains(&format!("declare i32 @{}(float)", llvm(record).symbol)));
     }
 
     let targets = render_targets(&catalog, "test-hash");
@@ -558,13 +515,6 @@ fn dot_product_rendering_preserves_stable_paths_and_low_selector() {
     assert!(lowering.contains("\"dp2a.lo.s32.s32 $0, $1, $2, $3;\""));
     assert!(lowering.contains("\"dp2a.lo.s32.s32 $0, $1, $2, $3;\", true)"));
 
-    let low = dot_products(&catalog)
-        .find(|record| record.id == "dp2a_s32")
-        .unwrap();
-    let probe = render_probe(&catalog, low, "test-hash");
-    assert!(probe.contains("call i32 @llvm.nvvm.idp2a.s.s(i32 %a, i32 %b, i1 false, i32 %c)"));
-    assert!(!probe.contains("i1 true"));
-
     let target = render_targets(&catalog, "test-hash");
     assert!(target.contains("GeneratedImmediateBinding { argument_index: 2, value: 0 }"));
     assert!(!target.contains("GeneratedImmediateBinding { argument_index: 2, value: -1 }"));
@@ -599,30 +549,6 @@ fn prmt_rendering_keeps_modes_and_zero_source_exact() {
 
     let compatibility = render_compat_prmt(&catalog, "test-hash");
     assert_eq!(compatibility.matches("pub fn prmt").count(), 7);
-}
-
-#[test]
-fn selected_special_register_probes_use_the_llvm_route() {
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let catalog = crate::resolve::resolve(&repo_root).unwrap();
-
-    let clock = catalog
-        .intrinsics
-        .iter()
-        .find(|record| record.id == "clock")
-        .unwrap();
-    let typed = render_probe(&catalog, clock, "test-hash");
-    assert!(typed.contains("declare i32 @llvm.nvvm.read.ptx.sreg.clock()"));
-    assert!(typed.contains("call i32 @llvm.nvvm.read.ptx.sreg.clock()"));
-
-    let gridid = catalog
-        .intrinsics
-        .iter()
-        .find(|record| record.id == "gridid")
-        .unwrap();
-    let inline = render_probe(&catalog, gridid, "test-hash");
-    assert!(inline.contains("define i64 @probe_gridid_llvm_nvptx()"));
-    assert!(inline.contains("call i64 asm \"mov.u64 $0, %gridid;\", \"=l\"()"));
 }
 
 #[test]
@@ -681,23 +607,6 @@ fn clc_rendering_preserves_api_and_uses_typed_llvm_routes() {
     assert!(lowering.contains(
             "convert_generated_clc_query(ctx, rewriter, self.get_operation(), operands_info, \"llvm__nvvm_dclusterlaunchcontrol_dquery_ucancel_dis_ucanceled\", true)"
         ));
-
-    let request = clc_intrinsics(&catalog)
-        .find(|record| record.id == "clc_try_cancel")
-        .unwrap();
-    let request_probe = render_probe(&catalog, request, "test-hash");
-    assert_eq!(request_probe.matches("addrspacecast ptr").count(), 2);
-    assert!(request_probe.contains(
-            "call void @llvm.nvvm.clusterlaunchcontrol.try_cancel.async.shared(ptr addrspace(3) %response, ptr addrspace(3) %mbarrier)"
-        ));
-
-    let query = clc_intrinsics(&catalog)
-        .find(|record| record.id == "clc_query_is_canceled")
-        .unwrap();
-    let query_probe = render_probe(&catalog, query, "test-hash");
-    assert!(query_probe.contains("%response_high_shifted = shl i128 %response_high_i128, 64"));
-    assert!(query_probe.contains("%response = or i128 %response_low_i128, %response_high_shifted"));
-    assert!(query_probe.contains("%result = zext i1 %raw_result to i32"));
 
     let targets = render_targets(&catalog, "test-hash");
     assert!(targets.contains(
@@ -768,12 +677,6 @@ fn debug_control_rendering_preserves_api_immediates_and_side_effects() {
     ));
     assert!(lowering.contains("let template = format!(\"pmevent {event_id};\")"));
 
-    for record in debug_controls(&catalog) {
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains("call void asm sideeffect"));
-        assert!(!probe.contains("attributes #0 = { convergent }"));
-    }
-
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from(
         "crates/cuda-device/src/generated/debug_control.rs"
@@ -793,18 +696,6 @@ fn debug_control_rendering_preserves_api_immediates_and_side_effects() {
         .unwrap()
         .adapter = DebugControlAdapter::Direct;
     assert!(validate_renderable(&wrong_adapter).is_err());
-
-    let mut wrong_runtime = catalog;
-    wrong_runtime
-        .intrinsics
-        .iter_mut()
-        .find(|record| record.id == "trap")
-        .unwrap()
-        .debug_control
-        .as_mut()
-        .unwrap()
-        .runtime_validation = RuntimeValidation::Executed;
-    assert!(validate_renderable(&wrong_runtime).is_err());
 }
 
 #[test]
@@ -869,24 +760,6 @@ fn scalar_arithmetic_rendering_uses_one_closed_carrier() {
     assert!(targets.contains("GeneratedScalarArithmeticFormat::F64"));
     assert!(targets.contains("GeneratedScalarArithmeticSaturation::Sat"));
     assert!(targets.contains("Operation::get_op::<ScalarArithmeticOp>"));
-
-    let f64_mul = records
-        .iter()
-        .copied()
-        .find(|record| record.id == "mul_rn_f64")
-        .unwrap();
-    let f64_probe = render_probe(&catalog, f64_mul, "test-hash");
-    assert!(f64_probe.contains("declare double @llvm.nvvm.mul.rn.d(double, double)"));
-    let f32_sat = records
-        .iter()
-        .copied()
-        .find(|record| record.id == "fma_rp_ftz_sat_f32")
-        .unwrap();
-    let f32_probe = render_probe(&catalog, f32_sat, "test-hash");
-    assert!(
-        f32_probe.contains("call float asm \"fma.rp.ftz.sat.f32 $0, $1, $2, $3;\", \"=f,f,f,f\"")
-    );
-    assert!(!f32_probe.contains("@llvm.nvvm.fma.rp.ftz.sat.f"));
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from("crates/cuda-device/src/generated/float.rs")));
@@ -978,42 +851,7 @@ fn extended_minmax_rendering_is_closed_pure_and_exact() {
     assert!(targets.contains("Operation::get_op::<ExtendedMinMaxOp>"));
     assert!(targets.contains("ExtendedMinMaxXorSignAbsAttr::Enabled"));
 
-    let packed_record = records
-        .iter()
-        .copied()
-        .find(|record| record.id == "min_ftz_nan_f16x2")
-        .unwrap();
-    let packed_probe = render_probe(&catalog, packed_record, "test-hash");
-    assert!(packed_probe.contains("call i32 asm \"min.ftz.NaN.f16x2 $0, $1, $2;\", \"=r,r,r\""));
-    assert!(!packed_probe.contains("sideeffect"));
-    assert!(!packed_probe.contains("convergent"));
-    let f32_record = records
-        .iter()
-        .copied()
-        .find(|record| record.id == "max_ftz_nan_xorsign_abs_f32")
-        .unwrap();
-    let f32_probe = render_probe(&catalog, f32_record, "test-hash");
-    assert!(
-        f32_probe
-            .contains("call float asm \"max.ftz.NaN.xorsign.abs.f32 $0, $1, $2;\", \"=f,f,f\"")
-    );
     // Scalar 16-bit forms ride in `h` registers, not the packed `r` pair.
-    let half_record = records
-        .iter()
-        .copied()
-        .find(|record| record.id == "min_ftz_nan_f16")
-        .unwrap();
-    let half_probe = render_probe(&catalog, half_record, "test-hash");
-    assert!(half_probe.contains("call i16 asm \"min.ftz.NaN.f16 $0, $1, $2;\", \"=h,h,h\""));
-    let bf16_record = records
-        .iter()
-        .copied()
-        .find(|record| record.id == "max_nan_xorsign_abs_bf16")
-        .unwrap();
-    let bf16_probe = render_probe(&catalog, bf16_record, "test-hash");
-    assert!(
-        bf16_probe.contains("call i16 asm \"max.NaN.xorsign.abs.bf16 $0, $1, $2;\", \"=h,h,h\"")
-    );
     assert!(lowering.contains("MinMaxCarrier::Half16"));
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
@@ -1062,7 +900,7 @@ fn extended_minmax_alone_renders_float_wrappers() {
 /// A `|` in cell data splits the row before inline parsing, so it splits
 /// the cell even inside a code span. Three catalog entries write a PTX
 /// destination pair as `<register|predicate>`, and their rows rendered with
-/// a seventh cell, which drops the backend-evidence column. Counting
+/// a seventh cell, which drops the expected-PTX column. Counting
 /// unescaped pipes per row is the direct check.
 #[test]
 fn reference_rows_have_one_cell_per_header_column() {
@@ -1133,11 +971,6 @@ fn cache_policy_rendering_emits_pure_createpolicy_routes() {
         )));
         assert!(lowering.contains(&format!("{instruction:?}")));
 
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains(&format!(
-            "%result = call i64 asm \"{instruction} $0, $1;\", \"=l,f\"(float %fraction)"
-        )));
-        assert!(!probe.contains("sideeffect"));
         assert!(record.semantics.pure && !record.semantics.convergent);
     }
     assert!(dialect.contains("NOpdsInterface<1>, NResultsInterface<1>"));

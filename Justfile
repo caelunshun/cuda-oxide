@@ -15,19 +15,9 @@ fmt:
 fmt-check:
     cargo oxide fmt --check
 
-# Lint every scope CI's clippy job lints, minus the per-example pass.
-#
-# CI runs clippy three times: over the root workspace, over
-# crates/rustc-codegen-cuda (its own [workspace] for the rustc_private dylibs,
-# which `--workspace` from the root cannot reach), and once per example. The
-# first two are here, the root invocation spelled the way CI spells it.
-# (Cargo's target-selection flags are additive and the virtual root workspace
-# has no default-members, so the earlier `--all-targets --lib --tests` covered
-# the same members and targets; the spelling was the only difference.)
-#
-# The per-example pass stays CI-only: it is one clippy run per example across
-# 200-odd separate workspaces, which is a CI job rather than something to wait
-# on locally.
+# Lint the root workspace and crates/rustc-codegen-cuda (its own [workspace]
+# for the rustc_private dylibs, which `--workspace` from the root cannot
+# reach). The examples are separate workspaces and are not linted here.
 # Run clippy with warnings as errors (root + codegen workspaces)
 clippy:
     cargo clippy --workspace --all-targets -- -D warnings
@@ -47,15 +37,10 @@ clippy-fix:
     # Its own [workspace], so `--workspace` above stops at that boundary.
     cd crates/rustc-codegen-cuda && cargo clippy --all-targets --fix --allow-dirty --allow-staged
 
-# Run unit tests for every package CI covers, so `just check` predicts CI.
-# Mirrors .github/workflows/unit-tests.yml; keep the two in step.
-#
-# CI splits this across a matrix and marks some entries `needs_cuda`, meaning
-# cuda-bindings' bindgen needs cuda.h at build time. Those packages live in
-# `test-cuda` below, so this recipe runs on a machine with no CUDA at all.
-# `--all-targets` matches the matrix default; the two exceptions below carry
-# CI's own overrides.
-# Run unit tests for every package CI covers that needs no CUDA
+# Unit tests for every package that needs no CUDA toolkit. Packages whose
+# build runs cuda-bindings' bindgen over cuda.h live in `test-cuda` below, so
+# this recipe runs on a machine with no CUDA at all.
+# Run unit tests for every package that needs no CUDA
 test:
     cargo test --all-targets \
         -p cuda-intrinsics-gen -p cuda-target-spec -p cuda-intrinsics -p llvm-export \
@@ -68,12 +53,12 @@ test:
     # `default = []`, but every consumer turns the object features on, and the
     # default set alone skips the eight ELF emit/extract tests.
     cargo test -p oxide-artifacts --all-targets --features object
-    # Its own [workspace] (rustc-private dylibs), so a separate CI job covers
-    # it and `-p` from the root cannot reach it.
+    # Its own [workspace] (rustc-private dylibs), so `-p` from the root cannot
+    # reach it.
     cd crates/rustc-codegen-cuda && cargo test --lib
 
-# The packages CI's matrix marks `needs_cuda`, kept separate so `test` runs on
-# a machine with no CUDA at all.
+# The packages that need a CUDA toolkit at build time, kept separate so `test`
+# runs on a machine with no CUDA at all.
 #
 # These need cuda.h and curand.h at build time: the shared cuda-bindings
 # (cutile-rs) runs bindgen over them. No driver is needed: that crate loads
@@ -82,55 +67,44 @@ test:
 # driver are `#[ignore]`d.
 #
 # cuda-core and cuda-async are the shared host-side crates from cutile-rs;
-# their unit tests run in cutile-rs CI.
+# their unit tests live in cutile-rs.
 #
 # Run the CUDA-toolkit-dependent packages (no driver required)
 test-cuda:
     cargo test --all-targets \
         -p cuda-oxide-codegen -p cuda-macros -p cuda-host
 
-# Mirror unit-tests.yml's third job, `generated-intrinsics`: the three gates a
-# change under crates/cuda-intrinsics-gen has to pass. Nothing else here ran
-# them, so a catalog edit could clear `just check` and still fail CI -- and the
-# catalog is the majority of the intrinsic surface: it generates 35 op modules,
-# against 7 that are hand-written.
+# The gates a change under crates/cuda-intrinsics-gen has to pass: the
+# committed catalog and every generated output are current, and the ABI ledger
+# only grew. The catalog is the majority of the intrinsic surface: it generates
+# 35 op modules, against 7 that are hand-written. Needs no CUDA toolkit.
 #
-# Needs no CUDA toolkit: `--skip-terminal` is CI's own flag for runners without
-# the recorded CUDA 13.3 ptxas. Identity is llc version plus the rustc commit
-# from upstream.lock; binary bytes are provenance only.
-# The whole recipe is ~13s.
-#
-# `base_ref` is what the append-only ABI ledger is compared against. CI uses the
-# pull request's base SHA and falls back to `HEAD^` for pushes; `HEAD^` is
-# therefore right for a single-commit branch, and anything longer wants its own
-# branch point -- `just check-intrinsics upstream/main`.
-# Run the generated-intrinsics CI job (catalog, PTX routes, ABI ledger)
+# `base_ref` is what the append-only ABI ledger is compared against. `HEAD^` is
+# right for a single-commit branch; anything longer wants its own branch point
+# -- `just check-intrinsics upstream/main`.
+# Check generated intrinsics (catalog, generated outputs, ABI ledger)
 check-intrinsics base_ref="HEAD^":
     cargo run -p cuda-intrinsics-gen -- check
-    cargo run -p cuda-intrinsics-gen -- probe --all --skip-terminal --per-target
     cargo run -p cuda-intrinsics-gen -- check-abi-history --base-ref {{base_ref}}
 
-# Build docs warning-free + run doctests (mirrors the docs CI gate). The `test`
-# recipe uses `--all-targets`, which skips doctests, so this covers them.
+# Build docs warning-free + run doctests. The `test` recipe uses
+# `--all-targets`, which skips doctests, so this covers them.
 # Build docs warning-free and run doctests
 doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
     cargo test --doc --workspace
-    # The docs gate builds this workspace's rustdoc separately too (#725); the
-    # root `--workspace` cannot reach it.
+    # Its own [workspace] (#725), so the root `--workspace` cannot reach it.
     cd crates/rustc-codegen-cuda && RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 
-# Run all checks (fmt + clippy + tests + guards + docs). Includes `test-cuda`:
-# `clippy` and `doc-check` already build cuda-bindings, so this recipe needs a
-# CUDA toolkit either way. Machines without even a toolkit get `test`. A driver
-# is not required: the shared cuda-bindings loads libcuda at run time.
-# `check-guards` covers the status-guard, naming-guard and cargo-deny workflows
-# in full, and `check-intrinsics` the generated-intrinsics job; see their
-# comments for prerequisites. Still CI-only: clippy's per-example pass (one run
-# per example workspace), examples-compile (needs the CUDA codegen backend),
-# and CodeQL. The book gate has a local mirror too, but `just book` stays out
-# of `check` as the one gate needing a Python virtualenv.
-# Run CI's gates minus examples-compile, book, CodeQL
+# Run all checks (fmt + clippy + tests + guards + intrinsics + docs). Includes
+# `test-cuda`: `clippy` and `doc-check` already build cuda-bindings, so this
+# recipe needs a CUDA toolkit either way. Machines without even a toolkit get
+# `test`. A driver is not required: the shared cuda-bindings loads libcuda at
+# run time. See `check-guards` and `check-intrinsics` for their prerequisites.
+# Not covered: compiling the examples (needs the CUDA codegen backend; see
+# `smoketest`), and `book`, which stays out as the one gate needing a Python
+# virtualenv.
+# Run every local gate except the examples and the book
 check: fmt-check clippy test test-cuda check-guards check-intrinsics doc-check
 
 # Clean project-local Cargo outputs and known cuda-oxide artifacts
@@ -157,7 +131,7 @@ smoketest *args:
 regress-gemm-sol *args:
     scripts/regress-gemm-sol-schedule.sh {{args}}
 
-# Build the book exactly as the CI gate does. Needs python3; nothing else.
+# Build the book warning-free. Needs python3; nothing else.
 #
 # `-W` turns every Sphinx warning into an error, so a broken cross-reference, a
 # malformed directive, or a page dropped from a toctree fails here instead of
@@ -169,7 +143,7 @@ regress-gemm-sol *args:
 # Deliberately not part of `check`: it is the only gate needing a Python
 # virtualenv, and `check` otherwise requires none. The venv is built once and
 # reused; `cuda-oxide-book/_build/` is gitignored.
-# Build the book warning-free, as the book CI gate does (needs python3)
+# Build the book warning-free (needs python3)
 book:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -187,25 +161,19 @@ book:
 check-errors:
     scripts/check-error-example-status.sh
 
-# Every status-guard job (error* examples in STATUS.md, the smoketest example
+# Repository guards: error* examples in STATUS.md, the smoketest example
 # contract, the README crate inventory, toolchain-pin parity, the book's CLI
-# command reference, the book's device-API names, the device-only build, and
-# test-matrix coverage),
-# the naming-guard's reserved-prefix search, and all four cargo-deny jobs:
-# `cargo deny check` enforces deny.toml over each non-example `[workspace]`
-# root that resolves third-party crates -- the root workspace,
-# crates/rustc-codegen-cuda, and the cuda-macros device-only fixture, each of
-# which resolves its own graph because each declares its own `[workspace]`;
-# the license inventory covers what the first two declare; deny.toml holds over the example workspaces; and every first-party
-# source file carries an SPDX header. These were only reachable by reading the
-# workflows, so `just check` could pass while status-guard or cargo-deny
-# failed. Keep this list in step when a guard is added to any of the three
-# workflows -- the crate-inventory and toolchain-parity jobs were added to CI
-# without being added here, which is the same drift this recipe exists to
-# prevent. Prerequisites: `cargo-deny` on PATH (`cargo install cargo-deny
-# --locked`) and `python3` (most of the scripts drive it). The scripts are
-# invoked via `bash` as CI does, since not all of them carry an exec bit.
-# Run the status-guard, naming-guard and cargo-deny CI jobs (needs cargo-deny, python3)
+# command reference and device-API names, the device-only build, the
+# reserved-prefix search, and cargo-deny. `cargo deny check` enforces deny.toml
+# over each non-example `[workspace]` root that resolves third-party crates --
+# the root workspace, crates/rustc-codegen-cuda, and the cuda-macros device-only
+# fixture, each of which resolves its own graph because each declares its own
+# `[workspace]`; the license inventory covers what the first two declare;
+# deny.toml holds over the example workspaces; and every first-party source
+# file carries an SPDX header. Prerequisites: `cargo-deny` on PATH (`cargo
+# install cargo-deny --locked`) and `python3` (most of the scripts drive it).
+# The scripts are invoked via `bash`, since not all of them carry an exec bit.
+# Run the repository guard scripts and cargo-deny (needs cargo-deny, python3)
 check-guards:
     bash scripts/check-error-example-status.sh
     bash scripts/check-example-smoketest-contract.sh
@@ -218,7 +186,6 @@ check-guards:
     bash scripts/check-source-references.sh
     bash scripts/check-reserved-prefixes.sh
     bash scripts/check-device-only-build.sh
-    bash scripts/check-test-matrix-coverage.sh
     bash scripts/check-host-api-paths.sh
     bash scripts/check-shared-crate-pin.sh
     bash scripts/check-oxide-artifacts-parity.sh

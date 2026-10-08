@@ -8,11 +8,10 @@ use crate::model::{
     ExtendedMinMaxNan, ExtendedMinMaxOperation, ExtendedMinMaxSubnormal, ImportedFile,
     ImportedIntrinsic, IntrinsicBackend, IntrinsicSource, OverlayIntrinsic, OverlayShardFile,
     PackedAluFormat, PackedAluOperation, PackedConversionDestinationFormat,
-    PackedConversionRounding, PackedConversionSaturation, PrmtMode, RuntimeValidation,
-    ScalarArithmeticAdmission, ScalarArithmeticFormat, ScalarArithmeticOperation,
-    ScalarArithmeticRounding, ScalarArithmeticSaturation, ScalarArithmeticSubnormal,
-    ScalarConversionAdmission, ScalarConversionRounding, ScalarConversionSaturation,
-    ScalarMathAdmission,
+    PackedConversionRounding, PackedConversionSaturation, PrmtMode, ScalarArithmeticAdmission,
+    ScalarArithmeticFormat, ScalarArithmeticOperation, ScalarArithmeticRounding,
+    ScalarArithmeticSaturation, ScalarArithmeticSubnormal, ScalarConversionAdmission,
+    ScalarConversionRounding, ScalarConversionSaturation, ScalarMathAdmission,
 };
 use crate::util::read_json;
 use std::collections::BTreeMap;
@@ -83,10 +82,6 @@ fn compact_fp8_conversion_axes_require_the_exact_closed_product() {
     let mut wrong_count = test_fp8_conversion_admission();
     wrong_count.product_count = 3;
     assert!(expand_packed_conversion_fp8_admission(&wrong_count).is_err());
-
-    let mut executed = test_fp8_conversion_admission();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_packed_conversion_fp8_admission(&executed).is_err());
 }
 
 #[test]
@@ -164,10 +159,6 @@ fn compact_fp8_f16x2_conversion_axes_require_the_exact_closed_product() {
     let mut wrong_count = test_fp8_f16x2_conversion_admission();
     wrong_count.product_count = 4;
     assert!(expand_packed_conversion_fp8_f16x2_admission(&wrong_count).is_err());
-
-    let mut executed = test_fp8_f16x2_conversion_admission();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_packed_conversion_fp8_f16x2_admission(&executed).is_err());
 }
 
 #[test]
@@ -618,9 +609,6 @@ fn scalar_conversion_admission_is_closed_and_backend_specific() {
         ),
     ];
     let admission = ScalarConversionAdmission {
-        llvm_evidence_profile: "llvm-scalar".into(),
-        libnvvm_evidence_profile: "libnvvm-scalar".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: variants
             .iter()
             .map(
@@ -670,9 +658,6 @@ fn scalar_conversion_admission_is_closed_and_backend_specific() {
 fn scalar_arithmetic_admission_is_closed_and_selects_only_direct_ptx() {
     let variants = canonical_scalar_arithmetic_variants();
     let admission = ScalarArithmeticAdmission {
-        llvm_evidence_profile: "llvm-scalar-arithmetic".into(),
-        libnvvm_evidence_profile: "libnvvm-scalar-arithmetic".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: variants
             .iter()
             .copied()
@@ -796,9 +781,6 @@ fn scalar_arithmetic_admission_is_closed_and_selects_only_direct_ptx() {
 fn scalar_math_admission_keeps_semantic_order_but_accepts_non_contiguous_abi_ids() {
     let variants = canonical_scalar_math_variants();
     let admission = ScalarMathAdmission {
-        llvm_evidence_profile: "llvm-scalar-math".into(),
-        libnvvm_evidence_profile: "libnvvm-scalar-math".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: variants
             .iter()
             .copied()
@@ -806,7 +788,6 @@ fn scalar_math_admission_keeps_semantic_order_but_accepts_non_contiguous_abi_ids
             .map(
                 |(index, variant)| crate::model::ScalarMathAdmissionVariant {
                     abi_id: format!("i{:04}", 782 + index),
-                    libnvvm_evidence_profile: (index == 40).then(|| "libnvvm-ex2-f16".into()),
                     format: variant.0,
                     operation: variant.1,
                     precision: variant.2,
@@ -825,15 +806,6 @@ fn scalar_math_admission_keeps_semantic_order_but_accepts_non_contiguous_abi_ids
             .iter()
             .all(|record| record.backend_lowerings.len() == 2)
     );
-    assert_eq!(
-        records.last().unwrap().backend_lowerings[1].evidence_profile,
-        "libnvvm-ex2-f16"
-    );
-    assert!(
-        records[..40].iter().all(|record| {
-            record.backend_lowerings[1].evidence_profile == "libnvvm-scalar-math"
-        })
-    );
 
     let mut non_contiguous_abi = admission.clone();
     non_contiguous_abi.variants[40].abi_id = "i9999".into();
@@ -851,44 +823,9 @@ fn scalar_math_admission_keeps_semantic_order_but_accepts_non_contiguous_abi_ids
 }
 
 #[test]
-fn checked_in_scalar_math_overlay_pins_the_current_libnvvm_override_set() {
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let (overlay, _) =
-        read_overlay(&repo_root, &repo_root.join("intrinsics/overlay.toml")).unwrap();
-    let scalar_math = overlay
-        .intrinsics
-        .iter()
-        .filter(|record| record.family == "scalar_math")
-        .collect::<Vec<_>>();
-    assert_eq!(scalar_math.len(), 41);
-    assert!(
-        scalar_math
-            .iter()
-            .all(|record| record.backend_lowerings.len() == 2)
-    );
-
-    let family_profile = "cuda-13.3-libnvvm-13.3.33-scalar-math";
-    let overrides = scalar_math
-        .iter()
-        .filter_map(|record| {
-            let libnvvm = record
-                .backend_lowerings
-                .iter()
-                .find(|route| route.backend == IntrinsicBackend::LibNvvm)
-                .unwrap();
-            (libnvvm.evidence_profile != family_profile).then_some(record.id.as_str())
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(overrides, ["ex2_approx_f16"]);
-}
-
-#[test]
 fn extended_minmax_admission_is_exact_and_fail_closed() {
     let variants = canonical_extended_minmax_variants();
     let admission = ExtendedMinMaxAdmission {
-        llvm_evidence_profile: "llvm-extended-minmax".into(),
-        libnvvm_evidence_profile: "libnvvm-extended-minmax".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: variants
             .iter()
             .copied()

@@ -5,7 +5,7 @@
 
 use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayBackendLowering,
-    OverlayIntrinsic, RuntimeValidation, ThreadfenceAdmission, ThreadfenceScope,
+    OverlayIntrinsic, ThreadfenceAdmission, ThreadfenceScope,
 };
 use crate::ptx::InstructionPattern;
 use anyhow::{Result, ensure};
@@ -93,15 +93,6 @@ pub(in crate::resolve) fn threadfence_scope_for_id(id: &str) -> Option<Threadfen
 pub(in crate::resolve) fn expand_threadfence_admission(
     admission: &ThreadfenceAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "threadfence runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact threadfence admission requires both backend evidence profiles"
-    );
     let expected_scopes = [
         ThreadfenceScope::Cta,
         ThreadfenceScope::Device,
@@ -176,7 +167,6 @@ pub(in crate::resolve) fn expand_threadfence_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::TypedNvvm,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("3.2".into()),
                         minimum_sm: Some("sm_20".into()),
@@ -184,7 +174,6 @@ pub(in crate::resolve) fn expand_threadfence_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::TypedNvvm,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("7.0".into()),
                         minimum_sm: Some("sm_80".into()),

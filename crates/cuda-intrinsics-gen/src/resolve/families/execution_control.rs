@@ -591,7 +591,6 @@ pub(in crate::resolve) fn validate_execution_control_policy(
                 && route.mechanism == mechanism
                 && route.minimum_ptx.as_deref() == Some(minimum_ptx)
                 && route.minimum_sm.as_deref() == minimum_sm
-                && !route.evidence_profile.trim().is_empty()
         })
     };
     ensure!(

@@ -8,7 +8,6 @@ use crate::model::{
     CpAsyncControlOperation, CpAsyncCopySize, CpAsyncMbarrierAdapter, CpAsyncMbarrierOperation,
     CpAsyncMbarrierStateSpace, CpAsyncSourceSize, ImportedIntrinsic, IntrinsicBackend,
     MbarrierBasicAdapter, MbarrierBasicOperation, MbarrierStateSpace, OverlayIntrinsic,
-    RuntimeValidation,
 };
 use crate::ptx::OperandPattern;
 use anyhow::{Context, Result, ensure};
@@ -187,11 +186,6 @@ pub(in crate::resolve) fn validate_cp_async_copy_policy(
         policy.id
     );
     ensure!(
-        copy.runtime_validation == RuntimeValidation::Unexecuted,
-        "{} cannot claim unrecorded cp.async runtime validation",
-        policy.id
-    );
-    ensure!(
         policy.id == recipe.id
             && policy.abi_id == recipe.abi_id
             && policy.operation_key == recipe.operation_key
@@ -332,9 +326,7 @@ pub(in crate::resolve) fn validate_cp_async_copy_policy(
                     ),
                 ])
             && policy.backend_lowerings.iter().all(|lowering| {
-                lowering.minimum_ptx.is_none()
-                    && lowering.minimum_sm.is_none()
-                    && !lowering.evidence_profile.trim().is_empty()
+                lowering.minimum_ptx.is_none() && lowering.minimum_sm.is_none()
             }),
         "{} must define the reviewed typed-LLVM and inline-PTX cp.async routes",
         policy.id
@@ -429,11 +421,6 @@ pub(in crate::resolve) fn validate_cp_async_control_policy(
     ensure!(
         control.adapter == expected_adapter,
         "{} cp.async control and adapter disagree",
-        policy.id
-    );
-    ensure!(
-        control.runtime_validation == RuntimeValidation::Unexecuted,
-        "{} cannot claim unrecorded cp.async control runtime validation",
         policy.id
     );
     ensure!(
@@ -548,9 +535,7 @@ pub(in crate::resolve) fn validate_cp_async_control_policy(
                     ),
                 ])
             && policy.backend_lowerings.iter().all(|lowering| {
-                lowering.minimum_ptx.is_none()
-                    && lowering.minimum_sm.is_none()
-                    && !lowering.evidence_profile.trim().is_empty()
+                lowering.minimum_ptx.is_none() && lowering.minimum_sm.is_none()
             }),
         "{} must define the reviewed typed-LLVM and inline-PTX cp.async control routes",
         policy.id
@@ -669,11 +654,6 @@ pub(in crate::resolve) fn validate_cp_async_mbarrier_policy(
         policy.id
     );
     ensure!(
-        bridge.runtime_validation == RuntimeValidation::Unexecuted,
-        "{} cannot claim unrecorded cp.async mbarrier runtime validation",
-        policy.id
-    );
-    ensure!(
         policy.id == recipe.id
             && policy.abi_id == recipe.abi_id
             && policy.operation_key == recipe.operation_key
@@ -784,9 +764,7 @@ pub(in crate::resolve) fn validate_cp_async_mbarrier_policy(
                     ),
                 ])
             && policy.backend_lowerings.iter().all(|lowering| {
-                lowering.minimum_ptx.is_none()
-                    && lowering.minimum_sm.is_none()
-                    && !lowering.evidence_profile.trim().is_empty()
+                lowering.minimum_ptx.is_none() && lowering.minimum_sm.is_none()
             }),
         "{} must define the reviewed typed-LLVM and inline-PTX cp.async mbarrier routes",
         policy.id
@@ -1017,11 +995,6 @@ pub(in crate::resolve) fn validate_mbarrier_basic_policy(
         policy.id
     );
     ensure!(
-        mbarrier.runtime_validation == RuntimeValidation::Unexecuted,
-        "{} cannot claim unrecorded mbarrier runtime validation",
-        policy.id
-    );
-    ensure!(
         policy.id == recipe.id
             && policy.abi_id == recipe.abi_id
             && policy.operation_key == recipe.operation_key
@@ -1147,9 +1120,7 @@ pub(in crate::resolve) fn validate_mbarrier_basic_policy(
                     (IntrinsicBackend::LibNvvm, recipe.lib_nvvm_mechanism),
                 ])
             && policy.backend_lowerings.iter().all(|lowering| {
-                lowering.minimum_ptx.is_none()
-                    && lowering.minimum_sm.is_none()
-                    && !lowering.evidence_profile.trim().is_empty()
+                lowering.minimum_ptx.is_none() && lowering.minimum_sm.is_none()
             }),
         "{} must define exactly the reviewed mbarrier backend routes",
         policy.id

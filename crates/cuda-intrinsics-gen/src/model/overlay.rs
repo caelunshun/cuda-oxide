@@ -24,7 +24,7 @@ use super::contracts::{
     TmaReductionOperation, Vote, WarpBarrier, WarpMatch, WarpShuffle, WgmmaControl,
     WgmmaControlMode,
 };
-use super::core::{BackendLoweringMechanism, IntrinsicBackend, IntrinsicSource, RuntimeValidation};
+use super::core::{BackendLoweringMechanism, IntrinsicBackend, IntrinsicSource};
 use super::imported::ImportedAddressSpace;
 use crate::ptx::InstructionPattern;
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,6 @@ pub struct OverlayFile {
     pub schema: u32,
     pub catalog_version: String,
     pub intrinsic_abi: u32,
-    pub backend_profile: String,
     #[serde(default)]
     pub shards: Vec<String>,
     #[serde(rename = "intrinsic")]
@@ -119,9 +118,6 @@ pub struct OverlayShardFile {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScalarMathAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<ScalarMathAdmissionVariant>,
 }
@@ -131,8 +127,6 @@ pub struct ScalarMathAdmission {
 #[serde(deny_unknown_fields)]
 pub struct ScalarMathAdmissionVariant {
     pub abi_id: String,
-    #[serde(default)]
-    pub libnvvm_evidence_profile: Option<String>,
     pub format: ScalarMathFormat,
     pub operation: ScalarMathOperation,
     pub precision: ScalarMathPrecision,
@@ -143,9 +137,6 @@ pub struct ScalarMathAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StmatrixAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<StmatrixAdmissionVariant>,
 }
@@ -163,9 +154,6 @@ pub struct StmatrixAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MbarrierExtendedAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<MbarrierExtendedAdmissionVariant>,
 }
@@ -191,9 +179,6 @@ pub struct ClusterSregAdmission {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClusterBarrierAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<ClusterBarrierAdmissionVariant>,
 }
@@ -210,9 +195,6 @@ pub struct ClusterBarrierAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClusterMemoryAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<ClusterMemoryAdmissionVariant>,
 }
@@ -229,9 +211,6 @@ pub struct ClusterMemoryAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WgmmaControlAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<WgmmaControlAdmissionVariant>,
 }
@@ -248,9 +227,6 @@ pub struct WgmmaControlAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SpecialRegisterAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     pub registers: Vec<SpecialRegisterKind>,
     pub product_count: usize,
 }
@@ -259,9 +235,6 @@ pub struct SpecialRegisterAdmission {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DebugControlAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     pub operations: Vec<DebugControlOperation>,
     /// Filled only when this pending shard is aggregated.
     #[serde(default)]
@@ -272,9 +245,6 @@ pub struct DebugControlAdmission {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThreadfenceAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<ThreadfenceAdmissionVariant>,
 }
@@ -300,9 +270,6 @@ pub enum ThreadfenceScope {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClcAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<ClcAdmissionVariant>,
 }
@@ -319,21 +286,6 @@ pub struct ClcAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TmaAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    #[serde(default)]
-    pub reduce_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub reduce_libnvvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub bulk_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub bulk_libnvvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub tensor_cache_hint_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub tensor_cache_hint_libnvvm_evidence_profile: Option<String>,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<TmaAdmissionVariant>,
     #[serde(rename = "reduce_variant", default)]
@@ -362,41 +314,10 @@ pub struct TmaReductionAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Tcgen05Admission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    #[serde(default)]
-    pub cp_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub cp_libnvvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub ld_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub ld_libnvvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub st_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub st_libnvvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub offset_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub offset_libnvvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub control_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub control_libnvvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub mma_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub mma_libnvvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub ld_red_llvm_evidence_profile: Option<String>,
-    #[serde(default)]
-    pub ld_red_libnvvm_evidence_profile: Option<String>,
     #[serde(rename = "mma_llvm_target_contract", default)]
     pub mma_llvm_target_contracts: Vec<TargetContract>,
     #[serde(rename = "mma_libnvvm_target_contract", default)]
     pub mma_libnvvm_target_contracts: Vec<TargetContract>,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<Tcgen05AdmissionVariant>,
     #[serde(rename = "cp_variant", default)]
@@ -481,9 +402,6 @@ pub struct Tcgen05MmaAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PrmtAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<PrmtAdmissionVariant>,
 }
@@ -500,9 +418,6 @@ pub struct PrmtAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PackedConversionFp8Admission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     pub destination_formats: Vec<PackedConversionDestinationFormat>,
     pub saturations: Vec<PackedConversionSaturation>,
     pub product_count: usize,
@@ -516,9 +431,6 @@ pub struct PackedConversionFp8Admission {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PackedConversionFp8F16x2Admission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     pub fp8_formats: Vec<PackedConversionFp8Format>,
     pub directions: Vec<PackedConversionFp8Direction>,
     pub relu_variants: bool,
@@ -547,9 +459,6 @@ pub enum PackedConversionFp8Direction {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScalarConversionAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<ScalarConversionAdmissionVariant>,
 }
@@ -567,9 +476,6 @@ pub struct ScalarConversionAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScalarArithmeticAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<ScalarArithmeticAdmissionVariant>,
 }
@@ -590,9 +496,6 @@ pub struct ScalarArithmeticAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExtendedMinMaxAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<ExtendedMinMaxAdmissionVariant>,
 }
@@ -613,9 +516,6 @@ pub struct ExtendedMinMaxAdmissionVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegisterMmaIntegerAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<RegisterMmaIntegerVariant>,
 }
@@ -634,9 +534,6 @@ pub struct RegisterMmaIntegerVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegisterMmaBinaryAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<RegisterMmaBinaryVariant>,
 }
@@ -653,9 +550,6 @@ pub struct RegisterMmaBinaryVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegisterMmaF8F6F4Admission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     /// Legacy shard metadata retained only so older overlays continue to parse.
     /// ABI identity is bound from the append-only ledger by catalog ID.
     #[serde(default, rename = "first_abi_id")]
@@ -670,9 +564,6 @@ pub struct RegisterMmaF8F6F4Admission {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegisterMmaFp8Admission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     /// Legacy shard metadata retained only so older overlays continue to parse.
     /// ABI identity is bound from the append-only ledger by catalog ID.
     #[serde(default, rename = "first_abi_id")]
@@ -688,9 +579,6 @@ pub struct RegisterMmaFp8Admission {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegisterMmaAmpereFloatAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     /// Legacy shard metadata retained only so older overlays continue to parse.
     /// ABI identity is bound from the append-only ledger by catalog ID.
     #[serde(default, rename = "first_abi_id")]
@@ -713,9 +601,6 @@ pub struct RegisterMmaAmpereFloatVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SparseMmaIntegerAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     pub metadata: SparseMmaMetadata,
     #[serde(rename = "variant")]
     pub variants: Vec<SparseMmaIntegerVariant>,
@@ -735,9 +620,6 @@ pub struct SparseMmaIntegerVariant {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SparseMmaF8F6F4Admission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     pub a_elements: Vec<SparseMmaElement>,
     pub b_elements: Vec<SparseMmaElement>,
     pub product_count: usize,
@@ -747,9 +629,6 @@ pub struct SparseMmaF8F6F4Admission {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SparseMmaF8F6F4F16Admission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     /// Legacy shard metadata retained only so older overlays continue to parse.
     /// ABI identity is bound from the append-only ledger by catalog ID.
     #[serde(default, rename = "first_abi_id")]
@@ -763,9 +642,6 @@ pub struct SparseMmaF8F6F4F16Admission {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SparseMmaOrderedAmpereFloatAdmission {
-    pub llvm_evidence_profile: String,
-    pub libnvvm_evidence_profile: String,
-    pub runtime_validation: RuntimeValidation,
     #[serde(rename = "variant")]
     pub variants: Vec<SparseMmaOrderedAmpereFloatVariant>,
 }
@@ -911,17 +787,16 @@ pub struct OverlayIntrinsic {
     pub summary: String,
 }
 
-/// Backend-specific lowering selected by reviewed evidence.
+/// Backend-specific lowering route.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OverlayBackendLowering {
     pub backend: IntrinsicBackend,
     pub mechanism: BackendLoweringMechanism,
-    pub evidence_profile: String,
     /// Optional exact target alternatives for this backend route.
     #[serde(default)]
     pub targets: Option<String>,
-    /// Optional backend-profile floor. When absent, the intrinsic's native
+    /// Optional backend-specific floor. When absent, the intrinsic's native
     /// target requirement is used.
     #[serde(default)]
     pub minimum_ptx: Option<String>,
@@ -941,9 +816,6 @@ schema = 25
 family = "sparse_mma"
 
 [sparse_mma_integer]
-llvm_evidence_profile = "llvm"
-libnvvm_evidence_profile = "libnvvm"
-runtime_validation = "unexecuted"
 metadata = "ordered"
 
 [[sparse_mma_integer.variant]]

@@ -21,7 +21,7 @@ sites, patches a copy of the executable's embedded artifact, and runs each
 variant behind a watchdog:
 
 ```bash
-nix develop --command cargo oxide fuzz-schedule mcast_barrier_test \
+cargo oxide fuzz-schedule mcast_barrier_test \
   --seeds 0..100 --confirm-runs 3
 ```
 

@@ -11,8 +11,8 @@ use crate::model::{
     DotProductAdapter, DotProductOperation, DotProductSignedness, ImportedFile, ImportedIntrinsic,
     IntrinsicBackend, IntrinsicSource, MbarrierBasicAdapter, MbarrierBasicOperation,
     MbarrierExtendedAdapter, MbarrierExtendedOperation, MbarrierExtendedSourceContract,
-    OverlayIntrinsic, OverlayShardFile, ReduxAdapter, ReduxOperation, RuntimeValidation,
-    WgmmaControlAdapter, WgmmaControlMode,
+    OverlayIntrinsic, OverlayShardFile, ReduxAdapter, ReduxOperation, WgmmaControlAdapter,
+    WgmmaControlMode,
 };
 use crate::ptx::OperandPattern;
 use crate::util::read_json;
@@ -21,7 +21,6 @@ use std::fs;
 use std::path::Path;
 
 use super::fixtures::*;
-use crate::resolve::evidence::*;
 use crate::resolve::families::*;
 use crate::resolve::guards::*;
 use crate::resolve::materialize::*;
@@ -110,12 +109,6 @@ fn compact_debug_control_admission_is_closed() {
     for record in &records {
         validate_ptx_native_policy(record).unwrap();
         assert_eq!(record.backend_lowerings.len(), 2);
-        assert!(
-            record
-                .debug_control
-                .as_ref()
-                .is_some_and(|debug| debug.runtime_validation == RuntimeValidation::Unexecuted)
-        );
     }
     assert_eq!(records[0].minimum_ptx, "1.0");
     assert_eq!(records[0].minimum_sm, None);
@@ -146,10 +139,6 @@ fn compact_debug_control_admission_is_closed() {
     let mut malformed_id = test_debug_control_admission();
     malformed_id.abi_ids[0] = "debug1".into();
     assert!(expand_debug_control_admission(&malformed_id).is_err());
-
-    let mut executed = test_debug_control_admission();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_debug_control_admission(&executed).is_err());
 
     let mut wrong_source = records[0].clone();
     wrong_source.source = Some(IntrinsicSource::LlvmImported {
@@ -230,23 +219,14 @@ fn active_debug_control_sources_parse_and_prove_both_backend_routes() {
     assert_eq!(admission.abi_ids, ["i0295", "i0296", "i0297"]);
     let records = expand_debug_control_admission(&admission).unwrap();
 
-    let evidence = vec![
-        read_evidence_file(
-            &repo_root.join("intrinsics/evidence/rust-llvm-23.1.0-16696adc-debug-control.json"),
-        )
-        .unwrap(),
-        read_evidence_file(
-            &repo_root.join("intrinsics/evidence/cuda-13.3-libnvvm-13.3.33-debug-control.json"),
-        )
-        .unwrap(),
-    ];
-    let indexed = index_evidence(&evidence, "16696adcd119e6ba9cc175207d984d7021211acb").unwrap();
     for record in &records {
-        let routes = resolve_backend_lowerings(record, &indexed).unwrap();
+        let routes = resolve_backend_lowerings(record).unwrap();
         assert_eq!(routes.len(), 2);
-        assert!(routes.iter().all(|route| {
-            route.mechanism == BackendLoweringMechanism::InlinePtx && route.status == "validated"
-        }));
+        assert!(
+            routes
+                .iter()
+                .all(|route| route.mechanism == BackendLoweringMechanism::InlinePtx)
+        );
     }
 }
 
@@ -432,10 +412,6 @@ fn compact_wgmma_control_admission_and_semantics_fail_closed() {
     let mut wrong_abi = test_wgmma_control_admission();
     wrong_abi.variants[0].abi_id = "i9999".into();
     assert!(expand_wgmma_control_admission(&wrong_abi).is_err());
-
-    let mut executed = test_wgmma_control_admission();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_wgmma_control_admission(&executed).is_err());
 }
 
 #[test]
@@ -575,7 +551,6 @@ fn cp_async_copy_recipe_admits_only_classic_llvm_forms() {
             } else {
                 CpAsyncAdapter::DirectPointers
             },
-            runtime_validation: RuntimeValidation::Unexecuted,
         };
         assert_eq!(
             cp_async_copy_recipe(&copy).map(|recipe| recipe.id),
@@ -666,18 +641,6 @@ fn cp_async_mbarrier_recipes_fail_closed() {
         "closed cp.async mbarrier Rust API",
     );
 
-    let mut executed_without_evidence = arrive.clone();
-    executed_without_evidence
-        .cp_async_mbarrier
-        .as_mut()
-        .unwrap()
-        .runtime_validation = RuntimeValidation::Executed;
-    reject(
-        &executed_without_evidence,
-        declaration,
-        "unrecorded cp.async mbarrier runtime validation",
-    );
-
     let mut wrong_properties = declaration.clone();
     wrong_properties.properties.pop();
     reject(arrive, &wrong_properties, "cp.async mbarrier properties");
@@ -716,7 +679,6 @@ fn cp_async_mbarrier_recipes_fail_closed() {
     mixed_family.cp_async_control = Some(crate::model::CpAsyncControl {
         operation: CpAsyncControlOperation::CommitGroup,
         adapter: CpAsyncControlAdapter::NoOperands,
-        runtime_validation: RuntimeValidation::Unexecuted,
     });
     reject(
         &mixed_family,
@@ -787,18 +749,6 @@ fn mbarrier_basic_recipes_fail_closed() {
         "operation, state space, and adapter disagree",
     );
 
-    let mut executed_without_evidence = init.clone();
-    executed_without_evidence
-        .mbarrier_basic
-        .as_mut()
-        .unwrap()
-        .runtime_validation = RuntimeValidation::Executed;
-    reject(
-        &executed_without_evidence,
-        init_declaration,
-        "unrecorded mbarrier runtime validation",
-    );
-
     let mut wrong_properties = init_declaration.clone();
     wrong_properties.properties.pop();
     reject(init, &wrong_properties, "mbarrier properties");
@@ -861,7 +811,6 @@ fn mbarrier_basic_recipes_fail_closed() {
     mixed_family.cp_async_control = Some(crate::model::CpAsyncControl {
         operation: CpAsyncControlOperation::CommitGroup,
         adapter: CpAsyncControlAdapter::NoOperands,
-        runtime_validation: RuntimeValidation::Unexecuted,
     });
     reject(
         &mixed_family,
@@ -1029,14 +978,10 @@ fn dp2a_selects_only_the_reviewed_low_half_binding() {
     let policy = dot_product_policy(DotProductOperation::Dp2a, DotProductSignedness::Signed);
     let declaration =
         dot_product_declaration(DotProductOperation::Dp2a, DotProductSignedness::Signed);
-    let resolved = resolve_record(
+    let resolved = materialize_record(
         &policy,
         resolve_policy_source(&policy).unwrap(),
         Some(&declaration),
-        &dot_product_evidence(&policy),
-        "test",
-        "LLVM version test",
-        "0123456789abcdef",
         vec![],
         1,
     )

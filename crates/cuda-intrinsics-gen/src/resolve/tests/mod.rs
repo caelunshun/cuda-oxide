@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-mod evidence;
 mod fixtures;
 mod misc_families;
 mod mma;

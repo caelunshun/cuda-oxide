@@ -3,7 +3,7 @@
 Most cuda-oxide device intrinsics are not implemented by editing compiler
 stages independently. They are described as reviewed catalog inputs and
 `cuda-intrinsics-gen` generates the repetitive API, dialect, importer,
-lowering, target, reference, and probe surfaces from that contract.
+lowering, target, and reference surfaces from that contract.
 
 Use this workflow when the intrinsic fits the generated catalog model. For an
 operation that requires bespoke verification or lowering that the catalog
@@ -27,7 +27,8 @@ Does an existing catalog family model the intrinsic?
 
 An LLVM declaration by itself is not enough to admit an intrinsic. The catalog
 also records cuda-oxide policy such as its Rust API, safety and effects,
-expected PTX form, target requirements, ABI identity, and lowering evidence.
+expected PTX form, target requirements, ABI identity, and backend lowering
+routes.
 
 The normal contribution path is therefore to extend an existing reviewed
 family, not to edit generated Rust files or `intrinsics/catalog.json` directly.
@@ -41,9 +42,8 @@ into a generated catalog:
 
 ```text
 intrinsics/upstream.lock -> intrinsics/imported.json ----\
-intrinsics/overlay.toml -> intrinsics/overlay/*.toml -----+
-intrinsics/abi-v1.toml -----------------------------------+--> resolve
-intrinsics/evidence/*.json -------------------------------/       |
+intrinsics/overlay.toml -> intrinsics/overlay/*.toml -----+--> resolve
+intrinsics/abi-v1.toml -----------------------------------/       |
                                                                   v
                                                      intrinsics/catalog.json
                                                             GENERATED
@@ -56,31 +56,29 @@ Their roles are different:
 
 | File / artifact | Role |
 | :-------------- | :--- |
-| `intrinsics/upstream.lock` | Pins the LLVM source/extraction identity used by the imported facts, and the rustc commit whose `llc` the evidence probe must run under. |
+| `intrinsics/upstream.lock` | Pins the LLVM source/extraction identity used by the imported facts. |
 | `intrinsics/imported.json` | Records what the pinned LLVM/NVPTX source declares. Normal intrinsic additions consume this committed file; they do not rerun extraction. |
 | `intrinsics/overlay.toml` | Explicitly indexes the admitted overlay shards. |
 | `intrinsics/overlay/*.toml` | Records cuda-oxide policy for reviewed intrinsic families. |
 | `intrinsics/abi-v1.toml` | Append-only stable intrinsic ABI ledger. |
-| `intrinsics/evidence/*.json` | Records reviewed lowering evidence when the route requires it. |
 | `intrinsics/catalog.json` | Resolved generated plan. Do not edit it by hand. |
 
-Generated sources and probe/reference outputs carry a `DO NOT EDIT` marker.
+Generated sources and reference outputs carry a `DO NOT EDIT` marker.
 Change their source inputs and regenerate instead.
 
 ### Catalog Metadata
 
-The overlay manifest carries version and backend metadata for the resolved
-catalog. These values describe the catalog contract; they are not
+The overlay manifest carries version metadata for the resolved catalog. These values describe the catalog contract; they are not
 per-intrinsic knobs.
 
 There are two distinct `schema` numbers in play, one per side of the
 generator:
 
 ```text
-intrinsics/overlay.toml   schema = 44   (overlay input format)
+intrinsics/overlay.toml   schema = 45   (overlay input format)
         | cuda-intrinsics-gen
         v
-intrinsics/catalog.json   "schema": 46  (serialized catalog format)
+intrinsics/catalog.json   "schema": 48  (serialized catalog format)
 ```
 
 - `schema` (in `overlay.toml`) identifies the overlay **input** format the
@@ -90,11 +88,9 @@ intrinsics/catalog.json   "schema": 46  (serialized catalog format)
 - `catalog_version` identifies the reviewed catalog contract.
 - `intrinsic_abi` identifies the intrinsic ABI generation whose stable entries
   are recorded in `intrinsics/abi-v1.toml`.
-- `backend_profile` selects the reviewed backend profile used while resolving
-  lowering evidence.
 
-Contributors normally change these values only as part of a deliberate catalog,
-ABI, or backend-profile transition. Do not synthesize or edit corresponding
+Contributors normally change these values only as part of a deliberate catalog
+or ABI transition. Do not synthesize or edit corresponding
 metadata directly in generated `intrinsics/catalog.json`.
 
 ### catalog.json Header Fields
@@ -177,35 +173,7 @@ rebase onto the latest `main`, append after the new ledger tail, and regenerate.
 Do not preserve an obsolete numeric range merely because the branch used it
 earlier.
 
-### 4. Handle lowering evidence only when needed
-
-If the new intrinsic uses an already-reviewed lowering/evidence shape, follow
-the existing sibling contract. A normal catalog addition does not necessarily
-need a new evidence file.
-
-If the backend route is new and needs candidate evidence, use an explicit
-candidate probe:
-
-```bash
-HOST="$(rustc -vV | sed -n 's/^host: //p')"
-LLC="$(rustc --print sysroot)/lib/rustlib/$HOST/bin/llc"
-
-cargo run -p cuda-intrinsics-gen -- probe --candidate \
-  --intrinsic <catalog-id> \
-  --llc "$LLC" \
-  --gpu-target <sm-target> \
-  --ptx-feature <ptx-feature> \
-  --ptxas <path-to-ptxas>
-```
-
-On a system where terminal assembly is deliberately unavailable, replace
-`--ptxas <path-to-ptxas>` with the explicit `--skip-terminal` flag. Candidate
-mode requires one of those choices; it does not silently fall back.
-
-Review candidate output before promoting any evidence into the committed
-contract.
-
-### 5. Regenerate
+### 4. Regenerate
 
 Run:
 
@@ -223,19 +191,19 @@ git diff -- intrinsics crates/cuda-intrinsics crates/cuda-device \
   crates/cuda-oxide-codegen crates/rustc-codegen-cuda
 ```
 
-Check `git status --short` as well: newly created overlay or evidence files are
-untracked until staged and therefore do not appear in `git diff`.
+Check `git status --short` as well: newly created overlay files are untracked
+until staged and therefore do not appear in `git diff`.
 
 For an addition that fits an existing family, generated changes should follow
 the sibling pattern. Unexpected unrelated changes are a reason to stop and
-recheck the overlay, ledger, evidence, or branch base.
+recheck the overlay, ledger, or branch base.
 
 ---
 
 ## Validate Before Pushing
 
-The repository provides one local entry point for the generated-intrinsics CI
-contract:
+The repository provides one local entry point for the generated-intrinsics
+checks:
 
 ```bash
 just check-intrinsics upstream/main
@@ -243,35 +211,26 @@ just check-intrinsics upstream/main
 
 Use the actual PR base if it is not `upstream/main`.
 
-That recipe mirrors the generated-intrinsics CI job and currently covers the
-three load-bearing checks:
+That recipe covers the two load-bearing checks:
 
 ```text
 cuda-intrinsics-gen check
-cuda-intrinsics-gen probe --all --skip-terminal --per-target
 cuda-intrinsics-gen check-abi-history --base-ref <base>
 ```
 
+`check` confirms that `intrinsics/catalog.json` and every generated output are
+exactly what the generator produces from the committed inputs.
+`check-abi-history` confirms that the ABI ledger only grew relative to the base.
 Use `just check-intrinsics ...` as the normal contributor interface rather than
-copying the underlying commands into scripts. The recipe can evolve when the
-CI contract gains additional coverage.
+copying the underlying commands into scripts.
 
 Two environment requirements the gates carry with them:
 
 - `check-abi-history` walks git history back to the base ref, so it needs a
-  full clone. CI checks out with `fetch-depth: 0`; a shallow local clone can
-  fail to resolve the base.
+  full clone; a shallow clone can fail to resolve the base.
 - The generator shells out to `rustfmt` when it writes generated sources.
   That is why `rust-toolchain.toml` pins the `rustfmt` component; no extra
   install is needed on a normal checkout.
-
-For a focused probe while developing one intrinsic, you can also run:
-
-```bash
-cargo run -p cuda-intrinsics-gen -- probe \
-  --intrinsic <catalog-id> \
-  --skip-terminal
-```
 
 Finally, run the normal checks required by the files you changed. For changes
 that also update the book:
@@ -317,8 +276,8 @@ pin update, not for adding an intrinsic that already exists in the committed
 `intrinsics/imported.json`.
 
 Normal additions consume the committed imported facts. This keeps routine
-intrinsic work independent of an LLVM checkout and makes the reviewed overlay,
-ABI ledger, and evidence the explicit cuda-oxide policy layer.
+intrinsic work independent of an LLVM checkout and makes the reviewed overlay
+and ABI ledger the explicit cuda-oxide policy layer.
 
 ---
 
@@ -333,8 +292,8 @@ For a catalog-generated intrinsic, do not directly edit:
 - generated intrinsic dispatch in `mir-importer`;
 - generated intrinsic conversion tables in `mir-lower`;
 - generated target/collector metadata;
-- generated probe/reference outputs.
+- the generated reference (`intrinsics/generated-reference.md`).
 
 If regeneration overwrites a hand edit, the edit was made at the wrong layer.
-The source of truth is the reviewed catalog input, ABI, evidence, or generator
+The source of truth is the reviewed catalog input, ABI ledger, or generator
 logic that owns that output.

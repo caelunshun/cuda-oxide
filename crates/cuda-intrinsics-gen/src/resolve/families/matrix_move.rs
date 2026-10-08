@@ -8,7 +8,7 @@ use crate::model::{
     IntrinsicBackend, IntrinsicSource, LdmatrixAdapter, LdmatrixAddressContract, LdmatrixElement,
     LdmatrixLayout, LdmatrixMemoryOrder, LdmatrixMultiplicity, LdmatrixParticipation,
     LdmatrixShape, LdmatrixStateSpace, MovmatrixAdapter, MovmatrixParticipation,
-    OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation, StmatrixAdmission, StmatrixLayout,
+    OverlayBackendLowering, OverlayIntrinsic, StmatrixAdmission, StmatrixLayout,
     StmatrixMultiplicity,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
@@ -116,15 +116,6 @@ pub(in crate::resolve) fn stmatrix_variant_for_id(
 pub(in crate::resolve) fn expand_stmatrix_admission(
     admission: &StmatrixAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "stmatrix runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact stmatrix admission requires both backend evidence profiles"
-    );
     let expected_variants = [
         (StmatrixMultiplicity::X2, StmatrixLayout::Normal),
         (StmatrixMultiplicity::X2, StmatrixLayout::Transposed),
@@ -217,7 +208,6 @@ pub(in crate::resolve) fn expand_stmatrix_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::TypedNvvm,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("7.8".into()),
                         minimum_sm: Some("sm_90".into()),
@@ -225,7 +215,6 @@ pub(in crate::resolve) fn expand_stmatrix_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("7.8".into()),
                         minimum_sm: Some("sm_90".into()),
@@ -397,8 +386,7 @@ pub(in crate::resolve) fn validate_stmatrix_policy(
     ensure!(
         policy.backend_lowerings.len() == 2
             && policy.backend_lowerings.iter().all(|route| {
-                !route.evidence_profile.trim().is_empty()
-                    && route.minimum_ptx.as_deref() == Some("7.8")
+                route.minimum_ptx.as_deref() == Some("7.8")
                     && route.minimum_sm.as_deref() == Some("sm_90")
             })
             && policy.backend_lowerings.iter().any(|route| {
@@ -496,8 +484,7 @@ pub(in crate::resolve) fn validate_ldmatrix_policy(
     ensure!(
         safety.participation == expected_participation
             && safety.address_contract == expected_address_contract
-            && safety.memory_order == LdmatrixMemoryOrder::Weak
-            && safety.runtime_validation == RuntimeValidation::Unexecuted,
+            && safety.memory_order == LdmatrixMemoryOrder::Weak,
         "{} has an unsupported ldmatrix safety contract",
         policy.id
     );
@@ -637,14 +624,6 @@ pub(in crate::resolve) fn validate_ldmatrix_policy(
                 ),
             ]),
         "{} must define exactly the reviewed LLVM typed and libNVVM inline-PTX lowerings",
-        policy.id
-    );
-    ensure!(
-        policy
-            .backend_lowerings
-            .iter()
-            .all(|lowering| !lowering.evidence_profile.trim().is_empty()),
-        "{} backend lowering omits its evidence profile",
         policy.id
     );
     if blackwell {

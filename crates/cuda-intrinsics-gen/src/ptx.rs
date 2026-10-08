@@ -157,19 +157,6 @@ impl InstructionPattern {
     }
 }
 
-/// One instruction that matched a reviewed PTX shape.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct InstructionMatch {
-    /// Byte offset in the masked PTX source.
-    pub offset: usize,
-    /// Byte offset immediately after the instruction semicolon.
-    pub end: usize,
-    /// Non-whitespace text before the instruction in the same statement.
-    pub prefix: String,
-    /// Trimmed operands in source order.
-    pub operands: Vec<String>,
-}
-
 impl fmt::Display for InstructionPattern {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.mnemonic)?;
@@ -205,56 +192,26 @@ impl fmt::Display for InstructionPattern {
 
 /// Search emitted PTX or a TableGen assembly string for an exact instruction
 /// shape.
-pub fn contains_matching_instruction(
+///
+/// A source which does not lex as PTX is an error, not a non-match: callers
+/// gate generated intrinsics on these matches, so unparseable PTX must fail
+/// loudly instead of reading as "no match".
+fn contains_matching_instruction(
     source: &str,
     pattern: &InstructionPattern,
 ) -> Result<bool, ParseError> {
-    Ok(!matching_instructions(source, pattern)?.is_empty())
-}
-
-/// Return every instruction matching `pattern` without treating comments or
-/// quoted directive strings as PTX code.
-pub(crate) fn matching_instructions(
-    source: &str,
-    pattern: &InstructionPattern,
-) -> Result<Vec<InstructionMatch>, ParseError> {
-    Ok(instructions_with_matching_head(source, pattern)?
-        .into_iter()
-        .filter(|instruction| {
-            instruction.operands.len() == pattern.operands.len()
-                && instruction
-                    .operands
-                    .iter()
-                    .zip(&pattern.operands)
-                    .all(|(operand, expected)| operand_matches(operand, expected))
-        })
-        .collect())
-}
-
-/// Return every instruction with the exact mnemonic and modifier sequence.
-///
-/// A source which does not lex as PTX is an error, not an empty match list:
-/// callers gate generated intrinsics on these matches, so unparseable PTX
-/// must fail loudly instead of reading as "no match".
-pub(crate) fn instructions_with_matching_head(
-    source: &str,
-    pattern: &InstructionPattern,
-) -> Result<Vec<InstructionMatch>, ParseError> {
     if pattern.mnemonic.is_empty() {
-        return Ok(Vec::new());
+        return Ok(false);
     }
     let document = Document::parse(source)?;
-    Ok(document
-        .instructions()
-        .iter()
-        .filter(|instruction| instruction_head_matches(instruction.head(), pattern))
-        .map(|instruction| InstructionMatch {
-            offset: instruction.head_offset(),
-            end: instruction.end_offset(),
-            prefix: instruction.prefix().to_owned(),
-            operands: instruction.operands().map(str::to_owned).collect(),
-        })
-        .collect())
+    Ok(document.instructions().iter().any(|instruction| {
+        instruction_head_matches(instruction.head(), pattern)
+            && instruction.operands().count() == pattern.operands.len()
+            && instruction
+                .operands()
+                .zip(&pattern.operands)
+                .all(|(operand, expected)| operand_matches(operand, expected))
+    }))
 }
 
 fn instruction_head_matches(head: &str, pattern: &InstructionPattern) -> bool {
@@ -804,63 +761,6 @@ mod tests {
             "{line_comment}\nldmatrix.sync.aligned.m8n8.x4.shared.b16 {{%r1, %r2, %r3, %r4}}, [%rd5]; // real"
         );
         assert!(ldmatrix_x4().matches(&real_instruction).unwrap());
-    }
-
-    #[test]
-    fn matching_instructions_preserve_order_and_operands() {
-        let pattern = InstructionPattern::new(
-            "shfl",
-            &["sync", "idx", "b32"],
-            vec![
-                OperandPattern::Exact { value: "lo".into() },
-                OperandPattern::Exact { value: "lo".into() },
-                OperandPattern::Register,
-                OperandPattern::Exact { value: "31".into() },
-                OperandPattern::Register,
-            ],
-        );
-        let source = r#"
-            // shfl.sync.idx.b32 lo, lo, %r99, 31, %r98;
-            shfl.sync.idx.b32 lo, lo, %r1, 31, %r2;
-            .file 1 "shfl.sync.idx.b32 lo, lo, %r97, 31, %r96;"
-            shfl.sync.idx.b32 lo, lo, %r3, 31, %r4;
-        "#;
-
-        let matches = matching_instructions(source, &pattern).unwrap();
-        assert_eq!(matches.len(), 2);
-        assert!(matches[0].offset < matches[1].offset);
-        assert!(
-            matches
-                .iter()
-                .all(|instruction| instruction.end > instruction.offset)
-        );
-        assert_eq!(matches[0].operands, ["lo", "lo", "%r1", "31", "%r2"]);
-        assert_eq!(matches[1].operands, ["lo", "lo", "%r3", "31", "%r4"]);
-
-        let source = format!("{source}\nshfl.sync.idx.b32 hi, hi, %r5, 31, %r6;");
-        let head_matches = instructions_with_matching_head(&source, &pattern).unwrap();
-        assert_eq!(head_matches.len(), 3);
-        assert_eq!(head_matches[2].operands[0], "hi");
-    }
-
-    #[test]
-    fn matching_instructions_expose_same_statement_prefixes() {
-        let pattern = InstructionPattern::new(
-            "shfl",
-            &["sync", "idx", "b32"],
-            vec![
-                OperandPattern::Exact { value: "lo".into() },
-                OperandPattern::Exact { value: "lo".into() },
-                OperandPattern::Register,
-                OperandPattern::Exact { value: "31".into() },
-                OperandPattern::Register,
-            ],
-        );
-        let matches =
-            matching_instructions("@%p1 shfl.sync.idx.b32 lo, lo, %r1, 31, %r2;", &pattern)
-                .unwrap();
-        assert_eq!(matches.len(), 1);
-        assert_eq!(matches[0].prefix, "@%p1");
     }
 
     #[test]

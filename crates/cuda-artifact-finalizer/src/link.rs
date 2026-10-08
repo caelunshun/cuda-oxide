@@ -106,7 +106,7 @@ impl LtoLinker {
     /// but not byte-identical: ptxas records its own option line inside the
     /// cubin's `.note.nv.tkinfo` section, so `-v` shows up there. Every
     /// other section, including all generated code, is unchanged (verified
-    /// section-by-section on CUDA 13.3, sm_120).
+    /// section-by-section on sm_120).
     pub fn link_ltoir_with_report(
         &self,
         inputs: &[NamedInput<'_>],

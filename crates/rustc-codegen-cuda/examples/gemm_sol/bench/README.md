@@ -43,7 +43,7 @@ the correct baseline: **4K=1502, 8K=1402, 16K=1526 TFLOPS**.
 
 The packaged `build.sh` figures out CUDA paths (honoring `CUDA_HOME` /
 `CUDA_PATH`, then falling back to `/usr/local/cuda`) and rpath-pins the
-right lib directory. Use it inside `nix develop` or with a system CTK:
+right lib directory:
 
 ```bash
 cd bench/

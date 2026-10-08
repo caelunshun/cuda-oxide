@@ -4,306 +4,39 @@
  */
 
 use crate::model::{
-    CatalogBackend, CatalogBackendLowering, CatalogDialect, CatalogHalfOpenRange, CatalogIntrinsic,
+    CatalogBackendLowering, CatalogDialect, CatalogHalfOpenRange, CatalogIntrinsic,
     CatalogLdmatrix, CatalogLlvm, CatalogLlvmResultFacts, CatalogRust, CatalogSelection,
-    CatalogSemantics, CatalogTarget, CatalogTargetRequirement, EvidenceRecord,
-    ExecutionControlOperation, ImportedIntrinsic, IntrinsicSource, OverlayIntrinsic,
-    RuntimeValidation,
+    CatalogSemantics, CatalogTarget, CatalogTargetRequirement, ExecutionControlOperation,
+    ImportedIntrinsic, IntrinsicSource, OverlayIntrinsic,
 };
 use anyhow::{Context, Result, ensure};
-use std::collections::BTreeMap;
 
 use super::abi_ledger::*;
-use super::evidence::*;
 use super::guards::*;
 use super::targets::*;
 
 pub(super) fn resolve_backend_lowerings(
     policy: &OverlayIntrinsic,
-    evidence_by_profile_id: &BTreeMap<(&str, &str), IndexedEvidence<'_>>,
 ) -> Result<Vec<CatalogBackendLowering>> {
-    let mut resolved = Vec::with_capacity(policy.backend_lowerings.len());
-    let mut runtime_states = Vec::with_capacity(policy.backend_lowerings.len());
-    for lowering in &policy.backend_lowerings {
-        let evidence = evidence_by_profile_id
-            .get(&(lowering.evidence_profile.as_str(), policy.id.as_str()))
-            .with_context(|| {
-                format!(
-                    "{} has no evidence in backend profile {}",
-                    policy.id, lowering.evidence_profile
-                )
-            })?;
-        validate_evidence(policy, evidence, Some(lowering))?;
-        runtime_states.push(evidence.record.runtime_validation);
-        resolved.push(CatalogBackendLowering {
-            backend: lowering.backend,
-            mechanism: lowering.mechanism,
-            evidence_profile: lowering.evidence_profile.clone(),
-            target: backend_target_requirement(policy, lowering)?,
-            version: evidence.backend_version.to_owned(),
-            sha256: evidence.backend_sha256.to_owned(),
-            artifact_path: evidence.file.artifact_path.clone(),
-            build_id_prefix: evidence.file.build_id_prefix.clone(),
-            status: evidence.record.status.clone(),
-            stages: evidence.record.stages.clone(),
-        });
-    }
-    if let Some(safety) = &policy.ldmatrix_safety {
-        match safety.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} overlay says runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} overlay says runtime is executed but no backend evidence has an executed runtime stage",
-                policy.id
-            ),
-        }
-    }
-    if policy.family == "stmatrix" {
-        ensure!(
-            runtime_states
-                .iter()
-                .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-            "{} stmatrix source contract is unexecuted but backend evidence disagrees",
-            policy.id
-        );
-    }
-    if let Some(packed) = &policy.packed_atomic {
-        match packed.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} packed-atomic runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} packed-atomic runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(mbarrier) = &policy.mbarrier_basic {
-        match mbarrier.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} mbarrier runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} mbarrier runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(movmatrix) = &policy.movmatrix {
-        match movmatrix.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} movmatrix runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} movmatrix runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(mbarrier) = &policy.mbarrier_extended {
-        match mbarrier.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} extended-mbarrier runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} extended-mbarrier runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(bridge) = &policy.cp_async_mbarrier {
-        match bridge.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} cp.async mbarrier runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} cp.async mbarrier runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(mma) = &policy.register_mma {
-        match mma.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} register-MMA runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} register-MMA runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(mma) = &policy.sparse_mma {
-        match mma.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} sparse-MMA runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} sparse-MMA runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(debug) = &policy.debug_control {
-        match debug.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} debug-control runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} debug-control runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(cluster_memory) = &policy.cluster_memory {
-        match cluster_memory.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} cluster-memory runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} cluster-memory runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(clc) = &policy.clc {
-        match clc.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} CLC runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} CLC runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(conversion) = &policy.scalar_conversion {
-        match conversion.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} scalar-conversion runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} scalar-conversion runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
-    if let Some(arithmetic) = &policy.scalar_arithmetic {
-        match arithmetic.runtime_validation {
-            RuntimeValidation::Unexecuted => ensure!(
-                runtime_states
-                    .iter()
-                    .all(|state| *state == Some(RuntimeValidation::Unexecuted)),
-                "{} scalar-arithmetic runtime is unexecuted but backend evidence disagrees",
-                policy.id
-            ),
-            RuntimeValidation::Executed => ensure!(
-                runtime_states.contains(&Some(RuntimeValidation::Executed)),
-                "{} scalar-arithmetic runtime is executed but no backend evidence records execution",
-                policy.id
-            ),
-        }
-    }
+    let mut resolved = policy
+        .backend_lowerings
+        .iter()
+        .map(|lowering| {
+            Ok(CatalogBackendLowering {
+                backend: lowering.backend,
+                mechanism: lowering.mechanism,
+                target: backend_target_requirement(policy, lowering)?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
     resolved.sort_by_key(|lowering| lowering.backend);
     Ok(resolved)
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(super) fn resolve_record(
-    policy: &OverlayIntrinsic,
-    source: IntrinsicSource,
-    declaration: Option<&ImportedIntrinsic>,
-    evidence: &EvidenceRecord,
-    backend_profile: &str,
-    backend_version: &str,
-    backend_sha256: &str,
-    backend_lowerings: Vec<CatalogBackendLowering>,
-    intrinsic_abi: u32,
-) -> Result<CatalogIntrinsic> {
-    materialize_record(
-        policy,
-        source,
-        declaration,
-        CatalogBackend {
-            profile: backend_profile.to_owned(),
-            version: backend_version.to_owned(),
-            sha256: backend_sha256.to_owned(),
-            status: evidence.status.clone(),
-            target_triple: evidence.target_triple.clone(),
-            gpu_target: evidence.gpu_target.clone(),
-            ptx_feature: evidence.ptx_feature.clone(),
-        },
-        backend_lowerings,
-        intrinsic_abi,
-    )
 }
 
 pub(super) fn materialize_record(
     policy: &OverlayIntrinsic,
     source: IntrinsicSource,
     declaration: Option<&ImportedIntrinsic>,
-    backend: CatalogBackend,
     backend_lowerings: Vec<CatalogBackendLowering>,
     intrinsic_abi: u32,
 ) -> Result<CatalogIntrinsic> {
@@ -409,7 +142,6 @@ pub(super) fn materialize_record(
             ptx_isa_section: policy.ptx_isa_section.clone(),
             ptx_isa_url: policy.ptx_isa_url.clone(),
         },
-        backend,
         backend_lowerings,
         packed_atomic: policy.packed_atomic.clone(),
         redux: policy.redux.clone(),

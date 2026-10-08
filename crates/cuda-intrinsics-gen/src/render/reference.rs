@@ -5,15 +5,14 @@
 
 use crate::model::{
     BackendLoweringMechanism, CatalogFile, ClusterBarrierOrdering, ClusterMemorySourceContract,
-    CpAsyncMbarrierOperation, CpAsyncMbarrierStateSpace, EvidenceArtifactKind, IntrinsicBackend,
-    MbarrierBasicOperation, MbarrierExtendedSourceContract, PackedAtomicFormat,
-    PackedConversionRounding, PackedConversionSaturation, RegisterMmaAdapter, RegisterMmaOperation,
-    RegisterMmaOverflow, RuntimeValidation, SparseMmaOverflow, WarpMatchAdapter,
-    WarpShuffleValueKind, WgmmaControlMode,
+    CpAsyncMbarrierOperation, CpAsyncMbarrierStateSpace, IntrinsicBackend, MbarrierBasicOperation,
+    MbarrierExtendedSourceContract, PackedAtomicFormat, PackedConversionRounding,
+    PackedConversionSaturation, RegisterMmaAdapter, RegisterMmaOperation, RegisterMmaOverflow,
+    SparseMmaOverflow, WarpMatchAdapter, WarpShuffleValueKind, WgmmaControlMode,
 };
 use crate::render::common::{
-    backend_label, evidence_stage_label, hardware_target_label, llvm, lowering_mechanism_label,
-    markdown_header, source_label,
+    backend_label, hardware_target_label, llvm, lowering_mechanism_label, markdown_header,
+    source_label,
 };
 use crate::render::families::{
     BLACKWELL_LDMATRIX_EFFECTIVE_FLOORS, active_masks, cluster_barriers, cluster_memory,
@@ -37,7 +36,7 @@ use std::fmt::Write as _;
 /// `\|` wherever it appears. Three catalog entries carry a literal pipe today:
 /// the `elect.sync` and `match.all.sync` PTX patterns write their two
 /// destinations as `<register|predicate>`. Their rows rendered with a seventh
-/// cell, which dropped the backend-evidence column.
+/// cell, which dropped the expected-PTX column.
 fn escape_table_cell(value: impl std::fmt::Display) -> String {
     value.to_string().replace('|', "\\|")
 }
@@ -45,7 +44,7 @@ fn escape_table_cell(value: impl std::fmt::Display) -> String {
 pub(super) fn render_reference(catalog: &CatalogFile, hash: &str) -> String {
     let mut output = markdown_header(catalog, hash);
     output.push_str(
-        "# Generated Intrinsic Reference\n\nThis table is generated from the resolved catalog. Evidence stages below distinguish backend code generation, terminal validation, and GPU runtime execution; no runtime claim is made unless an executed stage is recorded.\n\n| Rust function | CUDA operation | Source | Effects | Availability | Backend evidence |\n|:--|:--|:--|:--|:--|:--|\n",
+        "# Generated Intrinsic Reference\n\nThis table is generated from the resolved catalog.\n\n| Rust function | CUDA operation | Source | Effects | Availability | Expected PTX |\n|:--|:--|:--|:--|:--|:--|\n",
     );
     for record in &catalog.intrinsics {
         let safety = if record.rust.safe { "safe" } else { "unsafe" };
@@ -64,7 +63,7 @@ pub(super) fn render_reference(catalog: &CatalogFile, hash: &str) -> String {
         };
         writeln!(
             output,
-            "| `{}` | `{}` | {} | {safety}; scope {}; {}; memory {}; convergent {} | {availability} ([PTX ISA {}, {}]({})) | {} on `{}`; expects `{}` (`{}`, SHA-256 `{}`) |",
+            "| `{}` | `{}` | {} | {safety}; scope {}; {}; memory {}; convergent {} | {availability} ([PTX ISA {}, {}]({})) | `{}` |",
             escape_table_cell(&record.rust.public_path),
             escape_table_cell(&record.dialect.op_name),
             escape_table_cell(source_label(record)),
@@ -75,11 +74,7 @@ pub(super) fn render_reference(catalog: &CatalogFile, hash: &str) -> String {
             escape_table_cell(&record.target.ptx_isa_version),
             escape_table_cell(&record.target.ptx_isa_section),
             escape_table_cell(&record.target.ptx_isa_url),
-            escape_table_cell(&record.backend.status),
-            escape_table_cell(&record.backend.profile),
             escape_table_cell(&record.expected_ptx),
-            escape_table_cell(&record.backend.version),
-            escape_table_cell(&record.backend.sha256),
         )
         .unwrap();
     }
@@ -115,14 +110,10 @@ pub(super) fn render_reference(catalog: &CatalogFile, hash: &str) -> String {
             RegisterMmaOverflow::Wrapping => "wrapping",
             RegisterMmaOverflow::Satfinite => "finite saturation",
         };
-        let runtime = match mma.runtime_validation {
-            RuntimeValidation::Unexecuted => "not executed on a GPU",
-            RuntimeValidation::Executed => "executed on a GPU",
-        };
         if mma.adapter == RegisterMmaAdapter::C4F32A4U32B2U32Scales2U32Selectors4U16ToD4F32 {
             writeln!(
                 output,
-                "- `{}` takes C, A, B, scale-A data/selectors, and scale-B data/selectors in PTX operand order, performs {operation}, and lowers to one convergent, register-only `{}` instruction. For `scale_vec::1X`, byte selectors must be in `0..=3`, the A thread selector in `0..=1`, and the B thread selector in `0..=3`. Every non-exited warp lane must execute the same instruction and qualifiers. Integer overflow is {overflow}; runtime validation is {runtime}.",
+                "- `{}` takes C, A, B, scale-A data/selectors, and scale-B data/selectors in PTX operand order, performs {operation}, and lowers to one convergent, register-only `{}` instruction. For `scale_vec::1X`, byte selectors must be in `0..=3`, the A thread selector in `0..=1`, and the B thread selector in `0..=3`. Every non-exited warp lane must execute the same instruction and qualifiers. Integer overflow is {overflow}.",
                 record.id,
                 expected_ptx_head(record),
             )
@@ -130,7 +121,7 @@ pub(super) fn render_reference(catalog: &CatalogFile, hash: &str) -> String {
         } else {
             writeln!(
                 output,
-                "- `{}` takes fragments in C, A, B order, performs {operation}, and lowers to one convergent, register-only `{}` instruction. Every non-exited warp lane must execute the same instruction and qualifiers. Integer overflow is {overflow}; runtime validation is {runtime}.",
+                "- `{}` takes fragments in C, A, B order, performs {operation}, and lowers to one convergent, register-only `{}` instruction. Every non-exited warp lane must execute the same instruction and qualifiers. Integer overflow is {overflow}.",
                 record.id,
                 expected_ptx_head(record),
             )
@@ -145,14 +136,10 @@ pub(super) fn render_reference(catalog: &CatalogFile, hash: &str) -> String {
             SparseMmaOverflow::Wrapping => "Integer overflow wraps.",
             SparseMmaOverflow::Satfinite => "Integer overflow uses finite saturation.",
         };
-        let runtime = match mma.runtime_validation {
-            RuntimeValidation::Unexecuted => "not executed on a GPU",
-            RuntimeValidation::Executed => "executed on a GPU",
-        };
         let metadata = sparse_mma_metadata_rule(mma);
         writeln!(
             output,
-            "- `{}` takes fragments in C, A, B, metadata, selector order and lowers to one convergent, register-only `{}` instruction. Its LLVM source record uses A, B, C, metadata, selector order. The selector must be {}. Every non-exited warp lane must execute the same instruction and qualifiers. {metadata} {overflow} Runtime validation is {runtime}.",
+            "- `{}` takes fragments in C, A, B, metadata, selector order and lowers to one convergent, register-only `{}` instruction. Its LLVM source record uses A, B, C, metadata, selector order. The selector must be {}. Every non-exited warp lane must execute the same instruction and qualifiers. {metadata} {overflow}",
             record.id,
             sparse_mma_ptx_head(record),
             sparse_mma_selector_description(record),
@@ -573,119 +560,22 @@ pub(super) fn render_reference(catalog: &CatalogFile, hash: &str) -> String {
         )
         .unwrap();
     }
-    output.push_str("\n## Backend-specific lowering evidence\n\n");
+    output.push_str("\n## Backend lowering routes\n\n");
     for record in &catalog.intrinsics {
         if record.backend_lowerings.is_empty() {
             continue;
         }
-        let runtime = record
-            .ldmatrix
-            .as_ref()
-            .map(|record| format!("{:?}", record.safety.runtime_validation).to_lowercase())
-            .or_else(|| {
-                record
-                    .packed_atomic
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .mbarrier_basic
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .movmatrix
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .mbarrier_extended
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .cp_async_mbarrier
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .register_mma
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .sparse_mma
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .debug_control
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .cluster_memory
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| {
-                record
-                    .tcgen05
-                    .as_ref()
-                    .map(|record| format!("{:?}", record.runtime_validation).to_lowercase())
-            })
-            .or_else(|| (record.family == "stmatrix").then(|| "unexecuted".to_owned()))
-            .unwrap_or_else(|| "not recorded".to_owned());
-        writeln!(output, "- `{}`: runtime `{runtime}`", record.id).unwrap();
+        writeln!(output, "- `{}`", record.id).unwrap();
         for lowering in &record.backend_lowerings {
             writeln!(
                 output,
-                "  - `{}` uses `{}` from profile `{}` at PTX {} / {}: status `{}` (`{}`, SHA-256 `{}`)",
+                "  - `{}` uses `{}` at PTX {} / {}",
                 backend_label(lowering.backend),
                 lowering_mechanism_label(lowering.mechanism),
-                lowering.evidence_profile,
                 lowering.target.minimum_ptx,
                 hardware_target_label(&lowering.target.hardware),
-                lowering.status,
-                lowering.version,
-                lowering.sha256,
             )
             .unwrap();
-            for stage in &lowering.stages {
-                let tool = match (
-                    stage.tool_path.as_deref(),
-                    stage.tool_version.as_deref(),
-                    stage.tool_sha256.as_deref(),
-                ) {
-                    (Some(path), Some(version), Some(sha256)) => {
-                        format!(" Tool `{path}` reports `{version}` (SHA-256 `{sha256}`).")
-                    }
-                    _ => String::new(),
-                };
-                let artifact = match stage.artifact_kind {
-                    Some(EvidenceArtifactKind::Cubin) => " Artifact `cubin`.",
-                    None => "",
-                };
-                writeln!(
-                    output,
-                    "    - {} on `{}`: `{}` — {}{}{}",
-                    evidence_stage_label(stage.stage),
-                    stage.targets.join(", "),
-                    stage.outcome,
-                    stage.detail,
-                    tool,
-                    artifact,
-                )
-                .unwrap();
-            }
         }
     }
     output

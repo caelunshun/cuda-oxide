@@ -79,7 +79,7 @@ struct NvvmResult(c_int);
 
 impl NvvmResult {
     const SUCCESS: Self = Self(0);
-    /// Present in CUDA 13.0 and newer headers.
+    /// Present in CUDA 13+ headers.
     #[allow(dead_code)]
     const CANCELLED: Self = Self(10);
 }

@@ -4,9 +4,9 @@
  */
 
 use crate::model::{
-    ImportedIntrinsic, OverlayIntrinsic, RuntimeValidation, Tcgen05, Tcgen05Adapter,
-    Tcgen05Admission, Tcgen05Cp, Tcgen05CpAdmissionVariant, Tcgen05CpGroup, Tcgen05CpMember,
-    Tcgen05Ld, Tcgen05LdAdmissionVariant, Tcgen05LdMultiplicity, Tcgen05LdShape, Tcgen05Operation,
+    ImportedIntrinsic, OverlayIntrinsic, Tcgen05, Tcgen05Adapter, Tcgen05Cp,
+    Tcgen05CpAdmissionVariant, Tcgen05CpGroup, Tcgen05CpMember, Tcgen05Ld,
+    Tcgen05LdAdmissionVariant, Tcgen05LdMultiplicity, Tcgen05LdShape, Tcgen05Operation,
     Tcgen05SourceContract, Tcgen05St, Tcgen05StAdmissionVariant,
 };
 use crate::ptx::OperandPattern;
@@ -150,7 +150,6 @@ pub(in crate::resolve) fn tcgen05_cp_member_recipe(
 
 pub(in crate::resolve) fn materialize_tcgen05_cp_variant(
     base: &OverlayIntrinsic,
-    admission: &Tcgen05Admission,
     variant: &Tcgen05CpAdmissionVariant,
 ) -> OverlayIntrinsic {
     let recipe = tcgen05_cp_member_recipe(variant.member);
@@ -179,16 +178,6 @@ pub(in crate::resolve) fn materialize_tcgen05_cp_variant(
         "llvm.nvvm.tcgen05.cp.{}.cg{group}",
         recipe.llvm_suffix
     ));
-    record.backend_lowerings[0].evidence_profile = admission
-        .cp_llvm_evidence_profile
-        .as_ref()
-        .expect("validated tcgen05 copy LLVM evidence profile")
-        .clone();
-    record.backend_lowerings[1].evidence_profile = admission
-        .cp_libnvvm_evidence_profile
-        .as_ref()
-        .expect("validated tcgen05 copy libNVVM evidence profile")
-        .clone();
     record.tcgen05 = Some(Tcgen05 {
         operation: if group == 1 {
             Tcgen05Operation::CpSmemToTmem
@@ -205,7 +194,6 @@ pub(in crate::resolve) fn materialize_tcgen05_cp_variant(
         mma: None,
         adapter: Tcgen05Adapter::TmemDescriptorToVoid,
         source_contract: Tcgen05SourceContract::ExactTablegenSelection,
-        runtime_validation: admission.runtime_validation,
     });
     record.expected_ptx.modifiers = std::iter::once("cp".into())
         .chain(std::iter::once(format!("cta_group::{group}")))
@@ -396,7 +384,6 @@ pub(in crate::resolve) fn tcgen05_ld_operands(ld: Tcgen05Ld) -> Vec<OperandPatte
 
 pub(in crate::resolve) fn materialize_tcgen05_ld_variant(
     base: &OverlayIntrinsic,
-    admission: &Tcgen05Admission,
     variant: &Tcgen05LdAdmissionVariant,
 ) -> OverlayIntrinsic {
     let ld = Tcgen05Ld {
@@ -455,22 +442,6 @@ pub(in crate::resolve) fn materialize_tcgen05_ld_variant(
     record.llvm_results = vec![llvm_result];
     record.ptx_result = rust_result;
     record.execution_scope = Tcgen05Operation::Ld.execution_scope().into();
-    record.backend_lowerings[0].evidence_profile = if has_half_split_offset {
-        &admission.offset_llvm_evidence_profile
-    } else {
-        &admission.ld_llvm_evidence_profile
-    }
-    .as_ref()
-    .expect("validated tcgen05 load LLVM evidence profile")
-    .clone();
-    record.backend_lowerings[1].evidence_profile = if has_half_split_offset {
-        &admission.offset_libnvvm_evidence_profile
-    } else {
-        &admission.ld_libnvvm_evidence_profile
-    }
-    .as_ref()
-    .expect("validated tcgen05 load libNVVM evidence profile")
-    .clone();
     record.tcgen05 = Some(Tcgen05 {
         operation: Tcgen05Operation::Ld,
         cp: None,
@@ -484,7 +455,6 @@ pub(in crate::resolve) fn materialize_tcgen05_ld_variant(
             Tcgen05Adapter::TmemInjectPack16ToU32Registers
         },
         source_contract: Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection,
-        runtime_validation: admission.runtime_validation,
     });
     record.expected_ptx.modifiers = tcgen05_ld_modifiers(ld);
     record.expected_ptx.operands = tcgen05_ld_operands(ld);
@@ -579,7 +549,6 @@ pub(in crate::resolve) fn tcgen05_st_operands(st: Tcgen05St) -> Vec<OperandPatte
 
 pub(in crate::resolve) fn materialize_tcgen05_st_variant(
     base: &OverlayIntrinsic,
-    admission: &Tcgen05Admission,
     variant: &Tcgen05StAdmissionVariant,
 ) -> OverlayIntrinsic {
     let st = Tcgen05St {
@@ -638,22 +607,6 @@ pub(in crate::resolve) fn materialize_tcgen05_st_variant(
     record.memory = "write".into();
     record.ptx_result = "()".into();
     record.execution_scope = Tcgen05Operation::St.execution_scope().into();
-    record.backend_lowerings[0].evidence_profile = if has_half_split_offset {
-        &admission.offset_llvm_evidence_profile
-    } else {
-        &admission.st_llvm_evidence_profile
-    }
-    .as_ref()
-    .expect("validated tcgen05 store LLVM evidence profile")
-    .clone();
-    record.backend_lowerings[1].evidence_profile = if has_half_split_offset {
-        &admission.offset_libnvvm_evidence_profile
-    } else {
-        &admission.st_libnvvm_evidence_profile
-    }
-    .as_ref()
-    .expect("validated tcgen05 store libNVVM evidence profile")
-    .clone();
     record.tcgen05 = Some(Tcgen05 {
         operation: Tcgen05Operation::St,
         cp: None,
@@ -667,7 +620,6 @@ pub(in crate::resolve) fn materialize_tcgen05_st_variant(
             Tcgen05Adapter::TmemU32RegistersInjectUnpack16ToVoid
         },
         source_contract: Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection,
-        runtime_validation: admission.runtime_validation,
     });
     record.expected_ptx.modifiers = tcgen05_st_modifiers(st);
     record.expected_ptx.operands = tcgen05_st_operands(st);
@@ -803,8 +755,7 @@ pub(in crate::resolve) fn validate_tcgen05_ld_policy(
                 } else {
                     Tcgen05Adapter::TmemInjectPack16ToU32Registers
                 }
-            && tcgen05.source_contract == Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection
-            && tcgen05.runtime_validation == RuntimeValidation::Unexecuted,
+            && tcgen05.source_contract == Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection,
         "{} tcgen05 load semantics changed",
         policy.id
     );
@@ -948,8 +899,7 @@ pub(in crate::resolve) fn validate_tcgen05_st_policy(
                 } else {
                     Tcgen05Adapter::TmemU32RegistersInjectUnpack16ToVoid
                 }
-            && tcgen05.source_contract == Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection
-            && tcgen05.runtime_validation == RuntimeValidation::Unexecuted,
+            && tcgen05.source_contract == Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection,
         "{} tcgen05 store semantics changed",
         policy.id
     );
@@ -1060,8 +1010,7 @@ pub(in crate::resolve) fn validate_tcgen05_cp_policy(
             && tcgen05.ld_red.is_none()
             && tcgen05.st.is_none()
             && tcgen05.adapter == Tcgen05Adapter::TmemDescriptorToVoid
-            && tcgen05.source_contract == Tcgen05SourceContract::ExactTablegenSelection
-            && tcgen05.runtime_validation == RuntimeValidation::Unexecuted,
+            && tcgen05.source_contract == Tcgen05SourceContract::ExactTablegenSelection,
         "{} tcgen05 copy semantics changed",
         policy.id
     );

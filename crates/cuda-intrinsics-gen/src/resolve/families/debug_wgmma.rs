@@ -6,7 +6,7 @@
 use crate::model::{
     BackendLoweringMechanism, DebugControl, DebugControlAdapter, DebugControlAdmission,
     DebugControlOperation, ImportedIntrinsic, IntrinsicBackend, IntrinsicSource,
-    OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation, WgmmaControl, WgmmaControlAdapter,
+    OverlayBackendLowering, OverlayIntrinsic, WgmmaControl, WgmmaControlAdapter,
     WgmmaControlAdmission, WgmmaControlMode, WgmmaControlParticipation,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
@@ -164,15 +164,6 @@ pub(in crate::resolve) fn expand_debug_control_admission(
     admission: &DebugControlAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
     ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "debug-control runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact debug-control admission requires both backend evidence profiles"
-    );
-    ensure!(
         admission.operations
             == [
                 DebugControlOperation::Trap,
@@ -261,7 +252,6 @@ pub(in crate::resolve) fn expand_debug_control_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("3.2".into()),
                         minimum_sm: Some("sm_20".into()),
@@ -269,16 +259,14 @@ pub(in crate::resolve) fn expand_debug_control_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         // PTX floor is the inline-PTX mechanism floor, same as
                         // the LlvmNvptx entry above; the hardware floor stays at
-                        // the probed sm_75 (backend-codegen evidence must sit
-                        // exactly at the hardware floor, and CUDA 13 cannot
-                        // probe older targets). Writing the probe PTX version
-                        // (9.3) here made every panic path unbuildable on the
-                        // NVVM-IR route: the floor exceeded the newest PTX
-                        // version cuda-oxide can request.
+                        // sm_75, the oldest target CUDA 13 can build for.
+                        // Writing the toolkit's PTX version (9.3) here made every
+                        // panic path unbuildable on the NVVM-IR route: the floor
+                        // exceeded the newest PTX version cuda-oxide can
+                        // request.
                         minimum_ptx: Some("3.2".into()),
                         minimum_sm: Some("sm_75".into()),
                     },
@@ -314,7 +302,6 @@ pub(in crate::resolve) fn expand_debug_control_admission(
                 debug_control: Some(DebugControl {
                     operation,
                     adapter: recipe.adapter,
-                    runtime_validation: admission.runtime_validation,
                 }),
                 cluster_memory: None,
                 clc: None,
@@ -351,7 +338,6 @@ pub(in crate::resolve) fn validate_debug_control_policy(
     let immediate = debug.operation == DebugControlOperation::Pmevent;
     ensure!(
         debug.adapter == recipe.adapter
-            && debug.runtime_validation == RuntimeValidation::Unexecuted
             && policy.id == recipe.id
             && policy.operation_key == recipe.operation_key
             && source
@@ -437,15 +423,6 @@ pub(in crate::resolve) fn validate_debug_control_policy(
 pub(in crate::resolve) fn expand_wgmma_control_admission(
     admission: &WgmmaControlAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "WGMMA-control runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact WGMMA-control admission requires both backend evidence profiles"
-    );
     let expected_modes = [
         WgmmaControlMode::Fence,
         WgmmaControlMode::CommitGroup,
@@ -514,7 +491,6 @@ pub(in crate::resolve) fn expand_wgmma_control_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::TypedNvvm,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("8.0".into()),
                         minimum_sm: None,
@@ -522,7 +498,6 @@ pub(in crate::resolve) fn expand_wgmma_control_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("8.0".into()),
                         minimum_sm: None,
@@ -698,9 +673,7 @@ pub(in crate::resolve) fn validate_wgmma_control_policy(
                     ),
                 ])
             && policy.backend_lowerings.iter().all(|lowering| {
-                lowering.minimum_ptx.as_deref() == Some("8.0")
-                    && lowering.minimum_sm.is_none()
-                    && !lowering.evidence_profile.trim().is_empty()
+                lowering.minimum_ptx.as_deref() == Some("8.0") && lowering.minimum_sm.is_none()
             }),
         "{} must define exactly the reviewed WGMMA-control backend routes",
         policy.id

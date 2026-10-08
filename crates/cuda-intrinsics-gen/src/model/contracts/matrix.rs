@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-use super::super::core::RuntimeValidation;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -104,7 +103,6 @@ pub struct LdmatrixSafety {
     pub participation: LdmatrixParticipation,
     pub address_contract: LdmatrixAddressContract,
     pub memory_order: LdmatrixMemoryOrder,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,7 +132,6 @@ pub enum LdmatrixMemoryOrder {
 pub struct Movmatrix {
     pub participation: MovmatrixParticipation,
     pub adapter: MovmatrixAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -166,7 +163,6 @@ pub struct RegisterMma {
     pub participation: RegisterMmaParticipation,
     pub adapter: RegisterMmaAdapter,
     pub compatibility_source: RegisterMmaCompatibilitySource,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -290,7 +286,6 @@ pub struct SparseMma {
     pub adapter: SparseMmaAdapter,
     pub llvm_adapter: SparseMmaLlvmAdapter,
     pub compatibility_source: SparseMmaCompatibilitySource,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -459,7 +454,6 @@ mod tests {
         let valid = r#"
 participation = "all_warp_lanes_same_instruction_no_exited_lanes"
 adapter = "packed_b16x2_u32_to_packed_b16x2_u32"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<Movmatrix>(valid).unwrap();
         assert_eq!(
@@ -493,7 +487,6 @@ overflow = "satfinite"
 participation = "all_warp_lanes_same_instruction_and_qualifiers_no_exited_lanes"
 adapter = "c4_i32_a2_u32_b1_u32_to_d4_i32"
 compatibility_source = "generated_stub"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<RegisterMma>(valid).unwrap();
         assert_eq!(parsed.b_element, RegisterMmaElement::U8);
@@ -538,7 +531,6 @@ participation = "all_warp_lanes_same_instruction_and_qualifiers_no_exited_lanes"
 adapter = "c4_i32_a2_u32_b2_u32_metadata_u32_selector_u32_to_d4_i32"
 llvm_adapter = "a2_i32_b2_i32_c4_i32_metadata_i32_selector_i32_to_d4_i32"
 compatibility_source = "generated_stub"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<SparseMma>(valid).unwrap();
         assert_eq!(parsed.metadata, SparseMmaMetadata::Standard);

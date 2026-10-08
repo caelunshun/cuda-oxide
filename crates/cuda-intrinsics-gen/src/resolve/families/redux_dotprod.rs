@@ -535,8 +535,8 @@ pub(in crate::resolve) fn validate_dot_product_policy(
             }
         };
         ensure!(
-            floor_matches && !lowering.evidence_profile.trim().is_empty(),
-            "{} backend {:?} does not carry its reviewed dot-product profile floor",
+            floor_matches,
+            "{} backend {:?} does not carry its reviewed dot-product floor",
             policy.id,
             lowering.backend
         );

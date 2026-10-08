@@ -50,7 +50,7 @@ toolkit. The driver must support that toolkit's PTX version. If several CUDA
 toolkits are installed, select a compatible one explicitly:
 
 ```bash
-CUDA_TOOLKIT_PATH=/usr/local/cuda-13.0 \
+CUDA_TOOLKIT_PATH=/path/to/compatible/cuda \
   cargo oxide run legacy_nvvm_pointer_shapes --arch sm_86
 ```
 

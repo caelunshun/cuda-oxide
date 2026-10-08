@@ -6,15 +6,14 @@
 use crate::model::{
     BackendLoweringMechanism, CatalogHardwareAlternative, CatalogHardwareTarget, ClcAdapter,
     ClusterBarrierMode, ClusterBarrierOrdering, ClusterMemoryAdapter, ClusterMemoryOperation,
-    EvidenceStageKind, ImportedFile, IntrinsicBackend, IntrinsicSource, OverlayIntrinsic,
-    OverlayShardFile, RuntimeValidation, TmaAdapter, TmaOperation,
+    ImportedFile, IntrinsicBackend, IntrinsicSource, OverlayIntrinsic, OverlayShardFile,
+    TmaAdapter, TmaOperation,
 };
 use crate::util::read_json;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use super::fixtures::*;
-use crate::resolve::evidence::*;
 use crate::resolve::families::*;
 use crate::resolve::overlay::*;
 use crate::resolve::policy::*;
@@ -76,10 +75,6 @@ fn compact_clc_admission_matches_llvm_and_fails_closed() {
     let mut wrong_abi = test_clc_admission();
     wrong_abi.variants[0].abi_id = "i9999".into();
     assert!(expand_clc_admission(&wrong_abi).is_err());
-
-    let mut executed = test_clc_admission();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_clc_admission(&executed).is_err());
 
     let declaration = declarations[records[2].source_record.as_deref().unwrap()];
     let mut wrong_adapter = records[2].clone();
@@ -340,10 +335,6 @@ fn compact_tma_admission_matches_llvm_and_fails_closed() {
     let records = expand_tma_admission(&non_contiguous_reduction_abi).unwrap();
     assert_eq!(records[TMA_OPERATIONS.len()].abi_id, "i9999");
 
-    let mut executed = test_tma_admission();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_tma_admission(&executed).is_err());
-
     let declaration = declarations[records[0].source_record.as_deref().unwrap()];
     let mut wrong_adapter = records[0].clone();
     wrong_adapter.tma.as_mut().unwrap().adapter = TmaAdapter::NoOperands;
@@ -603,10 +594,6 @@ fn cluster_memory_admission_preserves_mapa_identity_and_ptx_native_read() {
     let mut wrong_abi = admission.clone();
     wrong_abi.variants[0].abi_id = "i9999".into();
     assert!(expand_cluster_memory_admission(&wrong_abi).is_err());
-
-    let mut executed = admission;
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_cluster_memory_admission(&executed).is_err());
 }
 
 #[test]
@@ -673,61 +660,4 @@ fn compact_cluster_barrier_admission_and_semantics_fail_closed() {
     let mut wrong_abi = test_cluster_barrier_admission();
     wrong_abi.variants[0].abi_id = "i9999".into();
     assert!(expand_cluster_barrier_admission(&wrong_abi).is_err());
-}
-
-#[test]
-fn cluster_barrier_evidence_validates_both_backend_routes() {
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let mut admission = test_cluster_barrier_admission();
-    admission.llvm_evidence_profile = "rust-llvm-23.1.0-16696adc".into();
-    admission.libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-cluster-barrier".into();
-    let policies = expand_cluster_barrier_admission(&admission).unwrap();
-    let evidence_files = vec![
-        read_evidence_file(
-            &repo_root.join("intrinsics/evidence/rust-llvm-23.1.0-16696adc-cluster-barrier.json"),
-        )
-        .unwrap(),
-        read_evidence_file(
-            &repo_root.join("intrinsics/evidence/cuda-13.3-libnvvm-13.3.33-cluster-barrier.json"),
-        )
-        .unwrap(),
-    ];
-    let indexed =
-        index_evidence(&evidence_files, "16696adcd119e6ba9cc175207d984d7021211acb").unwrap();
-
-    for policy in &policies {
-        for lowering in &policy.backend_lowerings {
-            let evidence = indexed
-                .get(&(lowering.evidence_profile.as_str(), policy.id.as_str()))
-                .unwrap();
-            validate_evidence(policy, evidence, Some(lowering)).unwrap();
-        }
-    }
-
-    let mut missing_typed_failure = evidence_files.clone();
-    let libnvvm = missing_typed_failure
-        .iter_mut()
-        .find(|file| file.backend_kind == Some(IntrinsicBackend::LibNvvm))
-        .unwrap();
-    for record in &mut libnvvm.records {
-        record.stages.retain(|stage| {
-            stage.mechanism != Some(BackendLoweringMechanism::TypedNvvm)
-                || stage.stage != EvidenceStageKind::DeviceLink
-        });
-    }
-    let indexed = index_evidence(
-        &missing_typed_failure,
-        "16696adcd119e6ba9cc175207d984d7021211acb",
-    )
-    .unwrap();
-    let policy = &policies[0];
-    let lowering = policy
-        .backend_lowerings
-        .iter()
-        .find(|lowering| lowering.backend == IntrinsicBackend::LibNvvm)
-        .unwrap();
-    let evidence = indexed
-        .get(&(lowering.evidence_profile.as_str(), policy.id.as_str()))
-        .unwrap();
-    assert!(validate_evidence(policy, evidence, Some(lowering)).is_err());
 }

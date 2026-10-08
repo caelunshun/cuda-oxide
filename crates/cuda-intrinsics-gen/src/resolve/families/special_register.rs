@@ -5,7 +5,7 @@
 
 use crate::model::{
     BackendLoweringMechanism, ClusterSregAdmission, ImportedIntrinsic, IntrinsicBackend,
-    IntrinsicSource, OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation, SpecialRegister,
+    IntrinsicSource, OverlayBackendLowering, OverlayIntrinsic, SpecialRegister,
     SpecialRegisterAdmission, SpecialRegisterKind, SpecialRegisterLlvmExclusion,
     SpecialRegisterLlvmExclusionReason, SpecialRegisterObservation,
     SpecialRegisterOutputConstraint, SpecialRegisterPtxType, SpecialRegisterWidth,
@@ -441,15 +441,6 @@ pub(in crate::resolve) fn expand_special_register_admission(
     admission: &SpecialRegisterAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
     ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "special-register runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact special-register admission requires both backend evidence profiles"
-    );
-    ensure!(
         admission.registers == REVIEWED_SPECIAL_REGISTERS
             && admission.product_count == REVIEWED_SPECIAL_REGISTERS.len(),
         "compact special-register admission must list the canonical 12 registers exactly once and in order"
@@ -530,32 +521,21 @@ pub(in crate::resolve) fn expand_special_register_admission(
                 ptx_isa_url: recipe.ptx_isa_url.into(),
                 lowering: "generated_special_register".into(),
                 backend_lowerings: [
-                    (
-                        IntrinsicBackend::LlvmNvptx,
-                        recipe.llvm_mechanism,
-                        &admission.llvm_evidence_profile,
-                    ),
-                    (
-                        IntrinsicBackend::LibNvvm,
-                        recipe.libnvvm_mechanism,
-                        &admission.libnvvm_evidence_profile,
-                    ),
+                    (IntrinsicBackend::LlvmNvptx, recipe.llvm_mechanism),
+                    (IntrinsicBackend::LibNvvm, recipe.libnvvm_mechanism),
                 ]
                 .into_iter()
-                .map(
-                    |(backend, mechanism, evidence_profile)| OverlayBackendLowering {
-                        minimum_ptx: special_register_backend_floor(recipe, backend)
-                            .0
-                            .map(str::to_owned),
-                        minimum_sm: special_register_backend_floor(recipe, backend)
-                            .1
-                            .map(str::to_owned),
-                        backend,
-                        mechanism,
-                        evidence_profile: evidence_profile.clone(),
-                        targets: None,
-                    },
-                )
+                .map(|(backend, mechanism)| OverlayBackendLowering {
+                    minimum_ptx: special_register_backend_floor(recipe, backend)
+                        .0
+                        .map(str::to_owned),
+                    minimum_sm: special_register_backend_floor(recipe, backend)
+                        .1
+                        .map(str::to_owned),
+                    backend,
+                    mechanism,
+                    targets: None,
+                })
                 .collect(),
                 packed_atomic: None,
                 redux: None,
@@ -747,7 +727,6 @@ pub(in crate::resolve) fn validate_special_register_policy(
                 |(actual, (backend, mechanism, (minimum_ptx, minimum_sm)))| {
                     actual.backend == backend
                         && actual.mechanism == mechanism
-                        && !actual.evidence_profile.trim().is_empty()
                         && actual.minimum_ptx.as_deref() == minimum_ptx
                         && actual.minimum_sm.as_deref() == minimum_sm
                 }

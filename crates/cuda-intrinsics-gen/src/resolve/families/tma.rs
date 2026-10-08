@@ -5,8 +5,8 @@
 
 use crate::model::{
     BackendLoweringMechanism, ImportedAddressSpace, ImportedIntrinsic, IntrinsicBackend,
-    OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation, Tma, TmaAdapter, TmaAdmission,
-    TmaBulk, TmaBulkDirection, TmaOperation, TmaReduction, TmaReductionAdmissionVariant,
+    OverlayBackendLowering, OverlayIntrinsic, Tma, TmaAdapter, TmaAdmission, TmaBulk,
+    TmaBulkDirection, TmaOperation, TmaReduction, TmaReductionAdmissionVariant,
     TmaReductionLoadMode, TmaReductionOperation,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
@@ -253,7 +253,6 @@ pub(in crate::resolve) fn tma_reduction_recipe(
 }
 
 pub(in crate::resolve) fn expand_tma_reduction_variant(
-    admission: &TmaAdmission,
     variant: &TmaReductionAdmissionVariant,
 ) -> Result<OverlayIntrinsic> {
     validate_abi_id(&variant.abi_id)?;
@@ -318,11 +317,6 @@ pub(in crate::resolve) fn expand_tma_reduction_variant(
             OverlayBackendLowering {
                 backend: IntrinsicBackend::LlvmNvptx,
                 mechanism: BackendLoweringMechanism::TypedNvvm,
-                evidence_profile: admission
-                    .reduce_llvm_evidence_profile
-                    .as_ref()
-                    .expect("validated TMA reduction LLVM evidence profile")
-                    .clone(),
                 targets: None,
                 minimum_ptx: Some("8.0".into()),
                 minimum_sm: Some("sm_90".into()),
@@ -330,11 +324,6 @@ pub(in crate::resolve) fn expand_tma_reduction_variant(
             OverlayBackendLowering {
                 backend: IntrinsicBackend::LibNvvm,
                 mechanism: BackendLoweringMechanism::InlinePtx,
-                evidence_profile: admission
-                    .reduce_libnvvm_evidence_profile
-                    .as_ref()
-                    .expect("validated TMA reduction libNVVM evidence profile")
-                    .clone(),
                 targets: None,
                 minimum_ptx: Some("8.0".into()),
                 minimum_sm: Some("sm_90".into()),
@@ -375,7 +364,6 @@ pub(in crate::resolve) fn expand_tma_reduction_variant(
             operation: TmaOperation::Reduce,
             reduction: Some(reduction),
             adapter: TmaAdapter::ReductionPointersCoordinatesInjectDefaults,
-            runtime_validation: admission.runtime_validation,
         }),
         tcgen05: None,
         ldmatrix_variant: None,
@@ -1897,77 +1885,9 @@ pub(in crate::resolve) fn tma_recipe(operation: TmaOperation) -> TmaRecipe {
     }
 }
 
-/// Pick the evidence profile one reviewed TMA variant was measured under.
-fn tma_evidence_profile(
-    admission: &TmaAdmission,
-    operation: TmaOperation,
-    backend: IntrinsicBackend,
-) -> String {
-    let (shared, bulk, tensor_cache_hint) = match backend {
-        IntrinsicBackend::LlvmNvptx => (
-            &admission.llvm_evidence_profile,
-            &admission.bulk_llvm_evidence_profile,
-            &admission.tensor_cache_hint_llvm_evidence_profile,
-        ),
-        IntrinsicBackend::LibNvvm => (
-            &admission.libnvvm_evidence_profile,
-            &admission.bulk_libnvvm_evidence_profile,
-            &admission.tensor_cache_hint_libnvvm_evidence_profile,
-        ),
-    };
-    match (bulk, tensor_cache_hint) {
-        (Some(profile), _) if operation.bulk().is_some() => profile.clone(),
-        (_, Some(profile)) if uses_tensor_copy_cache_hint(operation) => profile.clone(),
-        _ => shared.clone(),
-    }
-}
-
-fn uses_tensor_copy_cache_hint(operation: TmaOperation) -> bool {
-    operation.tensor_copy().is_some_and(|copy| copy.cache_hint)
-}
-
 pub(in crate::resolve) fn expand_tma_admission(
     admission: &TmaAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "TMA runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact TMA admission requires both backend evidence profiles"
-    );
-    // The non-tensor bulk copies were measured on their own probe modules, so
-    // they carry their own pair of evidence profiles.
-    ensure!(
-        !TMA_OPERATIONS
-            .iter()
-            .any(|operation| operation.bulk().is_some())
-            || (admission
-                .bulk_llvm_evidence_profile
-                .as_ref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .bulk_libnvvm_evidence_profile
-                    .as_ref()
-                    .is_some_and(|profile| !profile.trim().is_empty())),
-        "compact TMA admission requires both non-tensor bulk-copy evidence profiles"
-    );
-    // The tensor-copy cache-hint forms were likewise measured on their own
-    // probe modules.
-    ensure!(
-        !TMA_OPERATIONS.into_iter().any(uses_tensor_copy_cache_hint)
-            || (admission
-                .tensor_cache_hint_llvm_evidence_profile
-                .as_ref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .tensor_cache_hint_libnvvm_evidence_profile
-                    .as_ref()
-                    .is_some_and(|profile| !profile.trim().is_empty())),
-        "compact TMA admission requires both tensor-copy cache-hint evidence profiles"
-    );
     ensure!(
         admission
             .variants
@@ -2041,11 +1961,6 @@ pub(in crate::resolve) fn expand_tma_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: recipe.llvm_mechanism,
-                        evidence_profile: tma_evidence_profile(
-                            admission,
-                            variant.operation,
-                            IntrinsicBackend::LlvmNvptx,
-                        ),
                         targets: None,
                         minimum_ptx: Some(recipe.minimum_ptx.into()),
                         minimum_sm: recipe.minimum_sm.map(Into::into),
@@ -2053,11 +1968,6 @@ pub(in crate::resolve) fn expand_tma_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: tma_evidence_profile(
-                            admission,
-                            variant.operation,
-                            IntrinsicBackend::LibNvvm,
-                        ),
                         targets: None,
                         minimum_ptx: Some(recipe.minimum_ptx.into()),
                         minimum_sm: recipe.minimum_sm.map(Into::into),
@@ -2098,7 +2008,6 @@ pub(in crate::resolve) fn expand_tma_admission(
                     operation: recipe.operation,
                     reduction: None,
                     adapter: recipe.adapter,
-                    runtime_validation: admission.runtime_validation,
                 }),
                 tcgen05: None,
                 ldmatrix_variant: None,
@@ -2116,15 +2025,6 @@ pub(in crate::resolve) fn expand_tma_admission(
         .collect::<Result<Vec<_>>>()?;
 
     if !admission.reduce_variants.is_empty() {
-        ensure!(
-            admission.reduce_llvm_evidence_profile.is_some(),
-            "compact TMA reduction admission requires reduce_llvm_evidence_profile"
-        );
-        ensure!(
-            admission.reduce_libnvvm_evidence_profile.is_some(),
-            "compact TMA reduction admission requires reduce_libnvvm_evidence_profile"
-        );
-
         let expected_reductions = tma_reduction_matrix();
         ensure!(
             admission.reduce_variants.len() == expected_reductions.len()
@@ -2140,7 +2040,7 @@ pub(in crate::resolve) fn expand_tma_admission(
             "compact TMA reduction admission must list all 64 operations in canonical order"
         );
         for variant in &admission.reduce_variants {
-            records.push(expand_tma_reduction_variant(admission, variant)?);
+            records.push(expand_tma_reduction_variant(variant)?);
         }
     }
     Ok(records)
@@ -2208,8 +2108,7 @@ pub(in crate::resolve) fn validate_tma_policy(
             && policy.memory == recipe.memory
             && policy.convergent == recipe.convergent
             && policy.execution_scope == "thread"
-            && tma.adapter == recipe.adapter
-            && tma.runtime_validation == RuntimeValidation::Unexecuted,
+            && tma.adapter == recipe.adapter,
         "{} TMA semantics changed",
         policy.id
     );
@@ -2233,7 +2132,6 @@ pub(in crate::resolve) fn validate_tma_policy(
                 && route.mechanism == mechanism
                 && route.minimum_ptx.as_deref() == Some(recipe.minimum_ptx)
                 && route.minimum_sm.as_deref() == recipe.minimum_sm
-                && !route.evidence_profile.trim().is_empty()
         })
     };
     ensure!(
@@ -2314,8 +2212,7 @@ pub(in crate::resolve) fn validate_tma_reduction_policy(
             && policy.memory == "read_write"
             && policy.convergent
             && policy.execution_scope == "thread"
-            && tma.adapter == TmaAdapter::ReductionPointersCoordinatesInjectDefaults
-            && tma.runtime_validation == RuntimeValidation::Unexecuted,
+            && tma.adapter == TmaAdapter::ReductionPointersCoordinatesInjectDefaults,
         "{} TMA reduction semantics changed",
         policy.id
     );
@@ -2341,7 +2238,6 @@ pub(in crate::resolve) fn validate_tma_reduction_policy(
                 && route.mechanism == mechanism
                 && route.minimum_ptx.as_deref() == Some("8.0")
                 && route.minimum_sm.as_deref() == Some("sm_90")
-                && !route.evidence_profile.trim().is_empty()
         })
     };
     ensure!(

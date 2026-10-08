@@ -9,7 +9,7 @@ use crate::ptx::{InstructionPattern, OperandPattern};
 
 use crate::model::{
     BackendLoweringMechanism, CatalogHardwareAlternative, CatalogHardwareTarget, CatalogSelection,
-    WgmmaControlAdapter, WgmmaControlMode, WgmmaControlParticipation,
+    IntrinsicBackend, WgmmaControlAdapter, WgmmaControlMode, WgmmaControlParticipation,
 };
 use std::path::Path;
 
@@ -34,14 +34,14 @@ fn catalog_with_stmatrix() -> CatalogFile {
 
 fn catalog_with_clc() -> CatalogFile {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let catalog = crate::resolve::test_catalog_with_clc(&repo_root).unwrap();
+    let catalog = crate::resolve::resolve(&repo_root).unwrap();
     assert_eq!(clc_intrinsics(&catalog).count(), 6);
     catalog
 }
 
 fn catalog_with_tma() -> CatalogFile {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let catalog = crate::resolve::test_catalog_with_tma(&repo_root).unwrap();
+    let catalog = crate::resolve::resolve(&repo_root).unwrap();
     assert_eq!(tma_intrinsics(&catalog).count(), 136);
     catalog
 }
@@ -235,7 +235,7 @@ fn raw_abi_safety_block<'a>(raw: &'a str, id: &str) -> &'a str {
 
 fn catalog_with_tcgen05() -> CatalogFile {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let catalog = crate::resolve::test_catalog_with_tcgen05(&repo_root).unwrap();
+    let catalog = crate::resolve::resolve(&repo_root).unwrap();
     assert_eq!(tcgen05_intrinsics(&catalog).count(), 401);
     catalog
 }

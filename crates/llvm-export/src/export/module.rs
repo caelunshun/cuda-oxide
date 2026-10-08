@@ -456,7 +456,7 @@ fn validate_device_extern_decl(
                 .any(DeviceExternType::contains_float16))
     {
         return Err(format!(
-            "device extern `@{}` uses `half`, which is not supported by the CUDA 12 legacy LLVM 7 NVVM dialect",
+            "device extern `@{}` uses `half`, which is not supported by the legacy LLVM 7 NVVM dialect (pre-sm_100)",
             decl.export_name
         ));
     }
@@ -465,7 +465,7 @@ fn validate_device_extern_decl(
             || decl.param_types.iter().any(|ty| ty.ext_attr().is_some()))
     {
         return Err(format!(
-            "device extern `@{}` passes a sub-32-bit integer or `bool` by value, which is not supported by the CUDA 12 legacy LLVM 7 NVVM dialect; use i32/u32 or pass a pointer",
+            "device extern `@{}` passes a sub-32-bit integer or `bool` by value, which is not supported by the legacy LLVM 7 NVVM dialect (pre-sm_100); use i32/u32 or pass a pointer",
             decl.export_name
         ));
     }

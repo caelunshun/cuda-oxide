@@ -83,10 +83,3 @@ impl ExecutionControlOperation {
         matches!(self, Self::SetMaxNRegInc | Self::SetMaxNRegDec)
     }
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RuntimeValidation {
-    Unexecuted,
-    Executed,
-}

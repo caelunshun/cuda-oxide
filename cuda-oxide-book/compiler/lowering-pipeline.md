@@ -710,7 +710,7 @@ The legacy specification also accepts but ignores `cmpxchg`'s `weak` marker
 and failure ordering.
 
 For the exact accepted types and operations, see the
-[CUDA 12.4 NVVM IR specification](https://docs.nvidia.com/cuda/archive/12.4.0/nvvm-ir-spec/index.html).
+[NVVM IR specification](https://docs.nvidia.com/cuda/nvvm-ir-spec/index.html).
 
 ---
 

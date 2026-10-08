@@ -151,9 +151,8 @@ pub(in crate::resolve) fn validate_packed_atomic_policy(
         };
         ensure!(
             lowering.minimum_ptx.as_deref() == Some(minimum_ptx)
-                && lowering.minimum_sm.as_deref() == Some(expected_sm)
-                && !lowering.evidence_profile.trim().is_empty(),
-            "{} backend {:?} does not carry its exact reviewed profile floor",
+                && lowering.minimum_sm.as_deref() == Some(expected_sm),
+            "{} backend {:?} does not carry its exact reviewed floor",
             policy.id,
             lowering.backend
         );
@@ -960,7 +959,7 @@ pub(in crate::resolve) fn packed_alu_backend_floor(
             IntrinsicBackend::LibNvvm,
         ) => ("4.2", "sm_75"),
         // The ftz and sat fma forms share the plain fma floors: PTX 4.2 natively,
-        // but the pinned LLVM backend needs 6.0 and CUDA 13.3 ptxas no longer
+        // but the pinned LLVM backend needs 6.0 and CUDA 13 ptxas no longer
         // targets sm_70, so libNVVM is checked at sm_75.
         (
             PackedAluFormat::F16x2,

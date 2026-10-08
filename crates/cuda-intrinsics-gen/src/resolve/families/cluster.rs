@@ -7,7 +7,7 @@ use crate::model::{
     BackendLoweringMechanism, ClusterBarrier, ClusterBarrierAdmission, ClusterBarrierMode,
     ClusterBarrierOrdering, ClusterMemory, ClusterMemoryAdapter, ClusterMemoryAdmission,
     ClusterMemoryOperation, ClusterMemorySourceContract, ImportedIntrinsic, IntrinsicBackend,
-    IntrinsicSource, OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation,
+    IntrinsicSource, OverlayBackendLowering, OverlayIntrinsic,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -95,15 +95,6 @@ pub(in crate::resolve) fn cluster_barrier_recipe(mode: ClusterBarrierMode) -> Cl
 pub(in crate::resolve) fn expand_cluster_barrier_admission(
     admission: &ClusterBarrierAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "cluster-barrier runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact cluster-barrier admission requires both backend evidence profiles"
-    );
     let expected_modes = BTreeSet::from([
         ClusterBarrierMode::Arrive,
         ClusterBarrierMode::ArriveAligned,
@@ -178,7 +169,6 @@ pub(in crate::resolve) fn expand_cluster_barrier_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::TypedNvvm,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some(recipe.minimum_ptx.into()),
                         minimum_sm: Some("sm_90".into()),
@@ -186,7 +176,6 @@ pub(in crate::resolve) fn expand_cluster_barrier_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some(recipe.minimum_ptx.into()),
                         minimum_sm: Some("sm_90".into()),
@@ -367,7 +356,6 @@ pub(in crate::resolve) fn validate_cluster_barrier_policy(
             && policy.backend_lowerings.iter().all(|lowering| {
                 lowering.minimum_ptx.as_deref() == Some(recipe.minimum_ptx)
                     && lowering.minimum_sm.as_deref() == Some("sm_90")
-                    && !lowering.evidence_profile.trim().is_empty()
             }),
         "{} must define exactly the reviewed cluster-barrier backend routes",
         policy.id
@@ -491,15 +479,6 @@ pub(crate) fn cluster_memory_inline_recipe(
 pub(in crate::resolve) fn expand_cluster_memory_admission(
     admission: &ClusterMemoryAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "cluster-memory runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact cluster-memory admission requires both backend evidence profiles"
-    );
     let expected = [
         ClusterMemoryOperation::MapSharedRank,
         ClusterMemoryOperation::ReadU32,
@@ -599,10 +578,6 @@ pub(in crate::resolve) fn expand_cluster_memory_admission(
                     .map(|backend| OverlayBackendLowering {
                         backend,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: match backend {
-                            IntrinsicBackend::LlvmNvptx => admission.llvm_evidence_profile.clone(),
-                            IntrinsicBackend::LibNvvm => admission.libnvvm_evidence_profile.clone(),
-                        },
                         targets: None,
                         minimum_ptx: Some("7.8".into()),
                         minimum_sm: Some("sm_90".into()),
@@ -641,7 +616,6 @@ pub(in crate::resolve) fn expand_cluster_memory_admission(
                     operation: recipe.operation,
                     adapter: recipe.adapter,
                     source_contract: recipe.source_contract,
-                    runtime_validation: admission.runtime_validation,
                 }),
                 clc: None,
                 tma: None,
@@ -670,7 +644,6 @@ pub(in crate::resolve) fn validate_cluster_memory_policy(
     ensure!(
         cluster.adapter == recipe.adapter
             && cluster.source_contract == recipe.source_contract
-            && cluster.runtime_validation == RuntimeValidation::Unexecuted
             && policy.id == recipe.id
             && policy.operation_key == recipe.operation_key,
         "{} does not match its closed cluster-memory identity",

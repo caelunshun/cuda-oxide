@@ -14,8 +14,6 @@ use crate::model::{
 use super::fixtures::*;
 use crate::model::ImportedSelection;
 use crate::resolve::abi_ledger::*;
-use crate::resolve::driver::*;
-use crate::resolve::evidence::*;
 use crate::resolve::families::*;
 use crate::resolve::guards::*;
 use crate::resolve::materialize::*;
@@ -142,14 +140,10 @@ fn f32_redux_predicate_requires_the_reviewed_exact_target_matrix() {
 fn intrinsic_abi_identity_is_stable_and_explicit() {
     let policy = policy();
     let declaration = declaration();
-    let resolved = resolve_record(
+    let resolved = materialize_record(
         &policy,
         resolve_policy_source(&policy).unwrap(),
         Some(&declaration),
-        &evidence(),
-        "test",
-        "LLVM version test",
-        "0123456789abcdef",
         vec![],
         1,
     )
@@ -185,8 +179,6 @@ fn intrinsic_abi_identity_is_stable_and_explicit() {
             upper_exclusive: "1024".into(),
         })
     );
-    assert_eq!(resolved.backend.version, "LLVM version test");
-    assert_eq!(resolved.backend.sha256, "0123456789abcdef");
 }
 
 #[test]
@@ -252,58 +244,6 @@ fn hardware_targets_are_parsed_without_losing_suffix_semantics() {
             alternatives: vec![CatalogHardwareAlternative::FamilyTarget { sm: 120 }],
         }
     );
-}
-
-#[test]
-fn stage_hardware_shared_parser_preserves_canonical_evidence_language() {
-    for (target, expected) in [
-        ("sm_75", CatalogHardwareAlternative::MinimumSm { sm: 75 }),
-        (
-            "sm_120a",
-            CatalogHardwareAlternative::ExactArchitecture { sm: 120 },
-        ),
-        (
-            "compute_120f",
-            CatalogHardwareAlternative::FamilyTarget { sm: 120 },
-        ),
-    ] {
-        assert_eq!(parse_stage_hardware(target), Some(expected), "{target}");
-    }
-    for target in ["sm_090", "sm_1000"] {
-        assert_eq!(parse_stage_hardware(target), None, "{target}");
-    }
-}
-
-#[test]
-fn reviewed_target_floors_equal_shared_backend_derivation() {
-    for (target, floor) in [
-        ("sm_120a", 87),
-        ("sm_120f", 88),
-        ("sm_121a", 88),
-        ("sm_121f", 88),
-    ] {
-        let hardware = parse_stage_hardware(target).unwrap();
-        assert_eq!(f8f6f4_llvm_ptx_floor(hardware).unwrap(), floor, "{target}");
-    }
-    for (target, floor) in [
-        ("sm_100a", 86),
-        ("sm_100f", 88),
-        ("sm_103a", 88),
-        ("sm_103f", 88),
-        ("sm_110a", 90),
-        ("sm_110f", 90),
-        ("sm_120a", 87),
-        ("sm_120f", 88),
-        ("sm_121a", 88),
-        ("sm_121f", 88),
-    ] {
-        let hardware = parse_stage_hardware(target).unwrap();
-        assert_eq!(
-            blackwell_ldmatrix_llvm_ptx_floor(hardware).unwrap(),
-            floor,
-            "{target}"
-        );
-    }
 }
 
 fn selector(name: &str, value: &str) -> TargetSelectorBinding {
@@ -387,13 +327,6 @@ fn target_contracts_keep_selector_specific_ptx_hardware_pairs() {
         }
     );
 
-    let mut policy = policy();
-    policy.id = "tcgen05_mma".into();
-    validate_candidate_target(&policy, &requirement, "sm_100a", "+ptx86").unwrap();
-    assert!(validate_candidate_target(&policy, &requirement, "sm_103a", "+ptx88").is_err());
-    assert!(validate_candidate_target(&policy, &requirement, "sm_110a", "+ptx88").is_err());
-    validate_candidate_target(&policy, &requirement, "sm_110a", "+ptx90").unwrap();
-
     let libnvvm = [target_contract(
         vec![selector("kind", "i8")],
         &[("sm_100a", "8.6"), ("sm_110a", "9.0")],
@@ -401,8 +334,6 @@ fn target_contracts_keep_selector_specific_ptx_hardware_pairs() {
     let libnvvm_requirement =
         resolve_target_contract("tcgen05_mma", &[selector("kind", "i8")], &libnvvm).unwrap();
     assert_ne!(requirement, libnvvm_requirement);
-    validate_candidate_target(&policy, &requirement, "sm_101a", "+ptx86").unwrap();
-    assert!(validate_candidate_target(&policy, &libnvvm_requirement, "sm_101a", "+ptx86").is_err());
 }
 
 #[test]
@@ -522,7 +453,6 @@ fn exact_inline_ptx_routes_can_inherit_exact_or_family_targets() {
             .map(|backend| crate::model::OverlayBackendLowering {
                 backend,
                 mechanism: BackendLoweringMechanism::InlinePtx,
-                evidence_profile: "test".into(),
                 targets: None,
                 minimum_ptx: Some("8.7".into()),
                 minimum_sm: None,
@@ -571,7 +501,6 @@ fn backend_route_target_override_is_exact_and_does_not_inherit_the_record_sm_flo
     let lowering = crate::model::OverlayBackendLowering {
         backend: IntrinsicBackend::LibNvvm,
         mechanism: BackendLoweringMechanism::InlinePtx,
-        evidence_profile: "test".into(),
         targets: Some("sm_100a|sm_120a".into()),
         minimum_ptx: None,
         minimum_sm: None,
@@ -753,61 +682,4 @@ fn every_active_ledger_entry_requires_an_overlay_record() {
     let error = validate_abi_ledger(&overlay_file(vec![]), &ledger(vec![ledger_entry(&record)]))
         .unwrap_err();
     assert!(error.to_string().contains("has no overlay record"));
-}
-
-#[test]
-fn candidate_targets_are_canonical_and_satisfy_every_floor() {
-    let policy = policy();
-    let requirement = CatalogTargetRequirement {
-        minimum_ptx: "7.0".parse().unwrap(),
-        hardware: CatalogHardwareTarget::AnyOf {
-            alternatives: vec![CatalogHardwareAlternative::MinimumSm { sm: 80 }],
-        },
-    };
-    validate_candidate_target(&policy, &requirement, "sm_80", "+ptx70").unwrap();
-    validate_candidate_target(&policy, &requirement, "sm_90a", "+ptx86").unwrap();
-    assert!(
-        validate_candidate_target(&policy, &requirement, "sm_75", "+ptx70")
-            .unwrap_err()
-            .to_string()
-            .contains("hardware requirement")
-    );
-    assert!(
-        validate_candidate_target(&policy, &requirement, "sm_80", "+ptx69")
-            .unwrap_err()
-            .to_string()
-            .contains("PTX floor")
-    );
-    for malformed in ["compute_80", "sm_080", "sm_80x"] {
-        assert!(
-            validate_candidate_target(&policy, &requirement, malformed, "+ptx70").is_err(),
-            "{malformed}"
-        );
-    }
-    for malformed in ["ptx70", "+ptx7", "+ptx070"] {
-        assert!(
-            validate_candidate_target(&policy, &requirement, "sm_80", malformed).is_err(),
-            "{malformed}"
-        );
-    }
-
-    let exact = CatalogTargetRequirement {
-        minimum_ptx: "8.7".parse().unwrap(),
-        hardware: CatalogHardwareTarget::AnyOf {
-            alternatives: vec![CatalogHardwareAlternative::ExactArchitecture { sm: 120 }],
-        },
-    };
-    validate_candidate_target(&policy, &exact, "sm_120a", "+ptx87").unwrap();
-    assert!(validate_candidate_target(&policy, &exact, "sm_120a", "+ptx86").is_err());
-    assert!(validate_candidate_target(&policy, &exact, "sm_120", "+ptx87").is_err());
-    assert!(validate_candidate_target(&policy, &exact, "sm_120f", "+ptx87").is_err());
-
-    let family = CatalogTargetRequirement {
-        minimum_ptx: "8.7".parse().unwrap(),
-        hardware: CatalogHardwareTarget::AnyOf {
-            alternatives: vec![CatalogHardwareAlternative::FamilyTarget { sm: 120 }],
-        },
-    };
-    validate_candidate_target(&policy, &family, "sm_120f", "+ptx87").unwrap();
-    assert!(validate_candidate_target(&policy, &family, "sm_120a", "+ptx87").is_err());
 }

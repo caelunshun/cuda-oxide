@@ -7,7 +7,7 @@ use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, IntrinsicSource,
     MbarrierExtended, MbarrierExtendedAdapter, MbarrierExtendedAdmission,
     MbarrierExtendedOperation, MbarrierExtendedSourceContract, OverlayBackendLowering,
-    OverlayIntrinsic, RuntimeValidation,
+    OverlayIntrinsic,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -539,15 +539,6 @@ pub(in crate::resolve) fn mbarrier_extended_backend_floor(
 pub(in crate::resolve) fn expand_mbarrier_extended_admission(
     admission: &MbarrierExtendedAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "extended-mbarrier runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact extended-mbarrier admission requires both backend evidence profiles"
-    );
     let expected_operations = BTreeSet::from([
         MbarrierExtendedOperation::ArriveExpectTxCta,
         MbarrierExtendedOperation::ArriveExpectTxCluster,
@@ -653,14 +644,6 @@ pub(in crate::resolve) fn expand_mbarrier_extended_admission(
                         OverlayBackendLowering {
                             backend,
                             mechanism: BackendLoweringMechanism::InlinePtx,
-                            evidence_profile: match backend {
-                                IntrinsicBackend::LlvmNvptx => {
-                                    admission.llvm_evidence_profile.clone()
-                                }
-                                IntrinsicBackend::LibNvvm => {
-                                    admission.libnvvm_evidence_profile.clone()
-                                }
-                            },
                             targets: None,
                             minimum_ptx: Some(minimum_ptx.into()),
                             minimum_sm: Some(minimum_sm.into()),
@@ -692,7 +675,6 @@ pub(in crate::resolve) fn expand_mbarrier_extended_admission(
                     operation: recipe.operation,
                     adapter: recipe.adapter,
                     source_contract: recipe.source_contract,
-                    runtime_validation: admission.runtime_validation,
                 }),
                 register_mma: None,
                 sparse_mma: None,

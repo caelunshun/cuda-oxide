@@ -43,8 +43,8 @@ ptx_isa_section = "9.7.9.19 Data Movement and Conversion Instructions: createpol
 ptx_isa_url = "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
 lowering = "generated_cache_policy_inline_ptx"
 backend_lowerings = [
-    { backend = "llvm_nvptx", mechanism = "inline_ptx", evidence_profile = "rust-llvm-23.1.0-16696adc" },
-    { backend = "lib_nvvm", mechanism = "inline_ptx", evidence_profile = "cuda-13.3-libnvvm-13.3.73-cache-policy" },
+    { backend = "llvm_nvptx", mechanism = "inline_ptx" },
+    { backend = "lib_nvvm", mechanism = "inline_ptx" },
 ]
 cache_policy = { form = "fractional", primary = "evict_last", secondary = "evict_unchanged" }
 expected_ptx = { mnemonic = "createpolicy", modifiers = ["fractional", "L2::evict_last", "b64"], operands = [{ kind = "register" }, { kind = "register" }] }
@@ -82,8 +82,8 @@ ptx_isa_section = "9.7.9.19 Data Movement and Conversion Instructions: createpol
 ptx_isa_url = "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
 lowering = "generated_cache_policy_inline_ptx"
 backend_lowerings = [
-    { backend = "llvm_nvptx", mechanism = "inline_ptx", evidence_profile = "rust-llvm-23.1.0-16696adc" },
-    { backend = "lib_nvvm", mechanism = "inline_ptx", evidence_profile = "cuda-13.3-libnvvm-13.3.73-cache-policy" },
+    { backend = "llvm_nvptx", mechanism = "inline_ptx" },
+    { backend = "lib_nvvm", mechanism = "inline_ptx" },
 ]
 cache_policy = { form = "fractional", primary = "evict_normal", secondary = "evict_unchanged" }
 expected_ptx = { mnemonic = "createpolicy", modifiers = ["fractional", "L2::evict_normal", "b64"], operands = [{ kind = "register" }, { kind = "register" }] }
@@ -121,8 +121,8 @@ ptx_isa_section = "9.7.9.19 Data Movement and Conversion Instructions: createpol
 ptx_isa_url = "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
 lowering = "generated_cache_policy_inline_ptx"
 backend_lowerings = [
-    { backend = "llvm_nvptx", mechanism = "inline_ptx", evidence_profile = "rust-llvm-23.1.0-16696adc" },
-    { backend = "lib_nvvm", mechanism = "inline_ptx", evidence_profile = "cuda-13.3-libnvvm-13.3.73-cache-policy" },
+    { backend = "llvm_nvptx", mechanism = "inline_ptx" },
+    { backend = "lib_nvvm", mechanism = "inline_ptx" },
 ]
 cache_policy = { form = "fractional", primary = "evict_first", secondary = "evict_unchanged" }
 expected_ptx = { mnemonic = "createpolicy", modifiers = ["fractional", "L2::evict_first", "b64"], operands = [{ kind = "register" }, { kind = "register" }] }
@@ -160,8 +160,8 @@ ptx_isa_section = "9.7.9.19 Data Movement and Conversion Instructions: createpol
 ptx_isa_url = "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
 lowering = "generated_cache_policy_inline_ptx"
 backend_lowerings = [
-    { backend = "llvm_nvptx", mechanism = "inline_ptx", evidence_profile = "rust-llvm-23.1.0-16696adc" },
-    { backend = "lib_nvvm", mechanism = "inline_ptx", evidence_profile = "cuda-13.3-libnvvm-13.3.73-cache-policy" },
+    { backend = "llvm_nvptx", mechanism = "inline_ptx" },
+    { backend = "lib_nvvm", mechanism = "inline_ptx" },
 ]
 cache_policy = { form = "fractional", primary = "evict_unchanged", secondary = "evict_unchanged" }
 expected_ptx = { mnemonic = "createpolicy", modifiers = ["fractional", "L2::evict_unchanged", "b64"], operands = [{ kind = "register" }, { kind = "register" }] }
@@ -199,8 +199,8 @@ ptx_isa_section = "9.7.9.19 Data Movement and Conversion Instructions: createpol
 ptx_isa_url = "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
 lowering = "generated_cache_policy_inline_ptx"
 backend_lowerings = [
-    { backend = "llvm_nvptx", mechanism = "inline_ptx", evidence_profile = "rust-llvm-23.1.0-16696adc" },
-    { backend = "lib_nvvm", mechanism = "inline_ptx", evidence_profile = "cuda-13.3-libnvvm-13.3.73-cache-policy" },
+    { backend = "llvm_nvptx", mechanism = "inline_ptx" },
+    { backend = "lib_nvvm", mechanism = "inline_ptx" },
 ]
 cache_policy = { form = "fractional", primary = "evict_last", secondary = "evict_first" }
 expected_ptx = { mnemonic = "createpolicy", modifiers = ["fractional", "L2::evict_last", "L2::evict_first", "b64"], operands = [{ kind = "register" }, { kind = "register" }] }
@@ -238,8 +238,8 @@ ptx_isa_section = "9.7.9.19 Data Movement and Conversion Instructions: createpol
 ptx_isa_url = "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
 lowering = "generated_cache_policy_inline_ptx"
 backend_lowerings = [
-    { backend = "llvm_nvptx", mechanism = "inline_ptx", evidence_profile = "rust-llvm-23.1.0-16696adc" },
-    { backend = "lib_nvvm", mechanism = "inline_ptx", evidence_profile = "cuda-13.3-libnvvm-13.3.73-cache-policy" },
+    { backend = "llvm_nvptx", mechanism = "inline_ptx" },
+    { backend = "lib_nvvm", mechanism = "inline_ptx" },
 ]
 cache_policy = { form = "fractional", primary = "evict_normal", secondary = "evict_first" }
 expected_ptx = { mnemonic = "createpolicy", modifiers = ["fractional", "L2::evict_normal", "L2::evict_first", "b64"], operands = [{ kind = "register" }, { kind = "register" }] }
@@ -277,8 +277,8 @@ ptx_isa_section = "9.7.9.19 Data Movement and Conversion Instructions: createpol
 ptx_isa_url = "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
 lowering = "generated_cache_policy_inline_ptx"
 backend_lowerings = [
-    { backend = "llvm_nvptx", mechanism = "inline_ptx", evidence_profile = "rust-llvm-23.1.0-16696adc" },
-    { backend = "lib_nvvm", mechanism = "inline_ptx", evidence_profile = "cuda-13.3-libnvvm-13.3.73-cache-policy" },
+    { backend = "llvm_nvptx", mechanism = "inline_ptx" },
+    { backend = "lib_nvvm", mechanism = "inline_ptx" },
 ]
 cache_policy = { form = "fractional", primary = "evict_first", secondary = "evict_first" }
 expected_ptx = { mnemonic = "createpolicy", modifiers = ["fractional", "L2::evict_first", "L2::evict_first", "b64"], operands = [{ kind = "register" }, { kind = "register" }] }
@@ -316,8 +316,8 @@ ptx_isa_section = "9.7.9.19 Data Movement and Conversion Instructions: createpol
 ptx_isa_url = "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-createpolicy"
 lowering = "generated_cache_policy_inline_ptx"
 backend_lowerings = [
-    { backend = "llvm_nvptx", mechanism = "inline_ptx", evidence_profile = "rust-llvm-23.1.0-16696adc" },
-    { backend = "lib_nvvm", mechanism = "inline_ptx", evidence_profile = "cuda-13.3-libnvvm-13.3.73-cache-policy" },
+    { backend = "llvm_nvptx", mechanism = "inline_ptx" },
+    { backend = "lib_nvvm", mechanism = "inline_ptx" },
 ]
 cache_policy = { form = "fractional", primary = "evict_unchanged", secondary = "evict_first" }
 expected_ptx = { mnemonic = "createpolicy", modifiers = ["fractional", "L2::evict_unchanged", "L2::evict_first", "b64"], operands = [{ kind = "register" }, { kind = "register" }] }

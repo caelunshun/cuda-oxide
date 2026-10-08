@@ -13,7 +13,6 @@ use std::path::Path;
 
 use super::fixtures::*;
 use crate::resolve::abi_ledger::*;
-use crate::resolve::driver::*;
 use crate::resolve::guards::*;
 use crate::resolve::overlay::*;
 
@@ -658,106 +657,4 @@ fn safe_record_requires_an_allowlist_reason() {
             .to_string()
             .contains("safe_allowlist_reason")
     );
-}
-
-#[test]
-fn candidate_resolution_is_the_only_path_that_can_omit_evidence() {
-    let repo = repo_without_evidence();
-    let candidate = resolve_candidate(
-        &repo.0,
-        "thread_idx_x",
-        "LLVM version candidate",
-        &"a".repeat(64),
-        "sm_80",
-        "+ptx70",
-    )
-    .unwrap();
-    assert_eq!(candidate.catalog.intrinsics.len(), 1);
-    assert_eq!(candidate.catalog.intrinsics[0].id, "thread_idx_x");
-    assert_eq!(candidate.catalog.intrinsics[0].backend.status, "candidate");
-
-    let scalar = resolve_candidate(
-        &repo.0,
-        "i0390",
-        "LLVM version candidate",
-        &"a".repeat(64),
-        "sm_80",
-        "+ptx70",
-    )
-    .unwrap();
-    assert_eq!(scalar.catalog.intrinsics[0].id, "mul_rn_f64");
-    assert!(candidate.catalog.inputs.evidence_sha256.is_empty());
-
-    for (dense_id, abi_id) in [
-        ("mma_m16n8k32_f32_e2m1_e2m1", "i0454"),
-        ("mma_m16n8k32_f16_e2m1_e2m1", "i0479"),
-    ] {
-        let dense_by_name = resolve_candidate(
-            &repo.0,
-            dense_id,
-            "LLVM version candidate",
-            &"a".repeat(64),
-            "sm_120f",
-            "+ptx88",
-        )
-        .unwrap();
-        let dense_by_abi = resolve_candidate(
-            &repo.0,
-            abi_id,
-            "LLVM version candidate",
-            &"a".repeat(64),
-            "sm_120f",
-            "+ptx88",
-        )
-        .unwrap();
-        assert_eq!(
-            dense_by_name.catalog.intrinsics,
-            dense_by_abi.catalog.intrinsics
-        );
-        for lookup in [dense_id, abi_id] {
-            let error = resolve_candidate(
-                &repo.0,
-                lookup,
-                "LLVM version candidate",
-                &"a".repeat(64),
-                "sm_120f",
-                "+ptx87",
-            )
-            .unwrap_err();
-            assert!(error.to_string().contains(dense_id), "{error:#}");
-        }
-    }
-
-    let error = resolve(&repo.0).unwrap_err();
-    assert!(
-        error.to_string().contains("intrinsics/evidence"),
-        "{error:#}"
-    );
-    let error = resolve_candidate(
-        &repo.0,
-        "not_an_intrinsic",
-        "LLVM version candidate",
-        &"a".repeat(64),
-        "sm_80",
-        "+ptx70",
-    )
-    .unwrap_err();
-    assert!(error.to_string().contains("unknown overlay intrinsic"));
-}
-
-#[test]
-fn candidate_resolution_cannot_change_normal_catalog_bytes() {
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let before = crate::util::pretty_json(&resolve(&repo_root).unwrap()).unwrap();
-    resolve_candidate(
-        &repo_root,
-        "thread_idx_x",
-        "LLVM version candidate",
-        &"a".repeat(64),
-        "sm_80",
-        "+ptx70",
-    )
-    .unwrap();
-    let after = crate::util::pretty_json(&resolve(&repo_root).unwrap()).unwrap();
-    assert_eq!(before.as_bytes(), after.as_bytes());
 }

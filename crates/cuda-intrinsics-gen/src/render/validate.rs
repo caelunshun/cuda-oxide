@@ -11,7 +11,7 @@ use crate::model::{
     ExecutionControlOperation, ExtendedMinMaxAdapter, ExtendedMinMaxFormat, IntegerMinMaxFormat,
     IntrinsicBackend, IntrinsicSource, LdmatrixElement, MbarrierBasicAdapter,
     MbarrierBasicOperation, MbarrierExtendedAdapter, MbarrierExtendedOperation,
-    MbarrierExtendedSourceContract, MbarrierStateSpace, RuntimeValidation, ScalarArithmeticFormat,
+    MbarrierExtendedSourceContract, MbarrierStateSpace, ScalarArithmeticFormat,
     ScalarArithmeticOperation, ScalarMathFormat, SparseMmaAccumulator, SpecialRegisterObservation,
     TmaAdapter, TmaOperation, WarpBarrierAdapter, WarpShuffleAdapter, WarpShuffleOperandEncoding,
     WarpShuffleValueKind, WgmmaControlAdapter, WgmmaControlMode, WgmmaControlParticipation,
@@ -472,8 +472,7 @@ pub(super) fn validate_renderable(catalog: &CatalogFile) -> Result<()> {
                             )
                     })
                     && record.cluster_memory.as_ref().is_some_and(|cluster| {
-                        cluster.runtime_validation == RuntimeValidation::Unexecuted
-                            && match (cluster.operation, cluster.adapter, cluster.source_contract) {
+                            match (cluster.operation, cluster.adapter, cluster.source_contract) {
                                 (
                                     ClusterMemoryOperation::MapSharedRank,
                                     ClusterMemoryAdapter::GenericConstAndMutPointerRankToSamePointer,
@@ -557,8 +556,7 @@ pub(super) fn validate_renderable(catalog: &CatalogFile) -> Result<()> {
                     && record.llvm.is_none()
                     && record.lowering == "generated_debug_control"
                     && record.debug_control.as_ref().is_some_and(|debug| {
-                        debug.runtime_validation == RuntimeValidation::Unexecuted
-                            && match debug.operation {
+                            match debug.operation {
                                 DebugControlOperation::Trap => {
                                     debug.adapter == DebugControlAdapter::Direct
                                         && record.rust.arguments.is_empty()
@@ -593,8 +591,7 @@ pub(super) fn validate_renderable(catalog: &CatalogFile) -> Result<()> {
                     && record.lowering == "generated_clc"
                     && record.llvm.is_some()
                     && record.clc.as_ref().is_some_and(|clc| {
-                        clc.runtime_validation == RuntimeValidation::Unexecuted
-                            && match (clc.operation, clc.adapter) {
+                            match (clc.operation, clc.adapter) {
                                 (
                                     ClcOperation::TryCancel
                                     | ClcOperation::TryCancelMulticast,
@@ -729,8 +726,7 @@ pub(super) fn validate_renderable(catalog: &CatalogFile) -> Result<()> {
                     && record.llvm.as_ref().is_some_and(|llvm| llvm.results.is_empty())
                     && record.lowering == "generated_tma"
                     && record.tma.as_ref().is_some_and(|tma| {
-                        tma.runtime_validation == RuntimeValidation::Unexecuted
-                            && match (tma.operation, tma.adapter) {
+                            match (tma.operation, tma.adapter) {
                                 (
                                     TmaOperation::G2sTile1d
                                     | TmaOperation::G2sTile2d

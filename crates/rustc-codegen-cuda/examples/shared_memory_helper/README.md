@@ -71,7 +71,7 @@ Set `CUDA_OXIDE_DUMP_MIR=1` to inspect the imported helper definition and call.
 
 Tested on 2026-09-17 against `main` at
 `7ce30ec798c490e6ed772dfcbad193b3733fe55a`, with this example added, on an
-RTX 5090, NVIDIA driver 580.173.02, and CUDA tools 13.3.
+RTX 5090 with a CUDA 13 driver and toolkit.
 
 | Variant | Result |
 | --- | --- |

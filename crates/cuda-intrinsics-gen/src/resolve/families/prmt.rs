@@ -5,7 +5,7 @@
 
 use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayBackendLowering,
-    OverlayIntrinsic, Prmt, PrmtAdapter, PrmtAdmission, PrmtMode, RuntimeValidation,
+    OverlayIntrinsic, Prmt, PrmtAdapter, PrmtAdmission, PrmtMode,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -104,15 +104,6 @@ pub(in crate::resolve) fn prmt_recipe(mode: PrmtMode) -> PrmtRecipe {
 pub(in crate::resolve) fn expand_prmt_admission(
     admission: &PrmtAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "prmt runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact prmt admission requires both backend evidence profiles"
-    );
     let expected_modes = BTreeSet::from([
         PrmtMode::Generic,
         PrmtMode::F4e,
@@ -207,7 +198,6 @@ pub(in crate::resolve) fn expand_prmt_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::TypedNvvm,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("3.2".into()),
                         minimum_sm: Some("sm_20".into()),
@@ -215,7 +205,6 @@ pub(in crate::resolve) fn expand_prmt_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: None,
                         minimum_sm: Some("sm_75".into()),
@@ -403,7 +392,7 @@ pub(in crate::resolve) fn validate_prmt_policy(
             }
         };
         ensure!(
-            floor_matches && !lowering.evidence_profile.trim().is_empty(),
+            floor_matches,
             "{} backend {:?} does not carry its reviewed prmt floor",
             policy.id,
             lowering.backend

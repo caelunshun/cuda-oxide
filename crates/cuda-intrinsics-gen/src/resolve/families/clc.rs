@@ -5,7 +5,7 @@
 
 use crate::model::{
     BackendLoweringMechanism, Clc, ClcAdapter, ClcAdmission, ClcOperation, ImportedIntrinsic,
-    IntrinsicBackend, OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation,
+    IntrinsicBackend, OverlayBackendLowering, OverlayIntrinsic,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -136,7 +136,7 @@ pub(in crate::resolve) fn clc_recipe(operation: ClcOperation) -> ClcRecipe {
             targets: if operation == ClcOperation::TryCancel {
                 "all"
             } else {
-                // LLVM 22 exposes 101a; CUDA 13.3 exposes the other toolkit names.
+                // LLVM 22 exposes 101a; ptxas accepts the other toolkit names.
                 "sm_100a|sm_101a|sm_103a|sm_110a|sm_120a|sm_121a"
             },
             minimum_sm: if operation == ClcOperation::TryCancel {
@@ -215,15 +215,6 @@ pub(in crate::resolve) fn clc_recipe(operation: ClcOperation) -> ClcRecipe {
 pub(in crate::resolve) fn expand_clc_admission(
     admission: &ClcAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "CLC runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact CLC admission requires both backend evidence profiles"
-    );
     let expected = [
         ClcOperation::TryCancel,
         ClcOperation::TryCancelMulticast,
@@ -293,7 +284,6 @@ pub(in crate::resolve) fn expand_clc_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::TypedNvvm,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("8.6".into()),
                         minimum_sm: recipe.minimum_sm.map(Into::into),
@@ -301,7 +291,6 @@ pub(in crate::resolve) fn expand_clc_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::TypedNvvm,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: Some("8.6".into()),
                         minimum_sm: recipe.minimum_sm.map(Into::into),
@@ -340,7 +329,6 @@ pub(in crate::resolve) fn expand_clc_admission(
                 clc: Some(Clc {
                     operation: recipe.operation,
                     adapter: recipe.adapter,
-                    runtime_validation: admission.runtime_validation,
                 }),
                 tma: None,
                 tcgen05: None,
@@ -430,8 +418,7 @@ pub(in crate::resolve) fn validate_clc_policy(
             && policy.memory == recipe.memory
             && !policy.convergent
             && policy.execution_scope == recipe.execution_scope
-            && clc.adapter == recipe.adapter
-            && clc.runtime_validation == RuntimeValidation::Unexecuted,
+            && clc.adapter == recipe.adapter,
         "{} CLC semantics changed",
         policy.id
     );
@@ -463,7 +450,6 @@ pub(in crate::resolve) fn validate_clc_policy(
                 route.mechanism == BackendLoweringMechanism::TypedNvvm
                     && route.minimum_ptx.as_deref() == Some("8.6")
                     && route.minimum_sm.as_deref() == recipe.minimum_sm
-                    && !route.evidence_profile.trim().is_empty()
             }),
         "{} CLC PTX shape or backend route changed",
         policy.id

@@ -3,7 +3,7 @@
 cuda-oxide has two intrinsic contribution paths. Most device intrinsics are
 **catalog-generated**: contributors edit reviewed catalog inputs and let
 `cuda-intrinsics-gen` produce the API, dialect, importer, lowering, target,
-reference, and probe surfaces together. Operations with bespoke verification or
+and reference surfaces together. Operations with bespoke verification or
 lowering that the catalog cannot express remain hand-written.
 
 Start with [Catalog-Generated Intrinsics](catalog-generated-intrinsics.md) unless
@@ -96,7 +96,7 @@ intrinsic and its op lives in `ops/generated/sreg.rs` today. Adding an op there
 by hand is undone by the next generator run.
 
 For the contributor workflow that owns those generated files, including
-overlays, the append-only ABI ledger, regeneration, evidence, and local CI gates, see
+overlays, the append-only ABI ledger, regeneration, and local checks, see
 [Catalog-Generated Intrinsics](catalog-generated-intrinsics.md).
 
 The modules named above are the hand-written ones -- ops with bespoke
@@ -174,8 +174,8 @@ The `emit_generated_nvvm_intrinsic()` helper works for *any* zero-argument,
 single-result NVVM intrinsic. It prepares the MIR destination before inserting
 the NVVM operation, tags the operation with its catalog ABI marker, writes the
 result through that prepared destination, and emits a branch to the next basic
-block. You never write this arm yourself: once the reviewed overlay, ABI, and
-evidence inputs resolve into `intrinsics/catalog.json`, `cuda-intrinsics-gen` emits it.
+block. You never write this arm yourself: once the reviewed overlay and ABI
+inputs resolve into `intrinsics/catalog.json`, `cuda-intrinsics-gen` emits it.
 Hand-written arms in `terminator/mod.rs` exist only for what the catalog
 cannot describe.
 
@@ -588,9 +588,8 @@ describe), every file you need to touch, in order:
 
 For a catalog intrinsic, steps 2 through 4 are not yours to write. Extend the
 appropriate `intrinsics/overlay/*.toml` family, append the ABI entry in
-`intrinsics/abi-v1.toml`, add evidence only when the route requires it, and
-regenerate. `intrinsics/catalog.json` is generated and must not be edited by
-hand. See [Catalog-Generated Intrinsics](catalog-generated-intrinsics.md) for the
+`intrinsics/abi-v1.toml`, regenerate, and run `just check-intrinsics`.
+`intrinsics/catalog.json` is generated and must not be edited by hand. See [Catalog-Generated Intrinsics](catalog-generated-intrinsics.md) for the
 complete workflow.
 
 ---
@@ -609,5 +608,5 @@ complete workflow.
 ---
 
 That is the hand-written pipeline end to end. For the majority catalog-generated
-path, use the overlay, ABI, evidence, generation, and validation workflow in
+path, use the overlay, ABI, generation, and validation workflow in
 [Catalog-Generated Intrinsics](catalog-generated-intrinsics.md).

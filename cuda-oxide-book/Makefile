@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Warnings are errors, as in CI (.github/workflows/book.yml) and in the Rust
-# docs gate. Override for a draft build:  SPHINXOPTS= make html
+# Warnings are errors, as in `just book` and the Rust docs gate. Override for
+# a draft build:  SPHINXOPTS= make html
 SPHINXOPTS    ?= -W --keep-going
 SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = .

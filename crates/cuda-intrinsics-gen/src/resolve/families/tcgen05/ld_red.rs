@@ -7,10 +7,9 @@
 //! reduction across the loaded registers.
 
 use crate::model::{
-    BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayIntrinsic,
-    RuntimeValidation, Tcgen05, Tcgen05Adapter, Tcgen05Admission, Tcgen05LdMultiplicity,
-    Tcgen05LdRed, Tcgen05LdRedAdmissionVariant, Tcgen05LdRedElement, Tcgen05LdRedOp,
-    Tcgen05LdShape, Tcgen05Operation, Tcgen05SourceContract,
+    BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayIntrinsic, Tcgen05,
+    Tcgen05Adapter, Tcgen05LdMultiplicity, Tcgen05LdRed, Tcgen05LdRedAdmissionVariant,
+    Tcgen05LdRedElement, Tcgen05LdRedOp, Tcgen05LdShape, Tcgen05Operation, Tcgen05SourceContract,
 };
 use crate::ptx::OperandPattern;
 use anyhow::{Result, ensure};
@@ -18,8 +17,8 @@ use anyhow::{Result, ensure};
 use super::*;
 use crate::resolve::guards::*;
 
-/// Both backends admit only the architecture-specific targets that CUDA 13.3
-/// ptxas accepts for `tcgen05.ld.red`; plain and `sm_100a` targets reject it.
+/// Both backends admit only the architecture-specific targets that ptxas
+/// accepts for `tcgen05.ld.red`; plain and `sm_100a` targets reject it.
 pub(in crate::resolve) const TCGEN05_LD_RED_TARGETS: &str = "sm_103a|sm_110a";
 pub(in crate::resolve) const TCGEN05_LD_RED_MINIMUM_PTX: &str = "8.8";
 
@@ -275,7 +274,6 @@ fn tcgen05_ld_red_summary(ld_red: Tcgen05LdRed) -> String {
 
 pub(in crate::resolve) fn materialize_tcgen05_ld_red_variant(
     base: &OverlayIntrinsic,
-    admission: &Tcgen05Admission,
     variant: &Tcgen05LdRedAdmissionVariant,
 ) -> OverlayIntrinsic {
     let ld_red = Tcgen05LdRed {
@@ -333,14 +331,7 @@ pub(in crate::resolve) fn materialize_tcgen05_ld_red_variant(
             .into();
     record.ptx_result = rust_result;
     record.execution_scope = Tcgen05Operation::LdRed.execution_scope().into();
-    for (route, profile) in record.backend_lowerings.iter_mut().zip([
-        &admission.ld_red_llvm_evidence_profile,
-        &admission.ld_red_libnvvm_evidence_profile,
-    ]) {
-        route.evidence_profile = profile
-            .as_ref()
-            .expect("validated tcgen05 reducing-load evidence profile")
-            .clone();
+    for route in &mut record.backend_lowerings {
         route.minimum_ptx = Some(TCGEN05_LD_RED_MINIMUM_PTX.into());
         route.targets =
             (route.backend == IntrinsicBackend::LibNvvm).then(|| TCGEN05_LD_RED_TARGETS.into());
@@ -358,7 +349,6 @@ pub(in crate::resolve) fn materialize_tcgen05_ld_red_variant(
             Tcgen05Adapter::TmemInjectReductionToRegistersAndValue
         },
         source_contract: Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection,
-        runtime_validation: admission.runtime_validation,
     });
     record.expected_ptx.modifiers = tcgen05_ld_red_modifiers(ld_red);
     record.expected_ptx.operands = tcgen05_ld_red_operands(ld_red);
@@ -466,8 +456,7 @@ pub(in crate::resolve) fn validate_tcgen05_ld_red_policy(
                 } else {
                     Tcgen05Adapter::TmemInjectReductionToRegistersAndValue
                 }
-            && tcgen05.source_contract == Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection
-            && tcgen05.runtime_validation == RuntimeValidation::Unexecuted,
+            && tcgen05.source_contract == Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection,
         "{} tcgen05 reducing-load semantics changed",
         policy.id
     );
@@ -493,7 +482,6 @@ pub(in crate::resolve) fn validate_tcgen05_ld_red_policy(
                 route.mechanism == BackendLoweringMechanism::InlinePtx
                     && route.minimum_ptx.as_deref() == Some(TCGEN05_LD_RED_MINIMUM_PTX)
                     && route.minimum_sm.is_none()
-                    && !route.evidence_profile.trim().is_empty()
             }),
         "{} tcgen05 reducing-load backend route changed",
         policy.id

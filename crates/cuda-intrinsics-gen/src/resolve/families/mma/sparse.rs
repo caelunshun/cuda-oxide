@@ -5,7 +5,7 @@
 
 use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayBackendLowering,
-    OverlayIntrinsic, RuntimeValidation, SparseMma, SparseMmaAccumulator, SparseMmaAdapter,
+    OverlayIntrinsic, SparseMma, SparseMmaAccumulator, SparseMmaAdapter,
     SparseMmaCompatibilitySource, SparseMmaElement, SparseMmaF8F6F4Admission,
     SparseMmaF8F6F4F16Admission, SparseMmaIntegerAdmission, SparseMmaLayout, SparseMmaLlvmAdapter,
     SparseMmaMetadata, SparseMmaOrderedAmpereFloatAdmission, SparseMmaOrderedAmpereFloatVariant,
@@ -638,11 +638,6 @@ pub(in crate::resolve) fn expand_sparse_mma_ordered_ampere_float_admission(
     admission: &SparseMmaOrderedAmpereFloatAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
     ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "ordered Ampere floating sparse MMA admission requires both backend evidence profiles"
-    );
-    ensure!(
         admission.variants == SPARSE_MMA_ORDERED_AMPERE_FLOAT_VARIANTS,
         "ordered Ampere floating sparse MMA admission must retain the eight reviewed variants in ABI order"
     );
@@ -666,7 +661,6 @@ pub(in crate::resolve) fn expand_sparse_mma_ordered_ampere_float_admission(
                 adapter: SparseMmaAdapter::C4F32A4U32B4U32MetadataU32SelectorU32ToD4F32,
                 llvm_adapter: SparseMmaLlvmAdapter::A4I32B4I32C4F32MetadataI32SelectorI32ToD4F32,
                 compatibility_source: SparseMmaCompatibilitySource::GeneratedStub,
-                runtime_validation: admission.runtime_validation,
             };
             let carrier = sparse_mma_ampere_float_carrier_recipe(&mma).context(
                 "ordered Ampere floating sparse MMA admission uses an unsupported carrier",
@@ -681,8 +675,6 @@ pub(in crate::resolve) fn expand_sparse_mma_ordered_ampere_float_admission(
                 String::new(),
                 mma,
                 recipe,
-                &admission.llvm_evidence_profile,
-                &admission.libnvvm_evidence_profile,
                 format!(
                     "Multiplies warp-distributed ordered sparse {} A and B fragments and adds a {} accumulator.",
                     sparse_mma_element_name(variant.element),
@@ -703,10 +695,6 @@ pub(in crate::resolve) fn expand_sparse_mma_integer_admission(
     ensure!(
         !admission.variants.is_empty(),
         "compact sparse integer MMA admission has no variants"
-    );
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "sparse integer MMA runtime validation may be marked executed only with GPU evidence"
     );
 
     let mut seen = BTreeSet::new();
@@ -744,7 +732,6 @@ pub(in crate::resolve) fn expand_sparse_mma_integer_admission(
             adapter: carrier.adapter,
             llvm_adapter: carrier.llvm_adapter,
             compatibility_source: SparseMmaCompatibilitySource::GeneratedStub,
-            runtime_validation: admission.runtime_validation,
         };
         let recipe = sparse_mma_recipe(&mma).with_context(
             || "compact sparse integer MMA admission requests a variant outside the closed recipe set",
@@ -787,8 +774,6 @@ pub(in crate::resolve) fn expand_sparse_mma_integer_admission(
             String::new(),
             mma,
             recipe,
-            &admission.llvm_evidence_profile,
-            &admission.libnvvm_evidence_profile,
             summary,
         ));
     }
@@ -798,11 +783,6 @@ pub(in crate::resolve) fn expand_sparse_mma_integer_admission(
 pub(in crate::resolve) fn expand_sparse_mma_f8f6f4_admission(
     admission: &SparseMmaF8F6F4Admission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "sparse f8f6f4 MMA runtime validation may be marked executed only with GPU evidence"
-    );
-
     let formats = vec![
         SparseMmaElement::E2m1,
         SparseMmaElement::E2m3,
@@ -854,7 +834,6 @@ pub(in crate::resolve) fn expand_sparse_mma_f8f6f4_admission(
                 adapter: carrier.adapter,
                 llvm_adapter: carrier.llvm_adapter,
                 compatibility_source: SparseMmaCompatibilitySource::GeneratedStub,
-                runtime_validation: admission.runtime_validation,
             };
             let recipe = sparse_mma_recipe(&mma).with_context(|| {
             "compact sparse f8f6f4 MMA admission requests a variant outside the closed recipe set"
@@ -868,8 +847,6 @@ pub(in crate::resolve) fn expand_sparse_mma_f8f6f4_admission(
                 String::new(),
                 mma,
                 recipe,
-                &admission.llvm_evidence_profile,
-                &admission.libnvvm_evidence_profile,
                 summary,
             ));
         }
@@ -889,15 +866,6 @@ pub(in crate::resolve) const SPARSE_MMA_F8F6F4_ELEMENTS: [SparseMmaElement; 5] =
 pub(in crate::resolve) fn expand_sparse_mma_f8f6f4_f16_admission(
     admission: &SparseMmaF8F6F4F16Admission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "sparse f8f6f4 F16 MMA runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "sparse f8f6f4 F16 MMA admission requires both backend evidence profiles"
-    );
     ensure!(
         admission.a_elements == SPARSE_MMA_F8F6F4_ELEMENTS
             && admission.b_elements == SPARSE_MMA_F8F6F4_ELEMENTS
@@ -929,7 +897,6 @@ pub(in crate::resolve) fn expand_sparse_mma_f8f6f4_f16_admission(
                 adapter: carrier.adapter,
                 llvm_adapter: carrier.llvm_adapter,
                 compatibility_source: SparseMmaCompatibilitySource::GeneratedStub,
-                runtime_validation: admission.runtime_validation,
             };
             let recipe = sparse_mma_recipe(&mma).context(
                 "compact sparse f8f6f4 F16 MMA admission requests a variant outside the closed recipe set",
@@ -943,8 +910,6 @@ pub(in crate::resolve) fn expand_sparse_mma_f8f6f4_f16_admission(
                 String::new(),
                 mma,
                 recipe,
-                &admission.llvm_evidence_profile,
-                &admission.libnvvm_evidence_profile,
                 summary,
             ));
         }
@@ -957,8 +922,6 @@ pub(in crate::resolve) fn sparse_mma_overlay_record(
     abi_id: String,
     mma: SparseMma,
     recipe: SparseMmaRecipe,
-    llvm_evidence_profile: &str,
-    libnvvm_evidence_profile: &str,
     summary: String,
 ) -> OverlayIntrinsic {
     let identity = &recipe.identity;
@@ -1001,14 +964,13 @@ pub(in crate::resolve) fn sparse_mma_overlay_record(
         ptx_isa_url: "https://docs.nvidia.com/cuda/parallel-thread-execution/#warp-level-matrix-instructions-mma-sp".into(),
         lowering: "generated_sparse_mma".into(),
         backend_lowerings: [
-            (IntrinsicBackend::LlvmNvptx, llvm_evidence_profile),
-            (IntrinsicBackend::LibNvvm, libnvvm_evidence_profile),
+            IntrinsicBackend::LlvmNvptx,
+            IntrinsicBackend::LibNvvm,
         ]
         .into_iter()
-        .map(|(backend, evidence_profile)| OverlayBackendLowering {
+        .map(|backend| OverlayBackendLowering {
             backend,
             mechanism: BackendLoweringMechanism::InlinePtx,
-            evidence_profile: evidence_profile.into(),
             targets: None,
             minimum_ptx: Some(minimum_ptx.into()),
             minimum_sm: minimum_sm.map(str::to_owned),

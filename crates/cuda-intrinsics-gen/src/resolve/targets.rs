@@ -345,8 +345,7 @@ pub(super) fn validate_selected_target_predicates(
         return Ok(());
     }
     // MMA uses reviewed inline PTX. Its imported predicates gate LLVM's typed
-    // selection, while the closed recipe and terminal evidence set the native
-    // PTX floor.
+    // selection, while the closed recipe sets the native PTX floor.
     if mma_family {
         return Ok(());
     }

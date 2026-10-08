@@ -8,7 +8,7 @@ use crate::model::{
     OverlayBackendLowering, OverlayIntrinsic, PackedConversionAdapter,
     PackedConversionDestinationFormat, PackedConversionFp8Admission, PackedConversionFp8Direction,
     PackedConversionFp8F16x2Admission, PackedConversionFp8Format, PackedConversionRounding,
-    PackedConversionSaturation, PackedConversionSourceFormat, RuntimeValidation,
+    PackedConversionSaturation, PackedConversionSourceFormat,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -485,9 +485,9 @@ pub(in crate::resolve) fn packed_conversion_backend_mechanism(
 /// Only the scalar-`f32` pair does. The `f16x2` sources and destinations carry
 /// their halves in one integer register on the MIR side, while the typed
 /// intrinsics are declared over `<2 x half>`; routing them through inline PTX
-/// avoids a packed-half MIR type for no change in emitted code. The recorded
-/// evidence assembles both routes to a byte-identical cubin, so the typed route
-/// can be switched on later without changing the PTX contract.
+/// avoids a packed-half MIR type for no change in emitted code. Both routes
+/// assemble to a byte-identical cubin, so the typed route can be switched on
+/// later without changing the PTX contract.
 pub(in crate::resolve) fn packed_conversion_uses_typed_nvvm(
     conversion: &crate::model::PackedConversion,
 ) -> bool {
@@ -511,10 +511,6 @@ pub(in crate::resolve) fn packed_conversion_lowering(
 pub(in crate::resolve) fn expand_packed_conversion_fp8_admission(
     admission: &PackedConversionFp8Admission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "FP8 conversion runtime validation may be marked executed only with GPU evidence"
-    );
     ensure!(
         admission.destination_formats
             == [
@@ -552,11 +548,7 @@ pub(in crate::resolve) fn expand_packed_conversion_fp8_admission(
                 saturation,
                 adapter: PackedConversionAdapter::ReverseHighLowOperands,
             };
-            records.push(packed_conversion_overlay_record(
-                conversion,
-                &admission.llvm_evidence_profile,
-                &admission.libnvvm_evidence_profile,
-            )?);
+            records.push(packed_conversion_overlay_record(conversion)?);
         }
     }
     ensure!(records.len() == admission.product_count);
@@ -566,10 +558,6 @@ pub(in crate::resolve) fn expand_packed_conversion_fp8_admission(
 pub(in crate::resolve) fn expand_packed_conversion_fp8_f16x2_admission(
     admission: &PackedConversionFp8F16x2Admission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "FP8 f16x2 conversion runtime validation may be marked executed only with GPU evidence"
-    );
     ensure!(
         admission.fp8_formats
             == [
@@ -647,11 +635,7 @@ pub(in crate::resolve) fn expand_packed_conversion_fp8_f16x2_admission(
                         adapter: PackedConversionAdapter::Identity,
                     },
                 };
-                records.push(packed_conversion_overlay_record(
-                    conversion,
-                    &admission.llvm_evidence_profile,
-                    &admission.libnvvm_evidence_profile,
-                )?);
+                records.push(packed_conversion_overlay_record(conversion)?);
             }
         }
     }
@@ -661,8 +645,6 @@ pub(in crate::resolve) fn expand_packed_conversion_fp8_f16x2_admission(
 
 pub(in crate::resolve) fn packed_conversion_overlay_record(
     conversion: crate::model::PackedConversion,
-    llvm_evidence_profile: &str,
-    libnvvm_evidence_profile: &str,
 ) -> Result<OverlayIntrinsic> {
     let recipe = packed_conversion_recipe(&conversion)
         .context("compact FP8 conversion is outside the closed recipe set")?;
@@ -715,14 +697,13 @@ pub(in crate::resolve) fn packed_conversion_overlay_record(
         ptx_isa_url: "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-cvt".into(),
         lowering: packed_conversion_lowering(&conversion).into(),
         backend_lowerings: [
-            (IntrinsicBackend::LlvmNvptx, llvm_evidence_profile),
-            (IntrinsicBackend::LibNvvm, libnvvm_evidence_profile),
+            IntrinsicBackend::LlvmNvptx,
+            IntrinsicBackend::LibNvvm,
         ]
         .into_iter()
-        .map(|(backend, evidence_profile)| OverlayBackendLowering {
+        .map(|backend| OverlayBackendLowering {
             backend,
             mechanism: packed_conversion_backend_mechanism(&conversion, backend),
-            evidence_profile: evidence_profile.into(),
             targets: None,
             minimum_ptx: Some(minimum_ptx.into()),
             minimum_sm: Some(minimum_sm.into()),
@@ -917,8 +898,7 @@ pub(in crate::resolve) fn validate_packed_conversion_policy(
     for lowering in &policy.backend_lowerings {
         ensure!(
             lowering.minimum_ptx.as_deref() == Some(minimum_ptx)
-                && lowering.minimum_sm.as_deref() == Some(minimum_sm)
-                && !lowering.evidence_profile.trim().is_empty(),
+                && lowering.minimum_sm.as_deref() == Some(minimum_sm),
             "{} backend {:?} does not carry its exact packed-conversion floor",
             policy.id,
             lowering.backend

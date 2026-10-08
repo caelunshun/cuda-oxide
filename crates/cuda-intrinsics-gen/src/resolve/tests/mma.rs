@@ -4,14 +4,13 @@
  */
 
 use crate::model::{
-    BackendLoweringMechanism, CatalogHardwareAlternative, CatalogHardwareTarget,
-    EvidenceArtifactKind, EvidenceStageKind, ImportedFile, IntrinsicBackend, OverlayIntrinsic,
-    OverlayShardFile, PreSm70MemberMaskRule, RegisterMmaAccumulator, RegisterMmaAdapter,
-    RegisterMmaCompatibilitySource, RegisterMmaElement, RegisterMmaKind, RegisterMmaOperation,
-    RegisterMmaOverflow, RegisterMmaShape, RuntimeValidation, SparseMmaAccumulator,
-    SparseMmaAdapter, SparseMmaElement, SparseMmaLlvmAdapter, SparseMmaMetadata, SparseMmaOverflow,
-    SparseMmaSelector, SparseMmaShape, WarpBarrierAdapter, WarpBarrierMaskEncoding,
-    WarpBarrierMemoryOrdering, WarpBarrierParticipation,
+    BackendLoweringMechanism, CatalogHardwareAlternative, CatalogHardwareTarget, ImportedFile,
+    IntrinsicBackend, OverlayIntrinsic, OverlayShardFile, PreSm70MemberMaskRule,
+    RegisterMmaAccumulator, RegisterMmaAdapter, RegisterMmaCompatibilitySource, RegisterMmaElement,
+    RegisterMmaKind, RegisterMmaOperation, RegisterMmaOverflow, RegisterMmaShape,
+    SparseMmaAccumulator, SparseMmaAdapter, SparseMmaElement, SparseMmaLlvmAdapter,
+    SparseMmaMetadata, SparseMmaOverflow, SparseMmaSelector, SparseMmaShape, WarpBarrierAdapter,
+    WarpBarrierMaskEncoding, WarpBarrierMemoryOrdering, WarpBarrierParticipation,
 };
 use crate::ptx::OperandPattern;
 use crate::util::read_json;
@@ -34,9 +33,6 @@ schema = {schema}
 family = "stmatrix"
 
 [stmatrix]
-llvm_evidence_profile = "llvm-test"
-libnvvm_evidence_profile = "libnvvm-test"
-runtime_validation = "unexecuted"
 
 [[stmatrix.variant]]
 abi_id = "i0301"
@@ -95,10 +91,6 @@ layout = "transposed"
     let mut wrong_id = admission.clone();
     wrong_id.variants[0].abi_id = "i0302".into();
     assert!(expand_stmatrix_admission(&wrong_id).is_err());
-
-    let mut executed = admission;
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_stmatrix_admission(&executed).is_err());
 }
 
 #[test]
@@ -274,14 +266,6 @@ fn compact_sparse_f8f6f4_f16_admission_is_closed_and_ordered() {
             .iter()
             .all(|record| record.abi_id.is_empty())
     );
-
-    let mut missing_evidence = admission.clone();
-    missing_evidence.llvm_evidence_profile.clear();
-    assert!(expand_sparse_mma_f8f6f4_f16_admission(&missing_evidence).is_err());
-
-    let mut executed = admission;
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_sparse_mma_f8f6f4_f16_admission(&executed).is_err());
 }
 
 #[test]
@@ -292,17 +276,9 @@ fn compact_sparse_ordered_ampere_float_admission_is_closed_and_ledger_bound() {
     let shard: OverlayShardFile = toml::from_slice(&bytes).unwrap();
     let admission = shard.sparse_mma_ordered_ampere_float.unwrap();
 
-    // Executed runtime validation is admitted for this family (GPU evidence backs it).
-    assert_eq!(admission.runtime_validation, RuntimeValidation::Executed);
     let records = expand_sparse_mma_ordered_ampere_float_admission(&admission).unwrap();
     assert_eq!(records.len(), 8);
     assert!(records.iter().all(|record| record.abi_id.is_empty()));
-    assert!(records.iter().all(|record| {
-        record
-            .sparse_mma
-            .as_ref()
-            .is_some_and(|mma| mma.runtime_validation == RuntimeValidation::Executed)
-    }));
 
     let mut bound = overlay_file(records.clone());
     bind_pinned_abi_ids(&repo_root, &mut bound);
@@ -377,29 +353,6 @@ fn compact_sparse_ordered_ampere_float_admission_is_closed_and_ledger_bound() {
     let mut missing = admission.clone();
     missing.variants.pop();
     assert!(expand_sparse_mma_ordered_ampere_float_admission(&missing).is_err());
-
-    let mut missing_evidence = admission;
-    missing_evidence.llvm_evidence_profile.clear();
-    assert!(expand_sparse_mma_ordered_ampere_float_admission(&missing_evidence).is_err());
-}
-
-#[test]
-fn sparse_f8f6f4_f16_candidate_floor_uses_the_resolved_policy() {
-    let policy = expand_sparse_mma_f8f6f4_f16_admission(&test_sparse_mma_f8f6f4_f16_admission())
-        .unwrap()
-        .remove(0);
-    let (_, requirement) = candidate_llvm_route(&policy).unwrap();
-
-    validate_candidate_target(&policy, &requirement, "sm_120a", "+ptx87").unwrap();
-    validate_candidate_target(&policy, &requirement, "sm_120f", "+ptx88").unwrap();
-    validate_candidate_target(&policy, &requirement, "sm_121a", "+ptx88").unwrap();
-    validate_candidate_target(&policy, &requirement, "sm_121f", "+ptx88").unwrap();
-    for target in ["sm_120f", "sm_121a", "sm_121f"] {
-        assert!(
-            validate_candidate_target(&policy, &requirement, target, "+ptx87").is_err(),
-            "{target} must require PTX 8.8"
-        );
-    }
 }
 
 #[test]
@@ -481,14 +434,6 @@ fn compact_dense_f8f6f4_admission_is_closed() {
         let mut reordered_targets = admission.clone();
         reordered_targets.targets.swap(0, 1);
         assert!(expand_register_mma_f8f6f4_admission(&reordered_targets, accumulator).is_err());
-
-        let mut missing_evidence = admission.clone();
-        missing_evidence.llvm_evidence_profile.clear();
-        assert!(expand_register_mma_f8f6f4_admission(&missing_evidence, accumulator).is_err());
-
-        let mut executed = admission;
-        executed.runtime_validation = RuntimeValidation::Executed;
-        assert!(expand_register_mma_f8f6f4_admission(&executed, accumulator).is_err());
     }
 
     let admission = test_register_mma_f8f6f4_admission(RegisterMmaAccumulator::F32);
@@ -624,9 +569,6 @@ fn compact_standard_fp8_admission_is_closed_and_ordered() {
             .iter()
             .all(|record| record.abi_id.is_empty())
     );
-    let mut wrong = admission;
-    wrong.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_register_mma_fp8_admission(&wrong).is_err());
 }
 
 #[test]
@@ -682,12 +624,6 @@ fn compact_ampere_float_mma_admission_is_closed_and_ordered() {
     );
     let mut wrong = admission.clone();
     wrong.product_count = 4;
-    assert!(expand_register_mma_ampere_float_admission(&wrong).is_err());
-    let mut wrong = admission.clone();
-    wrong.llvm_evidence_profile.clear();
-    assert!(expand_register_mma_ampere_float_admission(&wrong).is_err());
-    let mut wrong = admission;
-    wrong.runtime_validation = RuntimeValidation::Executed;
     assert!(expand_register_mma_ampere_float_admission(&wrong).is_err());
 
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -969,12 +905,10 @@ fn standard_fp8_resolves_exact_routes_and_target_floors() {
         (
             IntrinsicBackend::LlvmNvptx,
             BackendLoweringMechanism::InlinePtx,
-            "rust-llvm-23.1.0-16696adc",
         ),
         (
             IntrinsicBackend::LibNvvm,
             BackendLoweringMechanism::InlinePtx,
-            "cuda-13.3-libnvvm-13.3.33",
         ),
     ];
     let mut floor_groups = BTreeMap::new();
@@ -990,11 +924,7 @@ fn standard_fp8_resolves_exact_routes_and_target_floors() {
             record
                 .backend_lowerings
                 .iter()
-                .map(|route| (
-                    route.backend,
-                    route.mechanism,
-                    route.evidence_profile.as_str()
-                ))
+                .map(|route| (route.backend, route.mechanism))
                 .collect::<Vec<_>>(),
             expected_routes
         );
@@ -1017,20 +947,6 @@ fn standard_fp8_resolves_exact_routes_and_target_floors() {
                     .collect::<Vec<_>>(),
                 ["Subtarget->getPTXVersion() >= 84"]
             );
-            let llvm_route = &record.backend_lowerings[0];
-            assert!(llvm_route.stages.iter().any(|stage| {
-                stage.stage == EvidenceStageKind::PtxAssembly
-                    && stage.mechanism == Some(BackendLoweringMechanism::InlinePtx)
-                    && stage.outcome == "succeeded"
-                    && stage.targets == ["sm_89", "ptx87"]
-                    && stage.artifact_kind == Some(EvidenceArtifactKind::Cubin)
-            }));
-            assert!(llvm_route.stages.iter().any(|stage| {
-                stage.stage == EvidenceStageKind::PtxAssembly
-                    && stage.mechanism == Some(BackendLoweringMechanism::InlinePtx)
-                    && stage.outcome == "failed"
-                    && stage.targets == ["sm_89", "ptx86"]
-            }));
         }
     }
     assert_eq!(
@@ -1054,30 +970,6 @@ fn standard_fp8_resolves_exact_routes_and_target_floors() {
             ),
         ])
     );
-}
-
-#[test]
-fn dense_f8f6f4_candidate_floor_uses_the_resolved_policy() {
-    for accumulator in [RegisterMmaAccumulator::F16, RegisterMmaAccumulator::F32] {
-        let policy = expand_register_mma_f8f6f4_admission(
-            &test_register_mma_f8f6f4_admission(accumulator),
-            accumulator,
-        )
-        .unwrap()
-        .remove(0);
-        let (_, requirement) = candidate_llvm_route(&policy).unwrap();
-
-        validate_candidate_target(&policy, &requirement, "sm_120a", "+ptx87").unwrap();
-        validate_candidate_target(&policy, &requirement, "sm_120f", "+ptx88").unwrap();
-        validate_candidate_target(&policy, &requirement, "sm_121a", "+ptx88").unwrap();
-        validate_candidate_target(&policy, &requirement, "sm_121f", "+ptx88").unwrap();
-        for target in ["sm_120f", "sm_121a", "sm_121f"] {
-            assert!(
-                validate_candidate_target(&policy, &requirement, target, "+ptx87").is_err(),
-                "{target} must require PTX 8.8"
-            );
-        }
-    }
 }
 
 #[test]

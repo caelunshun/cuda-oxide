@@ -154,8 +154,8 @@ pub(in crate::resolve) fn validate_sync_policy(
             }
         };
         ensure!(
-            floor_matches && !lowering.evidence_profile.trim().is_empty(),
-            "{} backend {:?} does not carry its reviewed sync profile floor",
+            floor_matches,
+            "{} backend {:?} does not carry its reviewed sync floor",
             policy.id,
             lowering.backend
         );
@@ -565,7 +565,7 @@ pub(in crate::resolve) fn validate_active_mask_policy(
             }
         };
         ensure!(
-            floor_matches && !lowering.evidence_profile.trim().is_empty(),
+            floor_matches,
             "{} backend {:?} does not carry its reviewed active-mask floor",
             policy.id,
             lowering.backend
@@ -946,14 +946,12 @@ pub(in crate::resolve) fn validate_elect_policy(
                     && route.mechanism == BackendLoweringMechanism::TypedNvvm
                     && route.minimum_ptx.as_deref() == Some("8.0")
                     && route.minimum_sm.as_deref() == Some("sm_90")
-                    && !route.evidence_profile.trim().is_empty()
             })
             && policy.backend_lowerings.iter().any(|route| {
                 route.backend == IntrinsicBackend::LibNvvm
                     && route.mechanism == BackendLoweringMechanism::InlinePtx
                     && route.minimum_ptx.as_deref() == Some("8.0")
                     && route.minimum_sm.as_deref() == Some("sm_90")
-                    && !route.evidence_profile.trim().is_empty()
             }),
         "{} must keep the LLVM typed and libNVVM inline-PTX routes explicit",
         policy.id
@@ -1137,8 +1135,8 @@ pub(in crate::resolve) fn validate_warp_barrier_policy(
             }
         };
         ensure!(
-            floor_matches && !lowering.evidence_profile.trim().is_empty(),
-            "{} backend {:?} does not carry its reviewed warp-barrier profile floor",
+            floor_matches,
+            "{} backend {:?} does not carry its reviewed warp-barrier floor",
             policy.id,
             lowering.backend
         );
@@ -1381,8 +1379,8 @@ pub(in crate::resolve) fn validate_warp_shuffle_policy(
             }
         };
         ensure!(
-            floor_matches && !lowering.evidence_profile.trim().is_empty(),
-            "{} backend {:?} does not carry its reviewed warp-shuffle profile floor",
+            floor_matches,
+            "{} backend {:?} does not carry its reviewed warp-shuffle floor",
             policy.id,
             lowering.backend
         );

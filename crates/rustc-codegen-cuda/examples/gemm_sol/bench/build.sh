@@ -6,11 +6,10 @@
 #
 # `gemm_sol/src/main.rs` invokes this binary at startup to measure the live
 # cublasLtMatmul SoL on the host GPU (replacing the previously hardcoded B200
-# constants). Run this once after entering your dev shell, or whenever
-# CUDA_HOME / cublasLt changes.
+# constants). Run this once, or whenever CUDA_HOME / cublasLt changes.
 #
 # Picks the CUDA toolkit in this priority order:
-#   1. $CUDA_HOME            (set by `nix develop` for cuda-oxide)
+#   1. $CUDA_HOME
 #   2. $CUDA_PATH            (alternative env var some toolchains use)
 #   3. /usr/local/cuda       (system install)
 #
@@ -27,13 +26,13 @@ cuda_root="${CUDA_HOME:-${CUDA_PATH:-/usr/local/cuda}}"
 if [[ ! -d "$cuda_root" ]]; then
     echo "error: CUDA toolkit not found." >&2
     echo "  tried CUDA_HOME=${CUDA_HOME:-<unset>}, CUDA_PATH=${CUDA_PATH:-<unset>}, /usr/local/cuda" >&2
-    echo "  set CUDA_HOME to your CTK install (in cuda-oxide's nix devshell this is automatic)." >&2
+    echo "  set CUDA_HOME to your CTK install." >&2
     exit 1
 fi
 
 # nixpkgs ships .so files under $CUDA_HOME/lib; classic CTK installs use lib64.
 # Pass both -L paths so this works in either layout, then pin them via -rpath
-# so the binary can be invoked outside the dev shell.
+# so the binary runs without LD_LIBRARY_PATH.
 lib_args=()
 rpath_args=()
 for d in "$cuda_root/lib" "$cuda_root/lib64"; do

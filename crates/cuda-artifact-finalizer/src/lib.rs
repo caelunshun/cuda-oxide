@@ -366,9 +366,9 @@ mod live_tests {
     /// NVVM exporter emits it for real kernels. Without it nvJitLink's link-time
     /// optimizer dead-strips the annotation-marked kernel as unreachable and
     /// links an empty module: the pipeline still succeeds, so every assertion
-    /// below passed while nothing was being compiled. Measured on CUDA 13.3
-    /// before this line existed, the linked PTX was 202 bytes with zero
-    /// functions and the cubin had no entry points.
+    /// below passed while nothing was being compiled. Measured before this
+    /// line existed, the linked PTX was 202 bytes with zero functions and the
+    /// cubin had no entry points.
     const LEGACY_NVVM_IR: &[u8] = br#"
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-i128:128:128-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128-n16:32:64"
 target triple = "nvptx64-nvidia-cuda"

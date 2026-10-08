@@ -3,11 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-use crate::model::{CatalogFile, ExtendedMinMaxFormat, IntrinsicBackend, PackedAluFormat};
+use crate::model::{CatalogFile, ExtendedMinMaxFormat, PackedAluFormat};
 #[cfg(test)]
 use crate::render::collector_targets::render_targets;
 use crate::render::collector_targets::{render_collector, render_targets_files};
-use crate::render::common::backend_label;
 use crate::render::compat::{
     render_compat_cache_policy, render_compat_clc, render_compat_cluster_barrier,
     render_compat_cluster_memory, render_compat_cluster_sreg, render_compat_counted_barrier,
@@ -46,7 +45,6 @@ use crate::render::importer::render_importer_files;
 #[cfg(test)]
 use crate::render::lowering::render_lowering;
 use crate::render::lowering::render_lowering_files;
-use crate::render::probes::{render_elect_probe, render_special_register_probe};
 use crate::render::raw_abi::{render_raw_abi, render_raw_mod};
 use crate::render::reference::render_reference;
 use crate::render::validate::validate_renderable;
@@ -61,14 +59,11 @@ mod dialect;
 mod families;
 mod importer;
 mod lowering;
-mod probes;
 mod raw_abi;
 mod reference;
 #[cfg(test)]
 mod tests;
 mod validate;
-
-pub(crate) use probes::render_probe;
 
 pub fn all_outputs(
     catalog: &CatalogFile,
@@ -445,30 +440,6 @@ pub fn all_outputs(
     );
     for (path, contents) in render_targets_files(catalog, catalog_sha256) {
         outputs.insert(path, contents);
-    }
-    for record in &catalog.intrinsics {
-        if record.special_register.is_some() || record.family == "elect" {
-            for backend in [IntrinsicBackend::LlvmNvptx, IntrinsicBackend::LibNvvm] {
-                outputs.insert(
-                    format!(
-                        "intrinsics/probes/{}.{}.ll",
-                        record.id,
-                        backend_label(backend)
-                    )
-                    .into(),
-                    if record.family == "elect" {
-                        render_elect_probe(catalog, record, catalog_sha256, backend)
-                    } else {
-                        render_special_register_probe(catalog, record, catalog_sha256, backend)
-                    },
-                );
-            }
-        } else {
-            outputs.insert(
-                format!("intrinsics/probes/{}.ll", record.id).into(),
-                render_probe(catalog, record, catalog_sha256),
-            );
-        }
     }
     outputs.insert(
         "intrinsics/generated-reference.md".into(),

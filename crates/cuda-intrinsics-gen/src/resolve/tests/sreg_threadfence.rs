@@ -4,8 +4,8 @@
  */
 
 use crate::model::{
-    BackendLoweringMechanism, EvidenceStageKind, ImportedFile, IntrinsicBackend, IntrinsicSource,
-    OverlayShardFile, RuntimeValidation, SpecialRegisterOutputConstraint,
+    BackendLoweringMechanism, ImportedFile, IntrinsicSource, OverlayShardFile,
+    SpecialRegisterOutputConstraint,
 };
 use crate::util::read_json;
 use std::collections::{BTreeMap, BTreeSet};
@@ -13,7 +13,6 @@ use std::path::Path;
 
 use super::fixtures::*;
 use crate::resolve::driver::*;
-use crate::resolve::evidence::*;
 use crate::resolve::families::*;
 use crate::resolve::guards::*;
 use crate::resolve::overlay::*;
@@ -92,10 +91,6 @@ fn special_register_admission_is_closed_and_schema_gated() {
     let mut wrong_count = admission.clone();
     wrong_count.product_count -= 1;
     assert!(expand_special_register_admission(&wrong_count).is_err());
-
-    let mut executed = admission.clone();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_special_register_admission(&executed).is_err());
 
     let shard = |schema| OverlayShardFile {
         schema,
@@ -239,58 +234,6 @@ fn pinned_special_registers_preserve_apis_widths_and_backend_routes() {
 }
 
 #[test]
-fn special_register_evidence_validates_both_backend_routes() {
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let policies = expand_special_register_admission(&test_special_register_admission()).unwrap();
-    let mut evidence_files = vec![
-        read_evidence_file(
-            &repo_root.join("intrinsics/evidence/rust-llvm-23.1.0-16696adc-special-registers.json"),
-        )
-        .unwrap(),
-        read_evidence_file(
-            &repo_root.join("intrinsics/evidence/cuda-13.3-libnvvm-13.3.33-special-registers.json"),
-        )
-        .unwrap(),
-    ];
-    let llvm_revision = "16696adcd119e6ba9cc175207d984d7021211acb";
-    let indexed = index_evidence(&evidence_files, llvm_revision).unwrap();
-    for policy in &policies {
-        for lowering in &policy.backend_lowerings {
-            let evidence = indexed
-                .get(&(lowering.evidence_profile.as_str(), policy.id.as_str()))
-                .unwrap();
-            validate_evidence(policy, evidence, Some(lowering)).unwrap();
-        }
-    }
-
-    let libnvvm = evidence_files
-        .iter_mut()
-        .find(|file| file.backend_kind == Some(IntrinsicBackend::LibNvvm))
-        .unwrap();
-    libnvvm
-        .records
-        .iter_mut()
-        .find(|record| record.id == "gridid")
-        .unwrap()
-        .stages
-        .retain(|stage| stage.stage != EvidenceStageKind::DeviceLink);
-    let indexed = index_evidence(&evidence_files, llvm_revision).unwrap();
-    let policy = policies
-        .iter()
-        .find(|policy| policy.id == "gridid")
-        .unwrap();
-    let lowering = policy
-        .backend_lowerings
-        .iter()
-        .find(|lowering| lowering.backend == IntrinsicBackend::LibNvvm)
-        .unwrap();
-    let evidence = indexed
-        .get(&(lowering.evidence_profile.as_str(), policy.id.as_str()))
-        .unwrap();
-    assert!(validate_evidence(policy, evidence, Some(lowering)).is_err());
-}
-
-#[test]
 fn threadfence_admission_is_closed_and_uses_schema_34() {
     let shard = |schema| {
         toml::from_str::<OverlayShardFile>(&format!(
@@ -299,9 +242,6 @@ schema = {schema}
 family = "sync"
 
 [threadfence]
-llvm_evidence_profile = "llvm-test"
-libnvvm_evidence_profile = "libnvvm-test"
-runtime_validation = "unexecuted"
 
 [[threadfence.variant]]
 abi_id = "i0298"
@@ -352,10 +292,6 @@ scope = "system"
     let mut wrong_id = admission.clone();
     wrong_id.variants[0].abi_id = "i0300".into();
     assert!(expand_threadfence_admission(&wrong_id).is_err());
-
-    let mut executed = admission.clone();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_threadfence_admission(&executed).is_err());
 }
 
 #[test]

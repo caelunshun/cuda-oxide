@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-use super::super::core::RuntimeValidation;
 use serde::{Deserialize, Serialize};
 
 /// Closed semantic contract for byte permutation.
@@ -151,7 +150,6 @@ pub struct ScalarArithmetic {
     pub rounding: ScalarArithmeticRounding,
     pub subnormal: ScalarArithmeticSubnormal,
     pub saturation: ScalarArithmeticSaturation,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -201,7 +199,6 @@ pub struct ScalarMath {
     pub operation: ScalarMathOperation,
     pub precision: ScalarMathPrecision,
     pub subnormal: ScalarMathSubnormal,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -219,7 +216,7 @@ pub enum ScalarMathOperation {
     Cos,
     /// Routes through inline PTX: LLVM 22's tblgen models ex2 as the
     /// overloaded `int_nvvm_ex2_approx{,_ftz}` records (anyfloat, no DAG
-    /// selection pattern), so the evidence contract cannot admit a typed
+    /// selection pattern), so the family contract cannot admit a typed
     /// call. The legacy `llvm.nvvm.ex2.approx.f`/`.ftz.f` names still select
     /// directly on both llc 21 and 22, so this is promotable to a typed
     /// route once the import resolves the overloaded family.
@@ -233,7 +230,7 @@ pub enum ScalarMathOperation {
     /// via NVVMIntrinsic-class matching, and llc 21 miscompiles it into an
     /// extern funcall), so this is the family's only PTX-native source.
     /// Hardware floor is sm_75 (PTX ISA 7.0); the family contract gates it
-    /// at the attested sm_80 evidence floor like every other variant.
+    /// at the family's sm_80 floor like every other variant.
     Tanh,
 }
 
@@ -264,7 +261,6 @@ pub struct ExtendedMinMax {
     pub nan: ExtendedMinMaxNan,
     pub xorsign_abs: bool,
     pub adapter: ExtendedMinMaxAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -406,7 +402,6 @@ pub struct ScalarConversion {
     pub saturation: ScalarConversionSaturation,
     pub result_representation: ScalarConversionResultRepresentation,
     pub adapter: ScalarConversionAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

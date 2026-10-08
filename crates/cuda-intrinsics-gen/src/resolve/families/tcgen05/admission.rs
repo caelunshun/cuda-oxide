@@ -5,8 +5,8 @@
 
 use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayBackendLowering,
-    OverlayIntrinsic, RuntimeValidation, TargetSelectorBinding, Tcgen05, Tcgen05Admission,
-    Tcgen05CpGroup, Tcgen05MmaBUsage, Tcgen05MmaForm, Tcgen05Operation, Tcgen05SourceContract,
+    OverlayIntrinsic, TargetSelectorBinding, Tcgen05, Tcgen05Admission, Tcgen05CpGroup,
+    Tcgen05MmaBUsage, Tcgen05MmaForm, Tcgen05Operation, Tcgen05SourceContract,
 };
 use crate::ptx::InstructionPattern;
 use anyhow::{Context, Result, ensure};
@@ -20,15 +20,6 @@ use crate::resolve::targets::*;
 pub(in crate::resolve) fn expand_tcgen05_admission(
     admission: &Tcgen05Admission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "tcgen05 runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "compact tcgen05 admission requires both backend evidence profiles"
-    );
     let expected = [
         Tcgen05Operation::Alloc,
         Tcgen05Operation::Dealloc,
@@ -66,19 +57,6 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
                 | Tcgen05Operation::ShiftDownCg2
         )
     });
-    if has_control_variants {
-        ensure!(
-            admission
-                .control_llvm_evidence_profile
-                .as_deref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .control_libnvvm_evidence_profile
-                    .as_deref()
-                    .is_some_and(|profile| !profile.trim().is_empty()),
-            "compact tcgen05 control admission requires both backend evidence profiles"
-        );
-    }
     let expected = if has_control_variants {
         &expected[..]
     } else {
@@ -98,12 +76,6 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         .iter()
         .map(|variant| {
             let recipe = tcgen05_recipe(variant.operation);
-            let control = matches!(
-                variant.operation,
-                Tcgen05Operation::CommitMulticast
-                    | Tcgen05Operation::ShiftDown
-                    | Tcgen05Operation::ShiftDownCg2
-            );
             ensure!(
                 variant.abi_id == recipe.abi_id,
                 "{} must keep reserved ABI ID {}",
@@ -171,15 +143,6 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: if control {
-                            admission
-                                .control_llvm_evidence_profile
-                                .as_ref()
-                                .expect("validated tcgen05 control LLVM evidence profile")
-                                .clone()
-                        } else {
-                            admission.llvm_evidence_profile.clone()
-                        },
                         targets: None,
                         minimum_ptx: Some("8.6".into()),
                         minimum_sm: None,
@@ -187,15 +150,6 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: if control {
-                            admission
-                                .control_libnvvm_evidence_profile
-                                .as_ref()
-                                .expect("validated tcgen05 control libNVVM evidence profile")
-                                .clone()
-                        } else {
-                            admission.libnvvm_evidence_profile.clone()
-                        },
                         targets: Some(TCGEN05_LIBNVVM_TARGETS.into()),
                         minimum_ptx: Some("8.6".into()),
                         minimum_sm: None,
@@ -242,7 +196,6 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
                     mma: None,
                     adapter: recipe.adapter,
                     source_contract: recipe.source_contract,
-                    runtime_validation: admission.runtime_validation,
                 }),
                 ldmatrix_variant: None,
                 ldmatrix_safety: None,
@@ -258,13 +211,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    if admission.cp_variants.is_empty() {
-        ensure!(
-            admission.cp_llvm_evidence_profile.is_none()
-                && admission.cp_libnvvm_evidence_profile.is_none(),
-            "tcgen05 copy evidence profiles require admitted copy variants"
-        );
-    } else {
+    if !admission.cp_variants.is_empty() {
         ensure!(
             [
                 Tcgen05MmaBUsage::Discard,
@@ -275,17 +222,6 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
             .map(Tcgen05MmaBUsage::selector_value)
                 == [0, 1, 2, 3],
             "tcgen05 MMA B-usage selector mapping changed"
-        );
-        ensure!(
-            admission
-                .cp_llvm_evidence_profile
-                .as_deref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .cp_libnvvm_evidence_profile
-                    .as_deref()
-                    .is_some_and(|profile| !profile.trim().is_empty()),
-            "compact tcgen05 copy admission requires both backend evidence profiles"
         );
 
         use Tcgen05CpGroup::{Cg1, Cg2};
@@ -313,28 +249,11 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
                 .find(|record| record.id == base_id)
                 .unwrap()
                 .clone();
-            records.push(materialize_tcgen05_cp_variant(&base, admission, variant));
+            records.push(materialize_tcgen05_cp_variant(&base, variant));
         }
     }
 
-    if admission.ld_variants.is_empty() {
-        ensure!(
-            admission.ld_llvm_evidence_profile.is_none()
-                && admission.ld_libnvvm_evidence_profile.is_none(),
-            "tcgen05 load evidence profiles require admitted load variants"
-        );
-    } else {
-        ensure!(
-            admission
-                .ld_llvm_evidence_profile
-                .as_deref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .ld_libnvvm_evidence_profile
-                    .as_deref()
-                    .is_some_and(|profile| !profile.trim().is_empty()),
-            "compact tcgen05 load admission requires both backend evidence profiles"
-        );
+    if !admission.ld_variants.is_empty() {
         let expected_ld = TCGEN05_LD_VARIANTS
             .into_iter()
             .flat_map(|(shape, multiplicity)| {
@@ -359,7 +278,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         let first_load = records.len();
         for variant in &admission.ld_variants {
             validate_abi_id(&variant.abi_id)?;
-            records.push(materialize_tcgen05_ld_variant(&base, admission, variant));
+            records.push(materialize_tcgen05_ld_variant(&base, variant));
         }
         for pair in records[first_load..].as_chunks::<2>().0 {
             let raw = pair[0].tcgen05.as_ref().and_then(|tcgen05| tcgen05.ld);
@@ -378,24 +297,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         }
     }
 
-    if admission.st_variants.is_empty() {
-        ensure!(
-            admission.st_llvm_evidence_profile.is_none()
-                && admission.st_libnvvm_evidence_profile.is_none(),
-            "tcgen05 store evidence profiles require admitted store variants"
-        );
-    } else {
-        ensure!(
-            admission
-                .st_llvm_evidence_profile
-                .as_deref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .st_libnvvm_evidence_profile
-                    .as_deref()
-                    .is_some_and(|profile| !profile.trim().is_empty()),
-            "compact tcgen05 store admission requires both backend evidence profiles"
-        );
+    if !admission.st_variants.is_empty() {
         let expected_st = TCGEN05_ST_VARIANTS
             .into_iter()
             .flat_map(|(shape, multiplicity)| {
@@ -420,7 +322,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         let first_store = records.len();
         for variant in &admission.st_variants {
             validate_abi_id(&variant.abi_id)?;
-            records.push(materialize_tcgen05_st_variant(&base, admission, variant));
+            records.push(materialize_tcgen05_st_variant(&base, variant));
         }
         for pair in records[first_store..].as_chunks::<2>().0 {
             let raw = pair[0].tcgen05.as_ref().and_then(|tcgen05| tcgen05.st);
@@ -439,24 +341,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         }
     }
 
-    if admission.ld_offset_variants.is_empty() && admission.st_offset_variants.is_empty() {
-        ensure!(
-            admission.offset_llvm_evidence_profile.is_none()
-                && admission.offset_libnvvm_evidence_profile.is_none(),
-            "tcgen05 offset evidence profiles require admitted offset load/store variants"
-        );
-    } else {
-        ensure!(
-            admission
-                .offset_llvm_evidence_profile
-                .as_deref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .offset_libnvvm_evidence_profile
-                    .as_deref()
-                    .is_some_and(|profile| !profile.trim().is_empty()),
-            "compact tcgen05 offset admission requires both backend evidence profiles"
-        );
+    if !(admission.ld_offset_variants.is_empty() && admission.st_offset_variants.is_empty()) {
         let expected_ld = TCGEN05_OFFSET_LDST_VARIANTS
             .into_iter()
             .flat_map(|(shape, multiplicity)| {
@@ -498,7 +383,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         let first_load = records.len();
         for variant in &admission.ld_offset_variants {
             validate_abi_id(&variant.abi_id)?;
-            records.push(materialize_tcgen05_ld_variant(&base, admission, variant));
+            records.push(materialize_tcgen05_ld_variant(&base, variant));
         }
         for pair in records[first_load..].as_chunks::<2>().0 {
             let raw = pair[0].tcgen05.as_ref().and_then(|tcgen05| tcgen05.ld);
@@ -519,7 +404,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         let first_store = records.len();
         for variant in &admission.st_offset_variants {
             validate_abi_id(&variant.abi_id)?;
-            records.push(materialize_tcgen05_st_variant(&base, admission, variant));
+            records.push(materialize_tcgen05_st_variant(&base, variant));
         }
         for pair in records[first_store..].as_chunks::<2>().0 {
             let raw = pair[0].tcgen05.as_ref().and_then(|tcgen05| tcgen05.st);
@@ -538,24 +423,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
         }
     }
 
-    if admission.ld_red_variants.is_empty() {
-        ensure!(
-            admission.ld_red_llvm_evidence_profile.is_none()
-                && admission.ld_red_libnvvm_evidence_profile.is_none(),
-            "tcgen05 reducing-load evidence profiles require admitted reducing-load variants"
-        );
-    } else {
-        ensure!(
-            admission
-                .ld_red_llvm_evidence_profile
-                .as_deref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .ld_red_libnvvm_evidence_profile
-                    .as_deref()
-                    .is_some_and(|profile| !profile.trim().is_empty()),
-            "compact tcgen05 reducing-load admission requires both backend evidence profiles"
-        );
+    if !admission.ld_red_variants.is_empty() {
         let expected = tcgen05_ld_red_variants();
         ensure!(
             admission
@@ -580,32 +448,17 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
             .clone();
         for variant in &admission.ld_red_variants {
             validate_abi_id(&variant.abi_id)?;
-            records.push(materialize_tcgen05_ld_red_variant(
-                &base, admission, variant,
-            ));
+            records.push(materialize_tcgen05_ld_red_variant(&base, variant));
         }
     }
 
     if admission.mma_variants.is_empty() {
         ensure!(
-            admission.mma_llvm_evidence_profile.is_none()
-                && admission.mma_libnvvm_evidence_profile.is_none()
-                && admission.mma_llvm_target_contracts.is_empty()
+            admission.mma_llvm_target_contracts.is_empty()
                 && admission.mma_libnvvm_target_contracts.is_empty(),
-            "tcgen05 MMA profiles and target contracts require admitted variants"
+            "tcgen05 MMA target contracts require admitted variants"
         );
     } else {
-        ensure!(
-            admission
-                .mma_llvm_evidence_profile
-                .as_deref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .mma_libnvvm_evidence_profile
-                    .as_deref()
-                    .is_some_and(|profile| !profile.trim().is_empty()),
-            "compact tcgen05 MMA admission requires both backend evidence profiles"
-        );
         let expected_variants = TCGEN05_MMA_FORMS
             .into_iter()
             .map(|form| (form, None))
@@ -664,9 +517,7 @@ pub(in crate::resolve) fn expand_tcgen05_admission(
             } else {
                 (&llvm_target, &libnvvm_target)
             };
-            records.push(materialize_tcgen05_mma_variant(
-                admission, variant, llvm, libnvvm,
-            ));
+            records.push(materialize_tcgen05_mma_variant(variant, llvm, libnvvm));
         }
     }
     Ok(records)
@@ -757,8 +608,7 @@ pub(in crate::resolve) fn validate_tcgen05_policy(
             && tcgen05.ld_red.is_none()
             && tcgen05.st.is_none()
             && tcgen05.adapter == recipe.adapter
-            && tcgen05.source_contract == recipe.source_contract
-            && tcgen05.runtime_validation == RuntimeValidation::Unexecuted,
+            && tcgen05.source_contract == recipe.source_contract,
         "{} tcgen05 semantics changed",
         policy.id
     );
@@ -794,7 +644,6 @@ pub(in crate::resolve) fn validate_tcgen05_backend_routes(
                 route.mechanism == BackendLoweringMechanism::InlinePtx
                     && route.minimum_ptx.as_deref() == Some("8.6")
                     && route.minimum_sm.is_none()
-                    && !route.evidence_profile.trim().is_empty()
             }),
         "{} {family} backend route changed",
         policy.id

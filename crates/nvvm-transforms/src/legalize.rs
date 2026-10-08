@@ -210,7 +210,8 @@ pub(crate) fn legalize_nvvm_bit_intrinsics(
     Ok(())
 }
 
-/// CUDA 12's LLVM 7 NVVM dialect does not support the scalar `half` type.
+/// The legacy LLVM 7 NVVM dialect (pre-sm_100) does not support the scalar
+/// `half` type.
 ///
 /// This checks operands, results, function and global signatures, block
 /// arguments, aggregate elements, and operation type attributes. Named
@@ -244,7 +245,7 @@ fn reject_nonportable_f16_types(ctx: &Context, op: Ptr<Operation>) -> Result<()>
     if has_half {
         return pliron::input_err!(
             op.deref(ctx).loc(),
-            "legacy NVVM IR cannot contain scalar f16 because cuda-oxide supports the CUDA 12 LLVM 7 dialect; use f32/f64 or the modern NVVM/PTX path"
+            "legacy NVVM IR cannot contain scalar f16 because the legacy LLVM 7 NVVM dialect (pre-sm_100) does not support it; use f32/f64 or the modern NVVM/PTX path"
         );
     }
     Ok(())
@@ -983,7 +984,7 @@ fn validate_rewrite_candidate(ctx: &Context, op: Ptr<Operation>) -> Result<()> {
         if !matches!(float_width(ctx, ty), Some(32) | Some(64)) {
             return pliron::input_err!(
                 op.deref(ctx).loc(),
-                "legacy NVVM fneg legalization supports only scalar f32 and f64; scalar f16 is not portable to the supported CUDA 12 legacy dialect"
+                "legacy NVVM fneg legalization supports only scalar f32 and f64; scalar f16 is not portable to the legacy LLVM 7 NVVM dialect (pre-sm_100)"
             );
         }
     }
@@ -1533,7 +1534,7 @@ fn validate_float_to_int_sat_call(ctx: &Context, op: Ptr<Operation>, name: &str)
     if expected_float_width == 16 {
         return pliron::input_err!(
             op.deref(ctx).loc(),
-            "legacy NVVM saturating conversion from f16 is not portable to the supported CUDA 12 legacy dialect"
+            "legacy NVVM saturating conversion from f16 is not portable to the legacy LLVM 7 NVVM dialect (pre-sm_100)"
         );
     }
     let operands: Vec<_> = op.deref(ctx).operands().collect();
@@ -2421,7 +2422,7 @@ mod tests {
         let error = legalize_for_legacy_nvvm(&mut ctx, module.get_operation(), 90).unwrap_err();
         let text = error.disp(&ctx).to_string();
         assert!(text.contains("f16"), "{text}");
-        assert!(text.contains("CUDA 12"), "{text}");
+        assert!(text.contains("legacy LLVM 7 NVVM dialect"), "{text}");
     }
 
     #[test]

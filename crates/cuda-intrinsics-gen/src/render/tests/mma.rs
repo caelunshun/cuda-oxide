@@ -6,18 +6,17 @@
 use super::*;
 
 use crate::model::{
-    RegisterMmaAdapter, RegisterMmaCompatibilitySource, RegisterMmaKind, RuntimeValidation,
-    SparseMmaAccumulator, SparseMmaAdapter, SparseMmaShape,
+    RegisterMmaAdapter, RegisterMmaCompatibilitySource, RegisterMmaKind, SparseMmaAccumulator,
+    SparseMmaAdapter, SparseMmaShape,
 };
 use crate::render::collector_targets::generated_intrinsic_variant;
 use crate::render::common::intrinsic_marker;
 use crate::render::families::{
     BLACKWELL_LDMATRIX_EFFECTIVE_FLOORS, SPARSE_MMA_ORDERED_METADATA_RULE,
     SPARSE_MMA_ORDERED_TF32_METADATA_RULE, SPARSE_MMA_STANDARD_METADATA_RULE, ldmatrix,
-    register_mma_attr_variants, register_mma_constraints, register_mma_template, register_mmas,
-    sparse_mma_carriers, sparse_mma_constraints, sparse_mma_fragment_counts,
-    sparse_mma_metadata_rule, sparse_mma_selector_description, sparse_mma_selector_values,
-    sparse_mma_template, sparse_mmas,
+    register_mma_attr_variants, register_mma_constraints, register_mmas, sparse_mma_carriers,
+    sparse_mma_constraints, sparse_mma_fragment_counts, sparse_mma_metadata_rule,
+    sparse_mma_selector_description, sparse_mma_selector_values, sparse_mma_template, sparse_mmas,
 };
 use crate::util::read_json;
 use std::path::Path;
@@ -99,18 +98,6 @@ fn stmatrix_rendering_preserves_all_four_public_and_backend_contracts() {
     assert!(lowering.contains("llvm_nvvm_stmatrix_sync_aligned_m8n8_x4_trans_b16_p3"));
     assert!(lowering.contains("stmatrix.sync.aligned.m8n8.x{register_count}{trans}.shared.b16"));
     assert!(lowering.contains("std::iter::once(\"~{memory}\")"));
-
-    let x2 = stmatrices(&catalog)
-        .find(|record| record.id == "stmatrix_m8n8_x2_b16")
-        .unwrap();
-    let probe = render_probe(&catalog, x2, "test-hash");
-    assert!(probe.contains(
-        "declare void @llvm.nvvm.stmatrix.sync.aligned.m8n8.x2.b16.p3(ptr addrspace(3), i32, i32)"
-    ));
-    assert!(probe.contains("%shared = addrspacecast ptr %generic to ptr addrspace(3)"));
-    assert!(probe.contains(
-            "call void @llvm.nvvm.stmatrix.sync.aligned.m8n8.x2.b16.p3(ptr addrspace(3) %shared, i32 %r0, i32 %r1)"
-        ));
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from(
@@ -236,26 +223,6 @@ fn ldmatrix_family_lowering_uses_one_attribute_dispatch_impl() {
 }
 
 #[test]
-fn ldmatrix_x1_probe_keeps_its_pointer_operand() {
-    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let catalog = crate::resolve::resolve(&repo_root).unwrap();
-    let record = catalog
-        .intrinsics
-        .iter()
-        .find(|record| record.id == "ldmatrix_m8n8_x1_b16")
-        .unwrap();
-
-    let rendered = render_probe(&catalog, record, "test-hash");
-    assert!(
-        rendered.contains(
-            "declare i32 @llvm.nvvm.ldmatrix.sync.aligned.m8n8.x1.b16.p3(ptr addrspace(3))"
-        )
-    );
-    assert!(rendered.contains("define i32 @probe_ldmatrix_m8n8_x1_b16(ptr %generic)"));
-    assert!(!rendered.contains("@llvm.nvvm.ldmatrix.sync.aligned.m8n8.x1.b16.p3()"));
-}
-
-#[test]
 fn movmatrix_rendering_owns_dialect_import_and_lowering() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut catalog = crate::resolve::resolve(&repo_root).unwrap();
@@ -291,7 +258,6 @@ fn movmatrix_rendering_owns_dialect_import_and_lowering() {
         participation:
             crate::model::MovmatrixParticipation::AllWarpLanesSameInstructionNoExitedLanes,
         adapter: crate::model::MovmatrixAdapter::PackedB16x2U32ToPackedB16x2U32,
-        runtime_validation: RuntimeValidation::Unexecuted,
     });
     record.lowering = "generated_movmatrix_inline_ptx".into();
     record.expected_ptx = crate::ptx::InstructionPattern::new(
@@ -328,11 +294,6 @@ fn movmatrix_rendering_owns_dialect_import_and_lowering() {
     assert!(lowering.contains("movmatrix.sync.aligned.m8n8.trans.b16 $0, $1;"));
     assert!(lowering.contains("\"=r,r\""));
     assert!(lowering.contains("inline_asm_convergent"));
-
-    let probe_record = movmatrix(&catalog).next().unwrap();
-    let probe = render_probe(&catalog, probe_record, "test-hash");
-    assert!(probe.contains("call i32 asm \"movmatrix.sync.aligned.m8n8.trans.b16 $0, $1;\""));
-    assert!(probe.contains("attributes #0 = { convergent }"));
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from(
@@ -656,7 +617,6 @@ fn register_mma_rendering_preserves_apis_order_convergence_and_variants() {
         register_mma_constraints(first_dense_f16),
         "=r,=r,r,r,r,r,r,r,r,r"
     );
-    assert!(render_probe(&catalog, first_dense_f16, "test-hash").contains("define { i32, i32 }"));
 
     let first_mxf8f6f4 = records
         .iter()
@@ -672,9 +632,6 @@ fn register_mma_rendering_preserves_apis_order_convergence_and_variants() {
         register_mma_constraints(first_mxf8f6f4),
         "=f,=f,=f,=f,f,f,f,f,r,r,r,r,r,r,r,h,h,r,h,h"
     );
-    assert!(
-        render_probe(&catalog, first_mxf8f6f4, "test-hash").contains("kind::mxf8f6f4.block_scale")
-    );
     let first_mxf8f6f4_compatibility = format!("pub unsafe fn {}(", first_mxf8f6f4.rust.name);
     let first_mxf8f6f4_compatibility = compatibility
         .find(&first_mxf8f6f4_compatibility)
@@ -684,22 +641,10 @@ fn register_mma_rendering_preserves_apis_order_convergence_and_variants() {
             .ends_with("#[allow(clippy::too_many_arguments)]\n#[must_use]\n#[inline(never)]\n")
     );
 
-    for record in &records {
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains("asm sideeffect"));
-        assert!(probe.contains("attributes #0 = { convergent }"));
-        assert!(probe.contains(&register_mma_template(record)));
-        assert!(probe.contains(&register_mma_constraints(record)));
-    }
-
     let reference = render_reference(&catalog, "test-hash");
     assert!(reference.contains("## Register-MMA contracts"));
     assert!(reference.contains("performs XOR, population count, and accumulate"));
     assert!(reference.contains("performs AND, population count, and accumulate"));
-    assert!(reference.contains("runtime validation is not executed on a GPU"));
-    for record in &records {
-        assert!(reference.contains(&format!("- `{}`: runtime `unexecuted`", record.id)));
-    }
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from(
@@ -1120,25 +1065,6 @@ fn sparse_mma_rendering_enforces_selector_and_keeps_family_distinct() {
     assert!(lowering.contains(
             r#"(GeneratedMmaResultType::I32, 2, 12, "mma.sp::ordered_metadata.sync.aligned.m16n8k64.row.col.kind::f8f6f4.f16.e2m1.e2m1.f16 {$0, $1}, {$4, $5, $6, $7}, {$8, $9, $10, $11}, {$2, $3}, $12, $13;", "=r,=r,r,r,r,r,r,r,r,r,r,r,r,n")"#
         ));
-    let f16_probe = render_probe(&catalog, ordered_f8f6f4_f16, "test-hash");
-    assert!(f16_probe.contains(
-            "define { i32, i32 } @probe_mma_sp_ordered_metadata_m16n8k64_kind_f8f6f4_f16_e2m1_e2m1_f16_selector_0"
-        ));
-    assert!(!f16_probe.contains("_selector_1"));
-
-    for record in &records {
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains(&format!("probe_{}_selector_0", record.id)));
-        let selectors = sparse_mma_selector_values(record);
-        assert_eq!(
-            probe.contains(&format!("probe_{}_selector_1", record.id)),
-            selectors.contains(&1)
-        );
-        assert_eq!(probe.matches("asm sideeffect").count(), selectors.len());
-        assert!(probe.contains(&sparse_mma_template(record)));
-        assert!(probe.contains(&sparse_mma_constraints(record)));
-        assert!(probe.contains("attributes #0 = { convergent }"));
-    }
 
     let reference = render_reference(&catalog, "test-hash");
     assert!(reference.contains("## Sparse-MMA contracts"));
@@ -1191,13 +1117,6 @@ fn sparse_mma_rendering_enforces_selector_and_keeps_family_distinct() {
         .unwrap();
     assert!(sparse_reference.contains("Overflow mode is not applicable."));
     assert!(!sparse_reference.contains("Integer overflow is not applicable"));
-    for record in &records {
-        let runtime = match record.sparse_mma.as_ref().unwrap().runtime_validation {
-            RuntimeValidation::Unexecuted => "unexecuted",
-            RuntimeValidation::Executed => "executed",
-        };
-        assert!(reference.contains(&format!("- `{}`: runtime `{runtime}`", record.id)));
-    }
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from(

@@ -199,13 +199,6 @@ pub(in crate::render) fn scalar_arithmetic_rust_type(record: &CatalogIntrinsic) 
     }
 }
 
-pub(in crate::render) fn scalar_arithmetic_llvm_type(record: &CatalogIntrinsic) -> &'static str {
-    match scalar_arithmetic_contract(record).format {
-        ScalarArithmeticFormat::F32 => "float",
-        ScalarArithmeticFormat::F64 => "double",
-    }
-}
-
 pub(in crate::render) fn scalar_arithmetic_ptx_mnemonic(record: &CatalogIntrinsic) -> String {
     format!(
         "{}.{}",
@@ -266,14 +259,6 @@ pub(in crate::render) fn scalar_math_subnormal_attr(record: &CatalogIntrinsic) -
     match scalar_math_contract(record).subnormal {
         ScalarMathSubnormal::Preserve => "ScalarMathSubnormalAttr::Preserve",
         ScalarMathSubnormal::Ftz => "ScalarMathSubnormalAttr::Ftz",
-    }
-}
-
-pub(in crate::render) fn scalar_math_llvm_type(record: &CatalogIntrinsic) -> &'static str {
-    match scalar_math_contract(record).format {
-        ScalarMathFormat::F16 => "i16",
-        ScalarMathFormat::F32 => "float",
-        ScalarMathFormat::F64 => "double",
     }
 }
 

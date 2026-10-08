@@ -7,7 +7,7 @@ use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayIntrinsic, RegisterMma,
     RegisterMmaAccumulator, RegisterMmaAdapter, RegisterMmaCompatibilitySource, RegisterMmaKind,
     RegisterMmaLayout, RegisterMmaOperation, RegisterMmaOverflow, RegisterMmaParticipation,
-    RegisterMmaShape, RuntimeValidation,
+    RegisterMmaShape,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, bail, ensure};
@@ -133,8 +133,7 @@ pub(in crate::resolve) fn validate_register_mma_policy(
             declaration.classes == ["SDPatternOperator", "Intrinsic", "NVVM_MMA"]
                 && selection.predicates == predicates
                 && selection.constraints.is_empty()
-                && mma.kind.is_none()
-                && mma.runtime_validation == RuntimeValidation::Unexecuted,
+                && mma.kind.is_none(),
             "{} imported Ampere floating-point MMA contract changed",
             policy.id
         );
@@ -312,7 +311,6 @@ pub(in crate::resolve) fn validate_register_mma_fp8_policy(
                 == RegisterMmaParticipation::AllWarpLanesSameInstructionAndQualifiersNoExitedLanes
             && mma.adapter == adapter
             && mma.compatibility_source == RegisterMmaCompatibilitySource::GeneratedStub
-            && mma.runtime_validation == RuntimeValidation::Unexecuted
             && policy.dialect_op_type == "RegisterMmaOp"
             && policy.dialect_op_name == "nvvm.register_mma"
             && policy.dialect_operands == dialect_operands
@@ -462,7 +460,6 @@ pub(in crate::resolve) fn validate_register_mma_f8f6f4_policy(
                 == RegisterMmaParticipation::AllWarpLanesSameInstructionAndQualifiersNoExitedLanes
             && mma.adapter == contract.adapter
             && mma.compatibility_source == RegisterMmaCompatibilitySource::GeneratedStub
-            && mma.runtime_validation == RuntimeValidation::Unexecuted
             && policy.lowering == "generated_register_mma",
         "{} dense f8f6f4 carrier or lowering changed",
         policy.id
@@ -550,7 +547,6 @@ pub(in crate::resolve) fn validate_register_mma_f8f6f4_policy(
                 lowering.targets.is_none()
                     && lowering.minimum_ptx.is_none()
                     && lowering.minimum_sm.is_none()
-                    && !lowering.evidence_profile.trim().is_empty()
             }),
         "{} must inherit the exact reviewed target set on both inline-PTX routes",
         policy.id
@@ -630,7 +626,6 @@ pub(in crate::resolve) fn validate_register_mma_mxf8f6f4_policy(
                 == RegisterMmaParticipation::AllWarpLanesSameInstructionAndQualifiersNoExitedLanes
             && mma.adapter == RegisterMmaAdapter::C4F32A4U32B2U32Scales2U32Selectors4U16ToD4F32
             && mma.compatibility_source == RegisterMmaCompatibilitySource::GeneratedStub
-            && mma.runtime_validation == RuntimeValidation::Unexecuted
             && policy.lowering == "generated_register_mma",
         "{} dense mxf8f6f4 carrier or lowering changed",
         policy.id
@@ -726,7 +721,6 @@ pub(in crate::resolve) fn validate_register_mma_mxf8f6f4_policy(
                 lowering.targets.is_none()
                     && lowering.minimum_ptx.is_none()
                     && lowering.minimum_sm.is_none()
-                    && !lowering.evidence_profile.trim().is_empty()
             }),
         "{} must inherit the exact reviewed target set on both inline-PTX routes",
         policy.id

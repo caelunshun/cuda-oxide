@@ -6,11 +6,10 @@
 #
 # `src/main.rs` invokes this binary at startup to measure the live
 # closest-supported cublasLtMatmul reference on the host GPU (replacing B200
-# constants). Run this once after entering your dev shell, or whenever
-# CUDA_HOME / cublasLt changes.
+# constants). Run this once, or whenever CUDA_HOME / cublasLt changes.
 #
 # Picks the CUDA toolkit in this priority order:
-#   1. $CUDA_HOME            (set by the harness `nix develop path:.`)
+#   1. $CUDA_HOME
 #   2. $CUDA_PATH            (alternative env var some toolchains use)
 #   3. /usr/local/cuda       (system install)
 #
@@ -27,13 +26,13 @@ cuda_root="${CUDA_HOME:-${CUDA_PATH:-/usr/local/cuda}}"
 if [[ ! -d "$cuda_root" ]]; then
     echo "error: CUDA toolkit not found." >&2
     echo "  tried CUDA_HOME=${CUDA_HOME:-<unset>}, CUDA_PATH=${CUDA_PATH:-<unset>}, /usr/local/cuda" >&2
-    echo "  set CUDA_HOME to your CTK install (in the harness `nix develop path:.` shell this is automatic)." >&2
+    echo "  set CUDA_HOME to your CTK install." >&2
     exit 1
 fi
 
 # nixpkgs ships .so files under $CUDA_HOME/lib; classic CTK installs use lib64.
 # Pass both -L paths and rpath-pin the toolkit libraries. The NVIDIA driver
-# library must still be discoverable; on this host, run inside the harness shell.
+# library must still be discoverable.
 #
 # Use old-style DT_RPATH deliberately. GNU ld emits DT_RUNPATH by default, but
 # LD_LIBRARY_PATH takes precedence over RUNPATH and RUNPATH is not inherited by

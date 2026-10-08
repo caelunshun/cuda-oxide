@@ -30,7 +30,7 @@
 #   * Prose only: every line of a tracked *.md, and `///` or `//!` lines in a
 #     tracked *.rs. This is what removes the need for a general exemption
 #     list. The non-existent paths that live in Rust *code* are all deliberate
-#     -- synthetic fixture names (`intrinsics/probes/removed.ll`,
+#     -- synthetic fixture names (`ops/generated/removed.rs`,
 #     `intrinsics/overlay/test.toml`), two paths that cuda-intrinsics-gen
 #     render tests assert are *absent*, and the mktemp canary in
 #     check-reserved-prefixes.sh -- and none of them is prose.

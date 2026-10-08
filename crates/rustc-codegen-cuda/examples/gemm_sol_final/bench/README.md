@@ -40,8 +40,7 @@ the accepted final measurements are recorded in `../README.md`.
 The packaged `build.sh` figures out CUDA paths (honoring `CUDA_HOME` /
 `CUDA_PATH`, then falling back to `/usr/local/cuda`) and rpath-pins the
 toolkit libraries ahead of any unrelated CUDA installation inherited through
-`LD_LIBRARY_PATH`. Enter `nix develop path:.` at the repository root; a system
-CTK also needs a compatible driver library on its runtime path:
+`LD_LIBRARY_PATH`. The driver library still has to be on the runtime path:
 
 ```bash
 cd bench/
@@ -51,7 +50,7 @@ bash build.sh
 
 `src/main.rs` picks this binary up automatically and uses its live FP16
 section as the closest supported reference. Use `build.sh`; it handles both
-the Nix toolkit `lib` layout and classic CTK `lib64`.
+toolkit `lib` and classic CTK `lib64` layouts.
 
 ### cuBLAS (legacy) + CUTLASS benchmarks
 

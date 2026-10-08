@@ -5,9 +5,8 @@
 
 use crate::model::{
     CatalogHardwareAlternative, CatalogHardwareTarget, ImportedFile, OverlayIntrinsic,
-    OverlayShardFile, RuntimeValidation, Tcgen05Adapter, Tcgen05MmaBUsage,
-    Tcgen05MmaFixedSelectors, Tcgen05MmaForm, Tcgen05MmaKind, Tcgen05MmaSelectorLayout,
-    Tcgen05Operation, Tcgen05SourceContract,
+    OverlayShardFile, Tcgen05Adapter, Tcgen05MmaBUsage, Tcgen05MmaFixedSelectors, Tcgen05MmaForm,
+    Tcgen05MmaKind, Tcgen05MmaSelectorLayout, Tcgen05Operation, Tcgen05SourceContract,
 };
 use crate::ptx::OperandPattern;
 use crate::util::read_json;
@@ -129,13 +128,6 @@ fn compact_tcgen05_admission_matches_llvm_and_fails_closed() {
     let legacy_records =
         expand_tcgen05_admission(&without_tcgen05_control(test_tcgen05_admission())).unwrap();
     assert_eq!(legacy_records.len(), 24);
-    assert!(legacy_records.iter().all(|record| {
-        record
-            .backend_lowerings
-            .iter()
-            .map(|lowering| lowering.evidence_profile.as_str())
-            .eq(["llvm-tcgen05-test", "libnvvm-tcgen05-test"])
-    }));
 
     let multicast = records
         .iter()
@@ -145,14 +137,6 @@ fn compact_tcgen05_admission_matches_llvm_and_fails_closed() {
     assert_eq!(multicast.rust_arguments, ["*mut u64", "u16"]);
     assert_eq!(multicast.llvm_arguments, ["shared_ptr", "i16"]);
     assert_eq!(multicast.execution_scope, "thread");
-    assert_eq!(
-        multicast.backend_lowerings[0].evidence_profile,
-        "llvm-tcgen05-control-test"
-    );
-    assert_eq!(
-        multicast.backend_lowerings[1].evidence_profile,
-        "libnvvm-tcgen05-control-test"
-    );
 
     for (id, group) in [
         ("tcgen05_shift_down", "cta_group::1"),
@@ -178,14 +162,6 @@ fn compact_tcgen05_admission_matches_llvm_and_fails_closed() {
     let mut wrong_abi = test_tcgen05_admission();
     wrong_abi.variants[0].abi_id = "i9999".into();
     assert!(expand_tcgen05_admission(&wrong_abi).is_err());
-
-    let mut executed = test_tcgen05_admission();
-    executed.runtime_validation = RuntimeValidation::Executed;
-    assert!(expand_tcgen05_admission(&executed).is_err());
-
-    let mut missing_control_evidence = test_tcgen05_admission();
-    missing_control_evidence.control_llvm_evidence_profile = None;
-    assert!(expand_tcgen05_admission(&missing_control_evidence).is_err());
 
     let mut partial_control = without_tcgen05_control(test_tcgen05_admission());
     partial_control
@@ -668,10 +644,6 @@ fn compact_tcgen05_copy_admission_matches_all_llvm_records_and_fails_closed() {
     let records = expand_tcgen05_admission(&non_contiguous_abi).unwrap();
     assert!(records.iter().any(|record| record.abi_id == "i9999"));
 
-    let mut missing_evidence = test_tcgen05_cp_admission();
-    missing_evidence.cp_llvm_evidence_profile = None;
-    assert!(expand_tcgen05_admission(&missing_evidence).is_err());
-
     let declaration = declarations[copies[0].source_record.as_deref().unwrap()];
     let mut wrong_spelling = copies[0].clone();
     wrong_spelling.expected_ptx.modifiers.remove(3);
@@ -811,10 +783,6 @@ fn compact_tcgen05_load_admission_matches_all_llvm_records_and_fails_closed() {
     let records = expand_tcgen05_admission(&non_contiguous_abi).unwrap();
     assert!(records.iter().any(|record| record.abi_id == "i9999"));
 
-    let mut missing_evidence = test_tcgen05_ld_admission();
-    missing_evidence.ld_llvm_evidence_profile = None;
-    assert!(expand_tcgen05_admission(&missing_evidence).is_err());
-
     let declaration = declarations[loads[0].source_record.as_deref().unwrap()];
     let mut wrong_selector = loads[0].clone();
     wrong_selector
@@ -941,14 +909,6 @@ fn compact_tcgen05_ld_red_admission_matches_all_llvm_records_and_fails_closed() 
     let mut integer_abs = test_tcgen05_ld_red_admission();
     integer_abs.ld_red_variants[0].abs = true;
     assert!(expand_tcgen05_admission(&integer_abs).is_err());
-
-    let mut missing_evidence = test_tcgen05_ld_red_admission();
-    missing_evidence.ld_red_libnvvm_evidence_profile = None;
-    assert!(expand_tcgen05_admission(&missing_evidence).is_err());
-
-    let mut orphan_evidence = test_tcgen05_admission();
-    orphan_evidence.ld_red_llvm_evidence_profile = Some("llvm-tcgen05-ld-red-test".into());
-    assert!(expand_tcgen05_admission(&orphan_evidence).is_err());
 
     let declaration = declarations[first.source_record.as_deref().unwrap()];
     let mut wrong_element = first.clone();
@@ -1104,10 +1064,6 @@ fn compact_tcgen05_store_admission_matches_all_llvm_records_and_fails_closed() {
     non_contiguous_abi.st_variants[0].abi_id = "i9999".into();
     let records = expand_tcgen05_admission(&non_contiguous_abi).unwrap();
     assert!(records.iter().any(|record| record.abi_id == "i9999"));
-
-    let mut missing_evidence = test_tcgen05_st_admission();
-    missing_evidence.st_llvm_evidence_profile = None;
-    assert!(expand_tcgen05_admission(&missing_evidence).is_err());
 
     let declaration = declarations[stores[0].source_record.as_deref().unwrap()];
     let mut wrong_selector = stores[0].clone();
@@ -1277,10 +1233,6 @@ fn compact_tcgen05_offset_admission_is_exact_and_fails_closed() {
     non_contiguous_abi.ld_offset_variants[0].abi_id = "i9999".into();
     let records = expand_tcgen05_admission(&non_contiguous_abi).unwrap();
     assert!(records.iter().any(|record| record.abi_id == "i9999"));
-
-    let mut missing_evidence = test_tcgen05_offset_admission();
-    missing_evidence.offset_llvm_evidence_profile = None;
-    assert!(expand_tcgen05_admission(&missing_evidence).is_err());
 
     let load_declaration = declarations[loads[0].source_record.as_deref().unwrap()];
     let mut wrong_offset_type = loads[0].clone();
@@ -1475,7 +1427,7 @@ fn tcgen05_compact_schema_is_reserved_for_aggregation() {
         )
         .unwrap_err()
         .to_string()
-        .contains("requires all three control variants and both backend evidence profiles")
+        .contains("requires all three control variants")
     );
     assert!(
         validate_overlay_shard_schema_with_max(

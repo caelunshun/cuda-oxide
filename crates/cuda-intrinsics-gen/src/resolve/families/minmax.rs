@@ -7,7 +7,7 @@ use crate::model::{
     BackendLoweringMechanism, ExtendedMinMax, ExtendedMinMaxAdapter, ExtendedMinMaxAdmission,
     ExtendedMinMaxFormat, ExtendedMinMaxNan, ExtendedMinMaxOperation, ExtendedMinMaxSubnormal,
     ImportedIntrinsic, IntegerMinMaxFormat, IntegerMinMaxOperation, IntrinsicBackend,
-    IntrinsicSource, OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation,
+    IntrinsicSource, OverlayBackendLowering, OverlayIntrinsic,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -341,10 +341,6 @@ pub(in crate::resolve) fn extended_minmax_recipe(
 pub(in crate::resolve) fn expand_extended_minmax_admission(
     admission: &ExtendedMinMaxAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "extended-minmax runtime may be marked executed only with GPU evidence"
-    );
     let expected = canonical_extended_minmax_variants();
     let actual = admission
         .variants
@@ -377,14 +373,13 @@ pub(in crate::resolve) fn expand_extended_minmax_admission(
             );
             let recipe = extended_minmax_recipe(identity)
                 .context("extended min/max is outside the closed recipe set")?;
-            extended_minmax_overlay_record(recipe, admission, identity, &variant.abi_id)
+            extended_minmax_overlay_record(recipe, identity, &variant.abi_id)
         })
         .collect()
 }
 
 pub(in crate::resolve) fn extended_minmax_overlay_record(
     recipe: ExtendedMinMaxRecipe,
-    admission: &ExtendedMinMaxAdmission,
     variant: ExtendedMinMaxVariant,
     abi_id: &str,
 ) -> Result<OverlayIntrinsic> {
@@ -430,26 +425,16 @@ pub(in crate::resolve) fn extended_minmax_overlay_record(
         ptx_isa_section: recipe.ptx_isa_section.into(),
         ptx_isa_url: recipe.ptx_isa_url.into(),
         lowering: "generated_extended_minmax".into(),
-        backend_lowerings: [
-            (
-                IntrinsicBackend::LlvmNvptx,
-                &admission.llvm_evidence_profile,
-            ),
-            (
-                IntrinsicBackend::LibNvvm,
-                &admission.libnvvm_evidence_profile,
-            ),
-        ]
-        .into_iter()
-        .map(|(backend, evidence_profile)| OverlayBackendLowering {
-            backend,
-            mechanism: BackendLoweringMechanism::InlinePtx,
-            evidence_profile: evidence_profile.clone(),
-            targets: None,
-            minimum_ptx: Some(recipe.minimum_ptx.into()),
-            minimum_sm: Some(recipe.minimum_sm.into()),
-        })
-        .collect(),
+        backend_lowerings: [IntrinsicBackend::LlvmNvptx, IntrinsicBackend::LibNvvm]
+            .into_iter()
+            .map(|backend| OverlayBackendLowering {
+                backend,
+                mechanism: BackendLoweringMechanism::InlinePtx,
+                targets: None,
+                minimum_ptx: Some(recipe.minimum_ptx.into()),
+                minimum_sm: Some(recipe.minimum_sm.into()),
+            })
+            .collect(),
         packed_atomic: None,
         redux: None,
         vote: None,
@@ -472,7 +457,6 @@ pub(in crate::resolve) fn extended_minmax_overlay_record(
             nan,
             xorsign_abs,
             adapter: recipe.adapter,
-            runtime_validation: admission.runtime_validation,
         }),
         cp_async_copy: None,
         cp_async_control: None,
@@ -525,11 +509,6 @@ pub(in crate::resolve) fn validate_extended_minmax_policy(
     );
     let recipe = extended_minmax_recipe(identity)
         .with_context(|| format!("{} is outside the closed extended-minmax recipe", policy.id))?;
-    ensure!(
-        minmax.runtime_validation == RuntimeValidation::Unexecuted,
-        "{} extended-minmax runtime may be executed only with GPU evidence",
-        policy.id
-    );
     let expected_adapter = match minmax.format {
         ExtendedMinMaxFormat::F32 => ExtendedMinMaxAdapter::DirectF32,
         ExtendedMinMaxFormat::F16 | ExtendedMinMaxFormat::Bf16 => {
@@ -885,11 +864,7 @@ pub(in crate::resolve) fn validate_integer_minmax_policy(
             && policy.backend_lowerings[0].mechanism == BackendLoweringMechanism::InlinePtx
             && policy.backend_lowerings[0].targets.is_none()
             && policy.backend_lowerings[0].minimum_ptx.is_none()
-            && policy.backend_lowerings[0].minimum_sm.is_none()
-            && !policy.backend_lowerings[0]
-                .evidence_profile
-                .trim()
-                .is_empty(),
+            && policy.backend_lowerings[0].minimum_sm.is_none(),
         "{} integer-min/max backend route changed",
         policy.id
     );

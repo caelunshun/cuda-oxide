@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-use super::super::core::RuntimeValidation;
 use serde::{Deserialize, Serialize};
 
 /// Closed semantic contract for a TMA operation.
@@ -14,7 +13,6 @@ pub struct Tma {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reduction: Option<TmaReduction>,
     pub adapter: TmaAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 impl Tma {
@@ -380,7 +378,6 @@ mod tests {
         let valid = r#"
 operation = "g2s_tile2d_multicast"
 adapter = "g2s_pointers_coordinates_barrier_mask_inject_defaults"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<Tma>(valid).unwrap();
         assert_eq!(parsed.operation, TmaOperation::G2sTile2dMulticast);
@@ -394,10 +391,6 @@ runtime_validation = "unexecuted"
             valid.replace(
                 "g2s_pointers_coordinates_barrier_mask_inject_defaults",
                 "direct",
-            ),
-            valid.replace(
-                "runtime_validation = \"unexecuted\"",
-                "runtime_validation = \"assumed\"",
             ),
             format!("{valid}unreviewed = true\n"),
         ] {

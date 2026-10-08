@@ -251,7 +251,7 @@ fn device_extern_rejects_invalid_symbol_and_address_space_mismatch() {
     )
     .expect_err("legacy half nested in a pointer must fail");
     assert!(
-        err.contains("CUDA 12 legacy") && err.contains("half"),
+        err.contains("legacy LLVM 7 NVVM dialect") && err.contains("half"),
         "{err}"
     );
     let modern = export_module_with_externs(
@@ -656,7 +656,7 @@ fn legacy_device_extern_rejects_small_integers_by_value() {
     )
     .expect_err("legacy sub-32-bit by-value externs must fail cleanly");
     assert!(
-        err.contains("CUDA 12 legacy") && err.contains("sub-32-bit"),
+        err.contains("legacy LLVM 7 NVVM dialect") && err.contains("sub-32-bit"),
         "{err}"
     );
 }

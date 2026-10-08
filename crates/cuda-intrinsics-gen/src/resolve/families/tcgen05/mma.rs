@@ -5,11 +5,10 @@
 
 use crate::model::{
     BackendLoweringMechanism, CatalogTargetRequirement, ImportedIntrinsic, IntrinsicBackend,
-    OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation, TargetContract,
-    TargetSelectorBinding, Tcgen05, Tcgen05Adapter, Tcgen05Admission, Tcgen05Mma,
-    Tcgen05MmaAdmissionVariant, Tcgen05MmaAlias, Tcgen05MmaBUsage, Tcgen05MmaFixedSelectors,
-    Tcgen05MmaForm, Tcgen05MmaKind, Tcgen05MmaSelectorLayout, Tcgen05Operation,
-    Tcgen05SourceContract,
+    OverlayBackendLowering, OverlayIntrinsic, TargetContract, TargetSelectorBinding, Tcgen05,
+    Tcgen05Adapter, Tcgen05Mma, Tcgen05MmaAdmissionVariant, Tcgen05MmaAlias, Tcgen05MmaBUsage,
+    Tcgen05MmaFixedSelectors, Tcgen05MmaForm, Tcgen05MmaKind, Tcgen05MmaSelectorLayout,
+    Tcgen05Operation, Tcgen05SourceContract,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Result, ensure};
@@ -326,7 +325,7 @@ pub(in crate::resolve) fn tcgen05_mma_selection_asm(
 /// TableGen selection strings instead spell `.ashift` BEFORE the collector
 /// qualifier (`.ashift.collector::a::<usage>`; LLVM 22 matched the ISA
 /// order). Use this wrapper wherever an IMPORTED declaration's selection asm
-/// is compared, and keep the base function for emission and evidence.
+/// is compared, and keep the base function for emission.
 pub(in crate::resolve) fn tcgen05_mma_declaration_asm(
     form: Tcgen05MmaForm,
     kind: Tcgen05MmaKind,
@@ -585,7 +584,6 @@ pub(in crate::resolve) fn tcgen05_mma_adapter(
 }
 
 pub(in crate::resolve) fn materialize_tcgen05_mma_variant(
-    admission: &Tcgen05Admission,
     variant: &Tcgen05MmaAdmissionVariant,
     llvm_target: &CatalogTargetRequirement,
     libnvvm_target: &CatalogTargetRequirement,
@@ -648,11 +646,6 @@ pub(in crate::resolve) fn materialize_tcgen05_mma_variant(
             OverlayBackendLowering {
                 backend: IntrinsicBackend::LlvmNvptx,
                 mechanism: BackendLoweringMechanism::InlinePtx,
-                evidence_profile: admission
-                    .mma_llvm_evidence_profile
-                    .as_ref()
-                    .expect("validated tcgen05 MMA LLVM evidence profile")
-                    .clone(),
                 targets: None,
                 minimum_ptx: None,
                 minimum_sm: None,
@@ -660,11 +653,6 @@ pub(in crate::resolve) fn materialize_tcgen05_mma_variant(
             OverlayBackendLowering {
                 backend: IntrinsicBackend::LibNvvm,
                 mechanism: BackendLoweringMechanism::InlinePtx,
-                evidence_profile: admission
-                    .mma_libnvvm_evidence_profile
-                    .as_ref()
-                    .expect("validated tcgen05 MMA libNVVM evidence profile")
-                    .clone(),
                 targets: None,
                 minimum_ptx: None,
                 minimum_sm: None,
@@ -718,7 +706,6 @@ pub(in crate::resolve) fn materialize_tcgen05_mma_variant(
             }),
             adapter: tcgen05_mma_adapter(form, alias),
             source_contract: Tcgen05SourceContract::TablegenSelectionChangesPtx,
-            runtime_validation: admission.runtime_validation,
         }),
         ldmatrix_variant: None,
         ldmatrix_safety: None,
@@ -828,8 +815,7 @@ pub(in crate::resolve) fn validate_tcgen05_mma_policy(
             && mma.selector_layout == tcgen05_mma_selector_layout(form)
             && mma.fixed_selectors == expected_fixed
             && tcgen05.adapter == tcgen05_mma_adapter(form, alias)
-            && tcgen05.source_contract == Tcgen05SourceContract::TablegenSelectionChangesPtx
-            && tcgen05.runtime_validation == RuntimeValidation::Unexecuted,
+            && tcgen05.source_contract == Tcgen05SourceContract::TablegenSelectionChangesPtx,
         "{} tcgen05 MMA semantics or selector contract changed",
         policy.id
     );
@@ -891,10 +877,7 @@ pub(in crate::resolve) fn validate_tcgen05_mma_policy(
                     ),
                 ])
             && policy.backend_lowerings.iter().all(|route| {
-                !route.evidence_profile.trim().is_empty()
-                    && route.targets.is_none()
-                    && route.minimum_ptx.is_none()
-                    && route.minimum_sm.is_none()
+                route.targets.is_none() && route.minimum_ptx.is_none() && route.minimum_sm.is_none()
             }),
         "{} tcgen05 MMA backend routes changed",
         policy.id

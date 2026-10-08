@@ -4,7 +4,6 @@
  */
 
 use super::super::catalog::CatalogTargetRequirement;
-use super::super::core::RuntimeValidation;
 use serde::{Deserialize, Serialize};
 
 /// Closed semantic contract for one tcgen05 operation.
@@ -24,7 +23,6 @@ pub struct Tcgen05 {
     pub mma: Option<Tcgen05Mma>,
     pub adapter: Tcgen05Adapter,
     pub source_contract: Tcgen05SourceContract,
-    pub runtime_validation: RuntimeValidation,
 }
 
 /// Closed identity and selector contract for one tcgen05 MMA API.

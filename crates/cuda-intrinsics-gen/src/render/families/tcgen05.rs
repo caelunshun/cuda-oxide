@@ -5,10 +5,10 @@
 
 use crate::model::{
     BackendLoweringMechanism, CatalogHardwareAlternative, CatalogHardwareTarget, CatalogIntrinsic,
-    IntrinsicBackend, RuntimeValidation, Tcgen05Adapter, Tcgen05CpGroup, Tcgen05CpMember,
-    Tcgen05LdMultiplicity, Tcgen05LdRed, Tcgen05LdRedElement, Tcgen05LdShape, Tcgen05Mma,
-    Tcgen05MmaAlias, Tcgen05MmaBUsage, Tcgen05MmaForm, Tcgen05MmaKind, Tcgen05MmaSelectorLayout,
-    Tcgen05Operation, Tcgen05SourceContract,
+    IntrinsicBackend, Tcgen05Adapter, Tcgen05CpGroup, Tcgen05CpMember, Tcgen05LdMultiplicity,
+    Tcgen05LdRed, Tcgen05LdRedElement, Tcgen05LdShape, Tcgen05Mma, Tcgen05MmaAlias,
+    Tcgen05MmaBUsage, Tcgen05MmaForm, Tcgen05MmaKind, Tcgen05MmaSelectorLayout, Tcgen05Operation,
+    Tcgen05SourceContract,
 };
 use crate::render::common::llvm;
 use std::fmt::Write as _;
@@ -539,7 +539,6 @@ fn tcgen05_ld_red_render_contract(
                 Tcgen05Adapter::TmemInjectReductionToRegistersAndValue
             }
         && tcgen05.source_contract == Tcgen05SourceContract::LlvmCustomLoweringWithoutSelection
-        && tcgen05.runtime_validation == RuntimeValidation::Unexecuted
         && !matches!(ld_red.multiplicity, Tcgen05LdMultiplicity::X1)
         && matches!(
             ld_red.shape,
@@ -708,7 +707,6 @@ fn tcgen05_mma_render_contract(
         || tcgen05.ld.is_some()
         || tcgen05.st.is_some()
         || tcgen05.source_contract != Tcgen05SourceContract::TablegenSelectionChangesPtx
-        || tcgen05.runtime_validation != RuntimeValidation::Unexecuted
         || record.rust.module != "tcgen05"
         || record.rust.safe
         || record.rust.must_use
@@ -959,7 +957,6 @@ pub(in crate::render) fn tcgen05_render_contract(record: &CatalogIntrinsic) -> b
         || libnvvm_route.mechanism != BackendLoweringMechanism::InlinePtx
         || libnvvm_route.target.minimum_ptx.to_string() != "8.6"
         || libnvvm_route.target.hardware != libnvvm_hardware
-        || tcgen05.runtime_validation != RuntimeValidation::Unexecuted
     {
         return false;
     }

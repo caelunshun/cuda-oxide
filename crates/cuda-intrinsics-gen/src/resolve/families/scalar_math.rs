@@ -5,8 +5,8 @@
 
 use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, IntrinsicSource,
-    OverlayBackendLowering, OverlayIntrinsic, RuntimeValidation, ScalarMath, ScalarMathAdmission,
-    ScalarMathFormat, ScalarMathOperation, ScalarMathPrecision, ScalarMathSubnormal,
+    OverlayBackendLowering, OverlayIntrinsic, ScalarMath, ScalarMathAdmission, ScalarMathFormat,
+    ScalarMathOperation, ScalarMathPrecision, ScalarMathSubnormal,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -62,7 +62,7 @@ pub(in crate::resolve) struct ScalarMathRecipe {
     /// intrinsic, so the lowering routes it through inline PTX. Note this is
     /// an import limitation, not an llc one: llc still selects these
     /// intrinsics through NVVMIntrinsic-class pattern matching, which the
-    /// evidence import cannot see. Promoting them to typed calls once the
+    /// tblgen import cannot see. Promoting them to typed calls once the
     /// import understands those patterns would reopen them to LLVM
     /// optimization.
     force_inline_ptx: bool,
@@ -137,8 +137,8 @@ pub(in crate::resolve) fn canonical_scalar_math_variants() -> Vec<ScalarMathVari
         // rsqrt: approx only (PTX has no rounded rsqrt). The f64+ftz variant
         // is valid PTX (`rsqrt.approx.ftz.f64` assembles for sm_80+, and LLVM
         // selects `llvm.nvvm.rsqrt.approx.ftz.d` directly); it is deferred
-        // only because it has not been probed under the pinned evidence
-        // profile yet, not because the instruction is invalid.
+        // only because it has not been validated yet, not because the
+        // instruction is invalid.
         (F32, Rsqrt, Approx, Preserve),
         (F32, Rsqrt, Approx, Ftz),
         (F64, Rsqrt, Approx, Preserve),
@@ -163,7 +163,7 @@ pub(in crate::resolve) fn canonical_scalar_math_variants() -> Vec<ScalarMathVari
         (F32, Ex2, Approx, Ftz),
         // tanh: approx f32 only; the instruction has no ftz form (PTX ISA
         // Table 29) and no rounded variants. Hardware floor is sm_75; the
-        // family contract gates it at the attested sm_80 evidence floor.
+        // family contract gates it at the family's sm_80 floor.
         (F32, Tanh, Approx, Preserve),
         // ex2.approx.f16 starts at PTX 7.0 / sm_75. LLVM 22 rejects the
         // .ftz.f16 spelling; .ftz.bf16 is a separate PTX 7.8 / sm_90 variant.
@@ -225,9 +225,9 @@ pub(in crate::resolve) fn scalar_math_recipe(
         .collect::<Vec<_>>();
 
     // Operations whose llvm.nvvm.* records carry no *imported* DAG selection
-    // pattern in the pinned evidence (sel=0). llc itself still selects them
+    // pattern in the pinned LLVM import (sel=0). llc itself still selects them
     // (via NVVMIntrinsic-class patterns the tblgen import cannot see), but
-    // the evidence-driven contract only admits typed calls backed by an
+    // the family contract only admits typed calls backed by an
     // imported selection, so these route through inline PTX for now.
     let force_inline_ptx = matches!(
         operation,
@@ -308,10 +308,6 @@ pub(in crate::resolve) fn scalar_math_recipe(
 pub(in crate::resolve) fn expand_scalar_math_admission(
     admission: &ScalarMathAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "scalar-math runtime may be marked executed only with GPU evidence"
-    );
     let expected = canonical_scalar_math_variants();
     let actual = admission
         .variants
@@ -343,31 +339,15 @@ pub(in crate::resolve) fn expand_scalar_math_admission(
             );
             let recipe = scalar_math_recipe(identity)
                 .context("scalar math is outside the closed recipe set")?;
-            let libnvvm_evidence_profile = variant
-                .libnvvm_evidence_profile
-                .as_ref()
-                .unwrap_or(&admission.libnvvm_evidence_profile);
-            ensure!(
-                !libnvvm_evidence_profile.trim().is_empty(),
-                "scalar-math libNVVM evidence profile must not be empty"
-            );
-            scalar_math_overlay_record(
-                recipe,
-                admission,
-                identity,
-                &variant.abi_id,
-                libnvvm_evidence_profile,
-            )
+            scalar_math_overlay_record(recipe, identity, &variant.abi_id)
         })
         .collect()
 }
 
 pub(in crate::resolve) fn scalar_math_overlay_record(
     recipe: ScalarMathRecipe,
-    admission: &ScalarMathAdmission,
     variant: ScalarMathVariant,
     abi_id: &str,
-    libnvvm_evidence_profile: &str,
 ) -> Result<OverlayIntrinsic> {
     let (format, operation, precision, subnormal) = variant;
     let ptx_operands = vec![OperandPattern::Register; 2]; // 1 result + 1 operand
@@ -451,16 +431,9 @@ pub(in crate::resolve) fn scalar_math_overlay_record(
         ptx_isa_section: recipe.ptx_isa_section.into(),
         ptx_isa_url: recipe.ptx_isa_url.into(),
         lowering: "generated_scalar_math".into(),
-        backend_lowerings: [
-            (
-                IntrinsicBackend::LlvmNvptx,
-                admission.llvm_evidence_profile.as_str(),
-            ),
-            (IntrinsicBackend::LibNvvm, libnvvm_evidence_profile),
-        ]
-        .into_iter()
-        .map(
-            |(backend, evidence_profile): (IntrinsicBackend, &str)| OverlayBackendLowering {
+        backend_lowerings: [IntrinsicBackend::LlvmNvptx, IntrinsicBackend::LibNvvm]
+            .into_iter()
+            .map(|backend: IntrinsicBackend| OverlayBackendLowering {
                 backend,
                 mechanism: match backend {
                     IntrinsicBackend::LlvmNvptx if recipe.force_inline_ptx => {
@@ -469,13 +442,11 @@ pub(in crate::resolve) fn scalar_math_overlay_record(
                     IntrinsicBackend::LlvmNvptx => BackendLoweringMechanism::TypedNvvm,
                     IntrinsicBackend::LibNvvm => BackendLoweringMechanism::InlinePtx,
                 },
-                evidence_profile: evidence_profile.to_owned(),
                 targets: None,
                 minimum_ptx: Some(recipe.minimum_ptx.into()),
                 minimum_sm: Some(recipe.minimum_sm.into()),
-            },
-        )
-        .collect(),
+            })
+            .collect(),
         packed_atomic: None,
         redux: None,
         vote: None,
@@ -495,7 +466,6 @@ pub(in crate::resolve) fn scalar_math_overlay_record(
             operation,
             precision,
             subnormal,
-            runtime_validation: admission.runtime_validation,
         }),
         extended_minmax: None,
         cp_async_copy: None,
@@ -539,11 +509,6 @@ pub(in crate::resolve) fn validate_scalar_math_policy(
     let variant = (math.format, math.operation, math.precision, math.subnormal);
     let recipe = scalar_math_recipe(variant)
         .with_context(|| format!("{} is outside the closed scalar-math recipe", policy.id))?;
-    ensure!(
-        math.runtime_validation == RuntimeValidation::Unexecuted,
-        "{} scalar-math runtime may be executed only with GPU evidence",
-        policy.id
-    );
     let signature = vec![recipe.rust_type.to_owned()];
     let source_matches = match &recipe.source {
         ScalarMathRecipeSource::Imported {
@@ -683,7 +648,6 @@ pub(in crate::resolve) fn validate_scalar_math_policy(
                             && lowering.mechanism == mechanism
                             && lowering.minimum_ptx.as_deref() == Some(recipe.minimum_ptx)
                             && lowering.minimum_sm.as_deref() == Some(minimum_sm)
-                            && !lowering.evidence_profile.trim().is_empty()
                     })
                 }),
         "{} has the wrong reviewed scalar-math backend routes (expected {} / {})",

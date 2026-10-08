@@ -11,8 +11,6 @@ target/
 *.ll
 *.bc
 
-# Generated intrinsic probes are checked-in fixtures.
-!intrinsics/probes/*.ll
 .DS_Store
 *.tar.gz
 .cursor/

@@ -10,7 +10,7 @@ use crate::model::{
     CatalogHardwareAlternative, CatalogHardwareTarget, CatalogTargetContract, IntrinsicSource,
     Tcgen05Adapter, Tcgen05MmaBUsage, Tcgen05MmaForm, Tcgen05MmaKind, TmaAdapter,
 };
-use crate::render::common::{generated_hardware_target, hardware_target_label, llvm};
+use crate::render::common::{generated_hardware_target, hardware_target_label};
 use crate::render::families::{cluster_barriers, tcgen05_mma_inline_asm};
 use std::path::Path;
 
@@ -177,13 +177,6 @@ fn wgmma_controls_render_closed_compatibility_and_backend_routes() {
     assert!(targets.contains("GeneratedIntrinsicVariant::WgmmaControl"));
     assert!(targets.contains("WgmmaFenceSyncAlignedOp>(operation, ctx).is_some()"));
 
-    for record in wgmma_controls(&catalog) {
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains(&format!("@{}", llvm(record).symbol)));
-        assert!(!probe.contains("asm sideeffect"));
-        assert!(probe.contains("attributes #0 = { convergent }"));
-    }
-
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from(
         "crates/cuda-device/src/generated/wgmma_control.rs"
@@ -335,22 +328,12 @@ fn cluster_memory_rendering_preserves_cluster_shared_addrspace_and_composite_loa
         .find(|record| record.id == "map_shared_rank")
         .unwrap();
     assert_eq!(map.llvm.as_ref().unwrap().results, ["shared_cluster_ptr"]);
-    let map_probe = render_probe(&catalog, map, "test-hash");
-    assert!(map_probe.contains("define ptr addrspace(7)"));
-    assert!(map_probe.contains("inttoptr i64"));
-    assert!(map_probe.contains("asm sideeffect"));
-    assert!(!map_probe.contains("~{memory}"));
-    assert!(map_probe.contains("attributes #0 = { convergent }"));
 
     let read = records
         .iter()
         .find(|record| record.id == "dsmem_read_u32")
         .unwrap();
     assert!(read.llvm.is_none());
-    let read_probe = render_probe(&catalog, read, "test-hash");
-    assert!(read_probe.contains("ld.shared::cluster.u32"));
-    assert!(read_probe.contains("~{memory}"));
-    assert!(read_probe.contains("attributes #0 = { convergent }"));
 
     let raw = render_raw_abi(&catalog, "test-hash").unwrap();
     assert!(raw.contains("pub unsafe fn i0320(_arg0: *const u8, _arg1: u32) -> *const u8"));
@@ -562,72 +545,6 @@ fn tma_rendering_preserves_api_and_injects_backend_defaults() {
             "convert_tensormap_fence(ctx, rewriter, self.get_operation(), operands_info, {:?}, false, \"sys\")",
             release_system.resolved_llvm_identifier()
         )));
-
-    let g2s = tma_intrinsics(&catalog)
-        .find(|record| record.id == "cp_async_bulk_tensor_2d_g2s_multicast_cg2")
-        .unwrap();
-    let g2s_probe = render_probe(&catalog, g2s, "test-hash");
-    assert!(g2s_probe.contains("i16 %cta_mask, i64 0, i1 true, i1 false, i32 2"));
-    assert!(g2s_probe.contains("addrspacecast ptr %dst_generic to ptr addrspace(7)"));
-
-    let s2g = tma_intrinsics(&catalog)
-        .find(|record| record.id == "cp_async_bulk_tensor_2d_s2g")
-        .unwrap();
-    let s2g_probe = render_probe(&catalog, s2g, "test-hash");
-    assert!(s2g_probe.contains("ptr %tensor_map, i32 %coord0, i32 %coord1, i64 0, i1 false"));
-
-    let g2s_cache_hint = tma_intrinsics(&catalog)
-        .find(|record| record.id == "cp_async_bulk_tensor_2d_g2s_multicast_cg2_cache_hint")
-        .unwrap();
-    let g2s_cache_hint_probe = render_probe(&catalog, g2s_cache_hint, "test-hash");
-    assert!(g2s_cache_hint_probe.contains("i16 %cta_mask, i64 %cache_hint)"));
-    assert!(
-        g2s_cache_hint_probe.contains("i16 %cta_mask, i64 %cache_hint, i1 true, i1 true, i32 2")
-    );
-
-    let s2g_cache_hint = tma_intrinsics(&catalog)
-        .find(|record| record.id == "cp_async_bulk_tensor_2d_s2g_cache_hint")
-        .unwrap();
-    let s2g_cache_hint_probe = render_probe(&catalog, s2g_cache_hint, "test-hash");
-    assert!(
-        s2g_cache_hint_probe
-            .contains("ptr %tensor_map, i32 %coord0, i32 %coord1, i64 %cache_hint, i1 true")
-    );
-
-    let reduce = tma_intrinsics(&catalog)
-        .find(|record| record.id == "cp_async_bulk_tensor_reduce_add_tile_2d")
-        .unwrap();
-    let reduce_probe = render_probe(&catalog, reduce, "test-hash");
-    assert!(reduce_probe.contains(
-            "declare void @llvm.nvvm.cp.async.bulk.tensor.reduce.add.tile.2d(ptr addrspace(3), ptr, i32, i32, i64, i1)"
-        ));
-    assert!(reduce_probe.contains(
-            "call void @llvm.nvvm.cp.async.bulk.tensor.reduce.add.tile.2d(ptr addrspace(3) %src, ptr %tensor_map, i32 %coord0, i32 %coord1, i64 0, i1 false)"
-        ));
-
-    for stem in [
-        "cp_async_bulk_prefetch_tensor_1d_l2",
-        "cp_async_bulk_prefetch_tensor_2d_l2",
-        "cp_async_bulk_prefetch_tensor_3d_l2",
-        "cp_async_bulk_prefetch_tensor_4d_l2",
-        "cp_async_bulk_prefetch_tensor_5d_l2",
-        "cp_async_bulk_prefetch_tensor_gather4_2d_l2",
-    ] {
-        let prefetch_plain = tma_intrinsics(&catalog)
-            .find(|record| record.id == stem)
-            .unwrap();
-        let prefetch_plain_probe = render_probe(&catalog, prefetch_plain, "test-hash");
-        assert!(prefetch_plain_probe.contains("i64 0, i1 false"));
-        assert!(!prefetch_plain_probe.contains("%cache_hint"));
-
-        let cache_hint_id = format!("{stem}_cache_hint");
-        let prefetch_cache_hint = tma_intrinsics(&catalog)
-            .find(|record| record.id == cache_hint_id)
-            .unwrap();
-        let prefetch_cache_hint_probe = render_probe(&catalog, prefetch_cache_hint, "test-hash");
-        assert!(prefetch_cache_hint_probe.contains("i64 %cache_hint"));
-        assert!(prefetch_cache_hint_probe.contains("i64 %cache_hint, i1 true"));
-    }
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from("crates/cuda-device/src/generated/tma.rs")));
@@ -990,124 +907,6 @@ fn tcgen05_rendering_preserves_api_and_inline_ptx_routes() {
     assert!(lowering.contains("tcgen05.shift.cta_group::2.down [$0];"));
     assert!(lowering.contains("\"r,h,~{memory}\""));
 
-    let bf16 = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_mma_ws_bf16")
-        .unwrap();
-    let bf16_probe = render_probe(&catalog, bf16, "test-hash");
-    assert!(bf16_probe.contains("route: inline PTX"));
-    assert!(bf16_probe.contains(".kind::f16 [$0]"));
-    assert!(!bf16_probe.contains(".kind::bf16"));
-
-    let base_commit = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_commit")
-        .unwrap();
-    let base_commit_probe = render_probe(&catalog, base_commit, "test-hash");
-    assert!(base_commit_probe.contains("mbarrier::arrive::one.b64"));
-    assert!(!base_commit_probe.contains("one.shared::cluster.b64"));
-
-    let shared_commit = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_commit_shared_cluster")
-        .unwrap();
-    let shared_commit_probe = render_probe(&catalog, shared_commit, "test-hash");
-    assert!(shared_commit_probe.contains("one.shared::cluster.b64"));
-
-    for (id, spelling) in [
-        (
-            "tcgen05_commit_multicast",
-            "tcgen05.commit.cta_group::1.mbarrier::arrive::one.shared::cluster.multicast::cluster.b64 [$0], $1;",
-        ),
-        (
-            "tcgen05_shift_down",
-            "tcgen05.shift.cta_group::1.down [$0];",
-        ),
-        (
-            "tcgen05_shift_down_cg2",
-            "tcgen05.shift.cta_group::2.down [$0];",
-        ),
-    ] {
-        let record = tcgen05_intrinsics(&catalog)
-            .find(|record| record.id == id)
-            .unwrap();
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains(spelling));
-        assert!(probe.contains("asm sideeffect"));
-        assert!(probe.contains("attributes #0 = { convergent }"));
-    }
-
-    for (id, spelling) in [
-        (
-            "tcgen05_cp_128x128b_b4x16_p64",
-            "tcgen05.cp.cta_group::1.128x128b.b8x16.b4x16_p64",
-        ),
-        (
-            "tcgen05_cp_32x128b_warpx4",
-            "tcgen05.cp.cta_group::1.32x128b.warpx4",
-        ),
-        (
-            "tcgen05_cp_64x128b_warpx2_01_23_b6x16_p32_cg2",
-            "tcgen05.cp.cta_group::2.64x128b.warpx2::01_23.b8x16.b6x16_p32",
-        ),
-        (
-            "tcgen05_cp_64x128b_warpx2_02_13",
-            "tcgen05.cp.cta_group::1.64x128b.warpx2::02_13",
-        ),
-    ] {
-        let record = tcgen05_intrinsics(&catalog)
-            .find(|record| record.id == id)
-            .unwrap();
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains(spelling));
-        assert!(probe.contains("asm sideeffect"));
-        assert!(probe.contains("\"r,l,~{memory}\""));
-        assert!(probe.contains("attributes #0 = { convergent }"));
-    }
-
-    let scalar_load = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_ld_16x64b_x1_raw")
-        .unwrap();
-    let scalar_load_probe = render_probe(&catalog, scalar_load, "test-hash");
-    assert!(scalar_load_probe.contains("%result = call i32 asm sideeffect"));
-    assert!(scalar_load_probe.contains("tcgen05.ld.sync.aligned.16x64b.x1.b32"));
-    assert!(scalar_load_probe.contains("\"=r,r,~{memory}\""));
-
-    let packed_load = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_ld_32x32b_x128_pack16")
-        .unwrap();
-    let packed_load_probe = render_probe(&catalog, packed_load, "test-hash");
-    assert!(packed_load_probe.contains("tcgen05.ld.sync.aligned.32x32b.x128.pack::16b.b32"));
-    assert!(packed_load_probe.contains("{ i32, i32"));
-
-    let scalar_store = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_st_16x64b_x1_raw")
-        .unwrap();
-    let scalar_store_probe = render_probe(&catalog, scalar_store, "test-hash");
-    assert!(scalar_store_probe.contains("call void asm sideeffect"));
-    assert!(scalar_store_probe.contains("tcgen05.st.sync.aligned.16x64b.x1.b32"));
-    assert!(scalar_store_probe.contains("\"r,r,~{memory}\""));
-
-    let unpacked_store = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_st_32x32b_x128_unpack16")
-        .unwrap();
-    let unpacked_store_probe = render_probe(&catalog, unpacked_store, "test-hash");
-    assert!(unpacked_store_probe.contains("tcgen05.st.sync.aligned.32x32b.x128.unpack::16b.b32"));
-    assert!(unpacked_store_probe.contains("i32 %d127"));
-
-    let offset_load = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_ld_16x32bx2_x1_pack16")
-        .unwrap();
-    let offset_load_probe = render_probe(&catalog, offset_load, "test-hash");
-    assert!(offset_load_probe.contains("i64 16"));
-    assert!(offset_load_probe.contains("[$1], $2;"));
-    assert!(offset_load_probe.contains("\"=r,r,n,~{memory}\""));
-
-    let offset_store = tcgen05_intrinsics(&catalog)
-        .find(|record| record.id == "tcgen05_st_16x32bx2_x1_unpack16")
-        .unwrap();
-    let offset_store_probe = render_probe(&catalog, offset_store, "test-hash");
-    assert!(offset_store_probe.contains("i64 16"));
-    assert!(offset_store_probe.contains("[$0], $1, {$2};"));
-    assert!(offset_store_probe.contains("\"r,n,r,~{memory}\""));
-
     let target = render_targets(&catalog, "test-hash");
     assert!(target.contains("\"v1:i0343\""));
     assert!(target.contains("\"v1:i0578\""));
@@ -1124,10 +923,6 @@ fn tcgen05_rendering_preserves_api_and_inline_ptx_routes() {
     assert!(target.contains(
             "GeneratedHardwareTarget::AnyOf(&[GeneratedHardwareAlternative::ExactArchitecture(100), GeneratedHardwareAlternative::ExactArchitecture(103), GeneratedHardwareAlternative::ExactArchitecture(110)])"
         ));
-
-    let reference = render_reference(&catalog, "test-hash");
-    assert!(reference.contains("- `tcgen05_st_16x64b_x1_raw`: runtime `unexecuted`"));
-    assert!(!reference.contains("- `tcgen05_st_16x64b_x1_raw`: runtime `not recorded`"));
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from(
@@ -1276,14 +1071,4 @@ fn tcgen05_ld_red_rendering_returns_registers_and_reduction() {
     let dialect = render_dialect_tcgen05(&catalog, "test-hash");
     assert!(dialect.contains("pub struct Tcgen05LdRed16x32bx2X128MaxAbsNanF32Op"));
     assert!(dialect.contains("NResultsInterface<129>"));
-
-    let record = ld_red
-        .iter()
-        .find(|record| record.id == "tcgen05_ld_red_16x32bx2_x8_min_nan_f32")
-        .unwrap();
-    let probe = render_probe(&catalog, record, "test-hash");
-    assert!(probe.contains(
-        "tcgen05.ld.red.sync.aligned.16x32bx2.x8.min.NaN.f32 {$0,$1,$2,$3,$4,$5,$6,$7}, $8, [$9], $10;"
-    ));
-    assert!(probe.contains("(i32 %tmem, i64 16)"));
 }

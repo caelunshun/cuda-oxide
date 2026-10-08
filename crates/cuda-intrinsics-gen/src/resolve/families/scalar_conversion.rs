@@ -5,10 +5,9 @@
 
 use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayBackendLowering,
-    OverlayIntrinsic, RuntimeValidation, ScalarConversion, ScalarConversionAdapter,
-    ScalarConversionAdmission, ScalarConversionDestinationFormat,
-    ScalarConversionResultRepresentation, ScalarConversionRounding, ScalarConversionSaturation,
-    ScalarConversionSourceFormat,
+    OverlayIntrinsic, ScalarConversion, ScalarConversionAdapter, ScalarConversionAdmission,
+    ScalarConversionDestinationFormat, ScalarConversionResultRepresentation,
+    ScalarConversionRounding, ScalarConversionSaturation, ScalarConversionSourceFormat,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -176,10 +175,6 @@ pub(in crate::resolve) fn scalar_conversion_recipe(
 pub(in crate::resolve) fn expand_scalar_conversion_admission(
     admission: &ScalarConversionAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "scalar-conversion runtime may be marked executed only with GPU evidence"
-    );
     let expected = [
         (
             ScalarConversionRounding::NearestAway,
@@ -244,19 +239,13 @@ pub(in crate::resolve) fn expand_scalar_conversion_admission(
                 recipe.id,
                 recipe.abi_id
             );
-            scalar_conversion_overlay_record(
-                recipe,
-                admission,
-                variant.rounding,
-                variant.saturation,
-            )
+            scalar_conversion_overlay_record(recipe, variant.rounding, variant.saturation)
         })
         .collect()
 }
 
 pub(in crate::resolve) fn scalar_conversion_overlay_record(
     recipe: ScalarConversionRecipe,
-    admission: &ScalarConversionAdmission,
     rounding: ScalarConversionRounding,
     saturation: ScalarConversionSaturation,
 ) -> Result<OverlayIntrinsic> {
@@ -300,17 +289,16 @@ pub(in crate::resolve) fn scalar_conversion_overlay_record(
         ptx_isa_url: "https://docs.nvidia.com/cuda/parallel-thread-execution/#data-movement-and-conversion-instructions-cvt".into(),
         lowering: "generated_scalar_conversion".into(),
         backend_lowerings: [
-            (IntrinsicBackend::LlvmNvptx, &admission.llvm_evidence_profile),
-            (IntrinsicBackend::LibNvvm, &admission.libnvvm_evidence_profile),
+            IntrinsicBackend::LlvmNvptx,
+            IntrinsicBackend::LibNvvm,
         ]
         .into_iter()
-        .map(|(backend, evidence_profile)| OverlayBackendLowering {
+        .map(|backend| OverlayBackendLowering {
             backend,
             mechanism: match backend {
                 IntrinsicBackend::LlvmNvptx => BackendLoweringMechanism::TypedNvvm,
                 IntrinsicBackend::LibNvvm => BackendLoweringMechanism::InlinePtx,
             },
-            evidence_profile: evidence_profile.clone(),
             targets: None,
             minimum_ptx: Some(recipe.minimum_ptx.into()),
             minimum_sm: Some(recipe.minimum_sm.into()),
@@ -335,7 +323,6 @@ pub(in crate::resolve) fn scalar_conversion_overlay_record(
             saturation,
             result_representation: ScalarConversionResultRepresentation::RawU32Bits,
             adapter: ScalarConversionAdapter::DirectF32ToRawU32Bits,
-            runtime_validation: admission.runtime_validation,
         }),
         scalar_arithmetic: None,
         scalar_math: None,
@@ -392,8 +379,7 @@ pub(in crate::resolve) fn validate_scalar_conversion_policy(
         conversion.source_format == ScalarConversionSourceFormat::F32
             && conversion.destination_format == ScalarConversionDestinationFormat::Tf32
             && conversion.result_representation == ScalarConversionResultRepresentation::RawU32Bits
-            && conversion.adapter == ScalarConversionAdapter::DirectF32ToRawU32Bits
-            && conversion.runtime_validation == RuntimeValidation::Unexecuted,
+            && conversion.adapter == ScalarConversionAdapter::DirectF32ToRawU32Bits,
         "{} changed its scalar-conversion representation or adapter",
         policy.id
     );
@@ -479,7 +465,6 @@ pub(in crate::resolve) fn validate_scalar_conversion_policy(
                         && lowering.mechanism == mechanism
                         && lowering.minimum_ptx.as_deref() == Some(recipe.minimum_ptx)
                         && lowering.minimum_sm.as_deref() == Some(recipe.minimum_sm)
-                        && !lowering.evidence_profile.trim().is_empty()
                 })
             }),
         "{} must define the typed LLVM and inline-PTX libNVVM routes",

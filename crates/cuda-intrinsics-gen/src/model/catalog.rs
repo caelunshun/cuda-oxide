@@ -12,7 +12,6 @@ use super::contracts::{
     WarpShuffle, WgmmaControl,
 };
 use super::core::{BackendLoweringMechanism, IntrinsicBackend, IntrinsicSource};
-use super::evidence::EvidenceStage;
 use super::imported::{ImportedAddressSpace, ImportedSelectionConstraints};
 use crate::ptx::InstructionPattern;
 use serde::{Deserialize, Serialize};
@@ -42,7 +41,6 @@ pub struct CatalogInputs {
     pub imported_sha256: String,
     pub overlay_sha256: String,
     pub abi_ledger_sha256: String,
-    pub evidence_sha256: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,7 +56,6 @@ pub struct CatalogIntrinsic {
     pub llvm: Option<CatalogLlvm>,
     pub semantics: CatalogSemantics,
     pub target: CatalogTarget,
-    pub backend: CatalogBackend,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub backend_lowerings: Vec<CatalogBackendLowering>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -353,28 +350,10 @@ pub struct TargetContractAlternative {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CatalogBackend {
-    pub profile: String,
-    pub version: String,
-    pub sha256: String,
-    pub status: String,
-    pub target_triple: String,
-    pub gpu_target: String,
-    pub ptx_feature: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CatalogBackendLowering {
     pub backend: IntrinsicBackend,
     pub mechanism: BackendLoweringMechanism,
-    pub evidence_profile: String,
     pub target: CatalogTargetRequirement,
-    pub version: String,
-    pub sha256: String,
-    pub artifact_path: Option<String>,
-    pub build_id_prefix: Option<String>,
-    pub status: String,
-    pub stages: Vec<EvidenceStage>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

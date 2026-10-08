@@ -56,14 +56,6 @@ pub(in crate::render) fn packed_alu_width(record: &CatalogIntrinsic) -> u32 {
     }
 }
 
-pub(in crate::render) fn packed_alu_register_constraint(record: &CatalogIntrinsic) -> &'static str {
-    match packed_alu_width(record) {
-        32 => "r",
-        64 => "l",
-        _ => unreachable!("closed packed-ALU carrier width"),
-    }
-}
-
 pub(in crate::render) fn dot_product_ptx(record: &CatalogIntrinsic) -> &'static str {
     let dot = record.dot_product.as_ref().expect("dot-product record");
     match (dot.operation, dot.signedness, dot.adapter) {
@@ -360,21 +352,6 @@ pub(in crate::render) fn packed_conversion_dialect_type(record: &CatalogIntrinsi
         16 => "i16",
         32 => "i32",
         _ => unreachable!("closed packed-conversion result width"),
-    }
-}
-
-/// Inline-asm constraint string: one result register, then one per source
-/// operand. `h` is a 16-bit register, `r` a 32-bit one, and `f` an f32.
-pub(in crate::render) fn packed_conversion_constraint(record: &CatalogIntrinsic) -> &'static str {
-    match (
-        packed_conversion_result_width(record),
-        packed_conversion_source(record),
-    ) {
-        (16, PackedConversionSourceFormat::F32x2) => "=h,f,f",
-        (32, PackedConversionSourceFormat::F32x2) => "=r,f,f",
-        (16, PackedConversionSourceFormat::F16x2) => "=h,r",
-        (32, PackedConversionSourceFormat::E4m3x2 | PackedConversionSourceFormat::E5m2x2) => "=r,h",
-        _ => unreachable!("closed packed-conversion result width and source format"),
     }
 }
 

@@ -172,21 +172,10 @@ fn vote_modes_keep_exact_abi_identity_and_both_selection_encodings() {
             })
         );
 
-        let mut record = evidence();
-        record.id = policy.id.clone();
-        record.source_record = policy.source_record.clone();
-        record.llvm_symbol = policy.llvm_symbol.clone();
-        record.llvm_arguments = policy.llvm_arguments.clone();
-        record.llvm_results = policy.llvm_results.clone();
-        record.expected_ptx = policy.expected_ptx.clone();
-        let resolved = resolve_record(
+        let resolved = materialize_record(
             &policy,
             resolve_policy_source(&policy).unwrap(),
             Some(&declaration),
-            &record,
-            "test",
-            "LLVM version test",
-            "0123456789abcdef",
             vec![],
             1,
         )
@@ -305,21 +294,10 @@ fn warp_shuffle_variants_keep_exact_identity_clamp_and_eight_selections() {
             8
         );
 
-        let mut record = evidence();
-        record.id = policy.id.clone();
-        record.source_record = policy.source_record.clone();
-        record.llvm_symbol = policy.llvm_symbol.clone();
-        record.llvm_arguments = policy.llvm_arguments.clone();
-        record.llvm_results = policy.llvm_results.clone();
-        record.expected_ptx = policy.expected_ptx.clone();
-        let resolved = resolve_record(
+        let resolved = materialize_record(
             &policy,
             resolve_policy_source(&policy).unwrap(),
             Some(&declaration),
-            &record,
-            "test",
-            "LLVM version test",
-            "0123456789abcdef",
             vec![],
             1,
         )
@@ -516,22 +494,10 @@ fn i64_warp_shuffle_recipes_are_exact_ptx_native_pairs() {
             Some("sm_75")
         );
 
-        let mut record = evidence();
-        record.id = policy.id.clone();
-        record.source = policy.source.clone();
-        record.source_record = None;
-        record.llvm_symbol = None;
-        record.llvm_arguments.clear();
-        record.llvm_results.clear();
-        record.expected_ptx = policy.expected_ptx.clone();
-        let resolved = resolve_record(
+        let resolved = materialize_record(
             &policy,
             resolve_policy_source(&policy).unwrap(),
             None,
-            &record,
-            "test",
-            "LLVM version test",
-            "0123456789abcdef",
             vec![],
             1,
         )
@@ -599,14 +565,14 @@ fn i64_warp_shuffle_contract_rejects_unreviewed_changes() {
     wrong_native_floor.minimum_sm = Some("sm_70".into());
     reject(&wrong_native_floor, "target floor");
 
-    let mut wrong_profile_floor = valid.clone();
-    wrong_profile_floor
+    let mut wrong_route_floor = valid.clone();
+    wrong_route_floor
         .backend_lowerings
         .iter_mut()
         .find(|route| route.backend == IntrinsicBackend::LibNvvm)
         .unwrap()
         .minimum_sm = Some("sm_80".into());
-    reject(&wrong_profile_floor, "profile floor");
+    reject(&wrong_route_floor, "does not carry its reviewed");
 
     let mut safe = valid.clone();
     safe.safe = true;
@@ -664,7 +630,7 @@ fn warp_shuffle_contract_rejects_unreviewed_policy_changes() {
         .find(|lowering| lowering.backend == IntrinsicBackend::LibNvvm)
         .unwrap()
         .minimum_sm = Some("sm_80".into());
-    reject_policy(&wrong_backend_floor, "profile floor");
+    reject_policy(&wrong_backend_floor, "does not carry its reviewed");
 }
 
 #[test]
@@ -750,14 +716,10 @@ fn sync_threads_selects_only_the_fixed_immediate_barrier_recipe() {
     assert_eq!(llvm_route.minimum_ptx.as_deref(), Some("3.2"));
     assert_eq!(llvm_route.minimum_sm.as_deref(), Some("sm_20"));
 
-    let resolved = resolve_record(
+    let resolved = materialize_record(
         &policy,
         resolve_policy_source(&policy).unwrap(),
         Some(&declaration),
-        &sync_evidence(&policy),
-        "test",
-        "LLVM version test",
-        "0123456789abcdef",
         vec![],
         1,
     )
@@ -851,18 +813,18 @@ fn sync_threads_recipe_rejects_unreviewed_selection_effect_and_floor_changes() {
             .contains("native target floor")
     );
 
-    let mut missing_profile_floor = valid;
-    missing_profile_floor
+    let mut missing_route_floor = valid;
+    missing_route_floor
         .backend_lowerings
         .iter_mut()
         .find(|lowering| lowering.backend == IntrinsicBackend::LibNvvm)
         .unwrap()
         .minimum_sm = None;
     assert!(
-        validate_imported_policy(&missing_profile_floor, &declaration)
+        validate_imported_policy(&missing_route_floor, &declaration)
             .unwrap_err()
             .to_string()
-            .contains("profile floor")
+            .contains("does not carry its reviewed")
     );
 
     let mut wrong_llvm_floor = sync_policy();
@@ -876,7 +838,7 @@ fn sync_threads_recipe_rejects_unreviewed_selection_effect_and_floor_changes() {
         validate_imported_policy(&wrong_llvm_floor, &declaration)
             .unwrap_err()
             .to_string()
-            .contains("profile floor")
+            .contains("does not carry its reviewed")
     );
 }
 
@@ -900,21 +862,10 @@ fn sync_mask_matches_the_closed_warp_barrier_recipe() {
         BTreeSet::from(["INT_BAR_WARP_SYNC_I", "INT_BAR_WARP_SYNC_R"])
     );
 
-    let mut record = evidence();
-    record.id = policy.id.clone();
-    record.source_record = policy.source_record.clone();
-    record.llvm_symbol = policy.llvm_symbol.clone();
-    record.llvm_arguments = policy.llvm_arguments.clone();
-    record.llvm_results = policy.llvm_results.clone();
-    record.expected_ptx = policy.expected_ptx.clone();
-    let resolved = resolve_record(
+    let resolved = materialize_record(
         &policy,
         resolve_policy_source(&policy).unwrap(),
         Some(&declaration),
-        &record,
-        "test",
-        "LLVM version test",
-        "0123456789abcdef",
         vec![],
         1,
     )
@@ -1003,6 +954,6 @@ fn sync_mask_recipe_rejects_unreviewed_contract_and_selection_changes() {
         validate_imported_policy(&missing_libnvvm_floor, &declaration)
             .unwrap_err()
             .to_string()
-            .contains("profile floor")
+            .contains("does not carry its reviewed")
     );
 }

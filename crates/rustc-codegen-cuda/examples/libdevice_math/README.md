@@ -41,7 +41,7 @@ driver. If CUDA error 222 appears, upgrade the driver or select an older
 compatible toolkit, for example:
 
 ```bash
-CUDA_TOOLKIT_PATH=/usr/local/cuda-13.0 \
+CUDA_TOOLKIT_PATH=/path/to/compatible/cuda \
   cargo oxide run libdevice_math --arch sm_86
 ```
 

@@ -18,22 +18,17 @@
 #      crates/cargo-oxide/src/commands/scaffold.rs.
 #      `cargo oxide new` writes it into every new project as that project's
 #      rust-toolchain.toml, so this is the highest-impact copy: a stale
-#      scaffold never breaks this repo's CI, it hands each new user a pin
+#      scaffold never breaks this repo's build, it hands each new user a pin
 #      whose backend cannot load, and the failure surfaces on their machine.
 #
-#   3. The rust feature in .devcontainer/devcontainer.json.  It preinstalls
-#      the toolchain so the container's first build does not download it; a
-#      stale version there warms the wrong cache, and a component the pin no
-#      longer names keeps being installed into every container.
-#
-#   4. The `[toolchain]` blocks quoted in the book.  These are presented as
+#   3. The `[toolchain]` blocks quoted in the book.  These are presented as
 #      the repo's actual file -- one is even labelled "already in the repo
 #      root" -- so a reader copies them into their own project.  When they go
 #      stale the book hands out a pin that silently omits a component, and the
 #      symptom lands later and elsewhere: a missing `rustfmt` surfaces as
 #      `cargo oxide fmt` failing, not as a bad toolchain file.
 #
-#   5. The dated commands and prose across the book and the READMEs:
+#   4. The dated commands and prose across the book and the READMEs:
 #      `rustup toolchain install nightly-...`, `cargo +nightly-... install`,
 #      and sentences naming the pin.  Readers run those commands outside a
 #      checkout, where no rust-toolchain.toml can correct a stale date.
@@ -59,7 +54,6 @@ cd "$(dirname "$0")/.."
 ROOT_PIN=rust-toolchain.toml
 NESTED_PIN=crates/rustc-codegen-cuda/rust-toolchain.toml
 SCAFFOLD=crates/cargo-oxide/src/commands/scaffold.rs
-DEVCONTAINER=.devcontainer/devcontainer.json
 
 if ! command -v python3 >/dev/null 2>&1; then
     echo "error: python3 is required to verify the toolchain pin" >&2
@@ -79,16 +73,14 @@ fi
 test -s "${ROOT_PIN}"
 test -s "${NESTED_PIN}"
 test -s "${SCAFFOLD}"
-test -s "${DEVCONTAINER}"
 
-python3 - "${ROOT_PIN}" "${NESTED_PIN}" "${SCAFFOLD}" "${DEVCONTAINER}" <<'PY'
+python3 - "${ROOT_PIN}" "${NESTED_PIN}" "${SCAFFOLD}" <<'PY'
 import glob
-import json
 import re
 import subprocess
 import sys
 
-root_path, nested_path, scaffold_path, devcontainer_path = sys.argv[1:5]
+root_path, nested_path, scaffold_path = sys.argv[1:4]
 
 CHANNEL = re.compile(r'^\s*channel\s*=\s*"([^"]+)"', re.M)
 # Both layouts are in the tree: the root file spreads the list over one entry
@@ -167,50 +159,6 @@ if scaffold_components != root_components:
     failures.append(
         f"{scaffold_path} scaffolds components {scaffold_components!r}, "
         f"{root_path} lists {root_components!r}"
-    )
-
-# The devcontainer's preinstalled toolchain.  The channel must be the pin's.
-# The components line is a deliberate warm-cache subset -- the container
-# ships its own LLVM 21 and sets CUDA_OXIDE_LLC, so rustup's llvm-tools is
-# left for rust-toolchain.toml to pull on first use -- but everything it
-# *does* preinstall must be a component the pin still names, or a pin change
-# leaves every new container installing a leftover.
-try:
-    devcontainer = json.loads(read(devcontainer_path))
-except ValueError as error:
-    sys.exit(
-        f"parse self-test failed: {devcontainer_path} is not plain JSON "
-        f"({error}); if it grew JSONC comments, fix this script before "
-        "trusting it"
-    )
-# Feature keys carry a version tag (".../rust:1"); strip it and require an
-# exact id so a renamed feature trips the self-test instead of a lookalike
-# (".../rustup", ".../rust-lang") being read as the rust feature.
-rust_features = [
-    value
-    for key, value in devcontainer.get("features", {}).items()
-    if key.split(":")[0] == "ghcr.io/devcontainers/features/rust"
-]
-if len(rust_features) != 1 or "version" not in rust_features[0]:
-    sys.exit(
-        "parse self-test failed: expected one rust feature with a version "
-        f"in {devcontainer_path}, found {len(rust_features)}; the feature "
-        "moved or was renamed, fix this script before trusting it"
-    )
-devcontainer_channel = rust_features[0]["version"]
-if devcontainer_channel != root_channel:
-    failures.append(
-        f"{devcontainer_path} preinstalls {devcontainer_channel!r}, "
-        f"{root_path} pins {root_channel!r}"
-    )
-devcontainer_components = [
-    name for name in rust_features[0].get("components", "").split(",") if name
-]
-stale = [name for name in devcontainer_components if name not in root_components]
-if stale:
-    failures.append(
-        f"{devcontainer_path} preinstalls component(s) the pin does not "
-        f"name: {' '.join(stale)}; {root_path} lists {root_components!r}"
     )
 
 # The book's quoted blocks.  Only fenced ```toml blocks that actually contain
@@ -324,7 +272,7 @@ if failures:
 
 print(
     f"OK: {root_path} pins {root_channel} with {len(root_components)} components; "
-    "the nested pin, the `cargo oxide new` scaffold, the devcontainer, all "
+    "the nested pin, the `cargo oxide new` scaffold, all "
     f"{quoted} block(s) quoted in the book, and all {dated} dated reference(s) "
     "in tracked markdown agree."
 )

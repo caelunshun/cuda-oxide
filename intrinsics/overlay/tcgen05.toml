@@ -2,23 +2,6 @@ schema = 66
 family = "tcgen05"
 
 [tcgen05]
-llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
-libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05"
-cp_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
-cp_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05-cp"
-ld_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
-ld_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05-ld"
-st_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
-st_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05-st"
-offset_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
-offset_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05-ldst-offset"
-control_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
-control_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05-control"
-mma_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tcgen05-mma"
-mma_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-tcgen05-mma"
-ld_red_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
-ld_red_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tcgen05-ld-red"
-runtime_validation = "unexecuted"
 
 [[tcgen05.variant]]
 abi_id = "i0343"
@@ -1380,7 +1363,7 @@ form = "shared"
 alias = "e2m1"
 
 # `tcgen05.ld.red` (PTX ISA 8.8, sm_103a and sm_110a): every shape,
-# repetition, element type, and reduction CUDA 13.3 ptxas accepts.
+# repetition, element type, and reduction ptxas accepts.
 
 [[tcgen05.ld_red_variant]]
 abi_id = "i1047"

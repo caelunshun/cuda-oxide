@@ -9,9 +9,7 @@ use crate::model::{
     RegisterMmaAmpereFloatVariant, RegisterMmaBinaryAdmission, RegisterMmaCompatibilitySource,
     RegisterMmaElement, RegisterMmaF8F6F4Admission, RegisterMmaFp8Admission,
     RegisterMmaIntegerAdmission, RegisterMmaKind, RegisterMmaLayout, RegisterMmaOperation,
-    RegisterMmaOverflow, RegisterMmaParticipation, RegisterMmaShape, RuntimeValidation,
-    SparseMmaAccumulator, SparseMmaLayout, SparseMmaMetadata, SparseMmaOverflow, SparseMmaSelector,
-    SparseMmaShape,
+    RegisterMmaOverflow, RegisterMmaParticipation, RegisterMmaShape,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, bail, ensure};
@@ -73,11 +71,6 @@ pub(in crate::resolve) fn expand_register_mma_integer_admission(
         "compact {} MMA admission has no variants",
         kind.label()
     );
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "{} MMA runtime validation may be marked executed only with GPU evidence",
-        kind.label()
-    );
 
     let mut seen = BTreeSet::new();
     let mut records = Vec::with_capacity(admission.variants.len());
@@ -124,7 +117,6 @@ pub(in crate::resolve) fn expand_register_mma_integer_admission(
             participation: AllWarpLanesSameInstructionAndQualifiersNoExitedLanes,
             adapter,
             compatibility_source: GeneratedStub,
-            runtime_validation: admission.runtime_validation,
         };
         let recipe = register_mma_recipe(&mma).with_context(|| {
             format!(
@@ -225,7 +217,6 @@ pub(in crate::resolve) fn expand_register_mma_integer_admission(
                 OverlayBackendLowering {
                     backend: IntrinsicBackend::LlvmNvptx,
                     mechanism: BackendLoweringMechanism::InlinePtx,
-                    evidence_profile: admission.llvm_evidence_profile.clone(),
                     targets: None,
                     minimum_ptx: Some(recipe.minimum_ptx.into()),
                     minimum_sm: Some(recipe.minimum_sm.into()),
@@ -233,7 +224,6 @@ pub(in crate::resolve) fn expand_register_mma_integer_admission(
                 OverlayBackendLowering {
                     backend: IntrinsicBackend::LibNvvm,
                     mechanism: BackendLoweringMechanism::InlinePtx,
-                    evidence_profile: admission.libnvvm_evidence_profile.clone(),
                     targets: None,
                     minimum_ptx: Some(recipe.minimum_ptx.into()),
                     minimum_sm: Some(recipe.minimum_sm.into()),
@@ -315,45 +305,6 @@ pub(in crate::resolve) fn register_mma_f8f6f4_element_name(
     }
 }
 
-pub(in crate::resolve) fn is_dense_f8f6f4_register_mma_policy(policy: &OverlayIntrinsic) -> bool {
-    policy.family == "register_mma"
-        && policy.targets == REGISTER_MMA_F8F6F4_TARGETS
-        && policy.register_mma.as_ref().is_some_and(|mma| {
-            mma.kind != Some(RegisterMmaKind::Standard)
-                && mma.shape == RegisterMmaShape::M16n8k32
-                && mma.operation == RegisterMmaOperation::Multiply
-                && matches!(
-                    mma.accumulator,
-                    RegisterMmaAccumulator::F16 | RegisterMmaAccumulator::F32
-                )
-                && register_mma_f8f6f4_element_name(mma.a_element).is_some()
-                && register_mma_f8f6f4_element_name(mma.b_element).is_some()
-                && mma.a_layout == RegisterMmaLayout::Row
-                && mma.b_layout == RegisterMmaLayout::Col
-                && mma.overflow == RegisterMmaOverflow::NotApplicable
-        })
-}
-
-pub(in crate::resolve) fn is_sparse_f8f6f4_f16_policy(policy: &OverlayIntrinsic) -> bool {
-    policy.family == "sparse_mma"
-        && policy.targets == SPARSE_MMA_F8F6F4_TARGETS
-        && policy.sparse_mma.as_ref().is_some_and(|mma| {
-            mma.shape == SparseMmaShape::M16n8k64
-                && mma.accumulator == SparseMmaAccumulator::F16
-                && SPARSE_MMA_F8F6F4_ELEMENTS.contains(&mma.a_element)
-                && SPARSE_MMA_F8F6F4_ELEMENTS.contains(&mma.b_element)
-                && mma.a_layout == SparseMmaLayout::Row
-                && mma.b_layout == SparseMmaLayout::Col
-                && mma.overflow == SparseMmaOverflow::NotApplicable
-                && mma.metadata == SparseMmaMetadata::Ordered
-                && mma.selector == SparseMmaSelector::ImmediateZero
-        })
-}
-
-pub(in crate::resolve) fn is_f8f6f4_mma_target_matrix_policy(policy: &OverlayIntrinsic) -> bool {
-    is_dense_f8f6f4_register_mma_policy(policy) || is_sparse_f8f6f4_f16_policy(policy)
-}
-
 #[derive(Clone, Copy)]
 pub(in crate::resolve) struct RegisterMmaF8F6F4Contract {
     pub(in crate::resolve) accumulator: RegisterMmaAccumulator,
@@ -413,15 +364,6 @@ pub(in crate::resolve) fn expand_register_mma_f8f6f4_admission(
 ) -> Result<Vec<OverlayIntrinsic>> {
     let contract = register_mma_f8f6f4_contract(accumulator)?;
     ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "dense f8f6f4 MMA runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "dense f8f6f4 MMA admission requires both backend evidence profiles"
-    );
-    ensure!(
         admission.a_elements == REGISTER_MMA_F8F6F4_ELEMENTS
             && admission.b_elements == REGISTER_MMA_F8F6F4_ELEMENTS
             && admission.product_count == 25,
@@ -464,7 +406,6 @@ pub(in crate::resolve) fn expand_register_mma_f8f6f4_admission(
                     RegisterMmaParticipation::AllWarpLanesSameInstructionAndQualifiersNoExitedLanes,
                 adapter: contract.adapter,
                 compatibility_source: RegisterMmaCompatibilitySource::GeneratedStub,
-                runtime_validation: admission.runtime_validation,
             };
 
             records.push(OverlayIntrinsic {
@@ -525,7 +466,6 @@ pub(in crate::resolve) fn expand_register_mma_f8f6f4_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: None,
                         minimum_sm: None,
@@ -533,7 +473,6 @@ pub(in crate::resolve) fn expand_register_mma_f8f6f4_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: None,
                         minimum_sm: None,
@@ -612,15 +551,6 @@ pub(in crate::resolve) fn expand_register_mma_mxf8f6f4_admission(
     admission: &RegisterMmaF8F6F4Admission,
 ) -> Result<Vec<OverlayIntrinsic>> {
     ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "dense mxf8f6f4 MMA runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "dense mxf8f6f4 MMA admission requires both backend evidence profiles"
-    );
-    ensure!(
         admission.a_elements == REGISTER_MMA_F8F6F4_ELEMENTS
             && admission.b_elements == REGISTER_MMA_F8F6F4_ELEMENTS
             && admission.product_count == 25,
@@ -676,7 +606,6 @@ pub(in crate::resolve) fn expand_register_mma_mxf8f6f4_admission(
                     RegisterMmaParticipation::AllWarpLanesSameInstructionAndQualifiersNoExitedLanes,
                 adapter: RegisterMmaAdapter::C4F32A4U32B2U32Scales2U32Selectors4U16ToD4F32,
                 compatibility_source: RegisterMmaCompatibilitySource::GeneratedStub,
-                runtime_validation: admission.runtime_validation,
             };
 
             records.push(OverlayIntrinsic {
@@ -722,7 +651,6 @@ pub(in crate::resolve) fn expand_register_mma_mxf8f6f4_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LlvmNvptx,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.llvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: None,
                         minimum_sm: None,
@@ -730,7 +658,6 @@ pub(in crate::resolve) fn expand_register_mma_mxf8f6f4_admission(
                     OverlayBackendLowering {
                         backend: IntrinsicBackend::LibNvvm,
                         mechanism: BackendLoweringMechanism::InlinePtx,
-                        evidence_profile: admission.libnvvm_evidence_profile.clone(),
                         targets: None,
                         minimum_ptx: None,
                         minimum_sm: None,
@@ -854,15 +781,6 @@ pub(in crate::resolve) fn expand_register_mma_fp8_admission(
     admission: &RegisterMmaFp8Admission,
 ) -> Result<Vec<OverlayIntrinsic>> {
     ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "standard FP8 MMA runtime validation may be marked executed only with GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "standard FP8 MMA admission requires both backend evidence profiles"
-    );
-    ensure!(
         admission.shapes == REGISTER_MMA_FP8_SHAPES
             && admission.accumulators == REGISTER_MMA_FP8_ACCUMULATORS
             && admission.a_elements == REGISTER_MMA_FP8_ELEMENTS
@@ -970,7 +888,6 @@ pub(in crate::resolve) fn expand_register_mma_fp8_admission(
                         participation: RegisterMmaParticipation::AllWarpLanesSameInstructionAndQualifiersNoExitedLanes,
                         adapter,
                         compatibility_source: RegisterMmaCompatibilitySource::GeneratedStub,
-                        runtime_validation: admission.runtime_validation,
                     };
                     records.push(OverlayIntrinsic {
                         id: id.clone(),
@@ -1011,14 +928,13 @@ pub(in crate::resolve) fn expand_register_mma_fp8_admission(
                         ptx_isa_url: "https://docs.nvidia.com/cuda/parallel-thread-execution/#warp-level-matrix-instructions-mma".into(),
                         lowering: "generated_register_mma".into(),
                         backend_lowerings: [
-                            (IntrinsicBackend::LlvmNvptx, &admission.llvm_evidence_profile),
-                            (IntrinsicBackend::LibNvvm, &admission.libnvvm_evidence_profile),
+                            IntrinsicBackend::LlvmNvptx,
+                            IntrinsicBackend::LibNvvm,
                         ]
                         .into_iter()
-                        .map(|(backend, evidence_profile)| OverlayBackendLowering {
+                        .map(|backend| OverlayBackendLowering {
                             backend,
                             mechanism: BackendLoweringMechanism::InlinePtx,
-                            evidence_profile: evidence_profile.clone(),
                             targets: None,
                             minimum_ptx: Some(minimum_ptx.into()),
                             minimum_sm: Some("sm_89".into()),
@@ -1116,15 +1032,6 @@ pub(in crate::resolve) fn expand_register_mma_ampere_float_admission(
     admission: &RegisterMmaAmpereFloatAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
     ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "Ampere floating-point MMA runtime validation requires GPU evidence"
-    );
-    ensure!(
-        !admission.llvm_evidence_profile.trim().is_empty()
-            && !admission.libnvvm_evidence_profile.trim().is_empty(),
-        "Ampere floating-point MMA admission requires both backend evidence profiles"
-    );
-    ensure!(
         admission.product_count == REGISTER_MMA_AMPERE_FLOAT_VARIANTS.len()
             && admission.variants == REGISTER_MMA_AMPERE_FLOAT_VARIANTS,
         "Ampere floating-point MMA admission must retain the five reviewed variants in canonical order"
@@ -1160,7 +1067,6 @@ pub(in crate::resolve) fn expand_register_mma_ampere_float_admission(
                 participation: RegisterMmaParticipation::AllWarpLanesSameInstructionAndQualifiersNoExitedLanes,
                 adapter,
                 compatibility_source: RegisterMmaCompatibilitySource::GeneratedStub,
-                runtime_validation: admission.runtime_validation,
             };
             let recipe = register_mma_recipe(&mma).with_context(|| {
                 "Ampere floating-point MMA admission requests a variant outside the closed recipe set"
@@ -1202,14 +1108,13 @@ pub(in crate::resolve) fn expand_register_mma_ampere_float_admission(
                 ptx_isa_url: "https://docs.nvidia.com/cuda/parallel-thread-execution/#warp-level-matrix-instructions-mma".into(),
                 lowering: "generated_register_mma".into(),
                 backend_lowerings: [
-                    (IntrinsicBackend::LlvmNvptx, &admission.llvm_evidence_profile),
-                    (IntrinsicBackend::LibNvvm, &admission.libnvvm_evidence_profile),
+                    IntrinsicBackend::LlvmNvptx,
+                    IntrinsicBackend::LibNvvm,
                 ]
                 .into_iter()
-                .map(|(backend, evidence_profile)| OverlayBackendLowering {
+                .map(|backend| OverlayBackendLowering {
                     backend,
                     mechanism: BackendLoweringMechanism::InlinePtx,
-                    evidence_profile: evidence_profile.clone(),
                     targets: None,
                     minimum_ptx: Some(recipe.minimum_ptx.into()),
                     minimum_sm: Some(recipe.minimum_sm.into()),
@@ -1281,10 +1186,6 @@ pub(in crate::resolve) fn expand_register_mma_binary_admission(
         !admission.variants.is_empty(),
         "compact binary MMA admission has no variants"
     );
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "binary MMA runtime validation may be marked executed only with GPU evidence"
-    );
 
     let mut seen = BTreeSet::new();
     let mut records = Vec::with_capacity(admission.variants.len());
@@ -1316,7 +1217,6 @@ pub(in crate::resolve) fn expand_register_mma_binary_admission(
             participation: AllWarpLanesSameInstructionAndQualifiersNoExitedLanes,
             adapter,
             compatibility_source: RegisterMmaCompatibilitySource::GeneratedStub,
-            runtime_validation: admission.runtime_validation,
         };
         let recipe = register_mma_recipe(&mma).with_context(
             || "compact binary MMA admission requests a variant outside the closed recipe set",
@@ -1390,7 +1290,6 @@ pub(in crate::resolve) fn expand_register_mma_binary_admission(
                 OverlayBackendLowering {
                     backend: IntrinsicBackend::LlvmNvptx,
                     mechanism: BackendLoweringMechanism::InlinePtx,
-                    evidence_profile: admission.llvm_evidence_profile.clone(),
                     targets: None,
                     minimum_ptx: Some(recipe.minimum_ptx.into()),
                     minimum_sm: Some(recipe.minimum_sm.into()),
@@ -1398,7 +1297,6 @@ pub(in crate::resolve) fn expand_register_mma_binary_admission(
                 OverlayBackendLowering {
                     backend: IntrinsicBackend::LibNvvm,
                     mechanism: BackendLoweringMechanism::InlinePtx,
-                    evidence_profile: admission.libnvvm_evidence_profile.clone(),
                     targets: None,
                     minimum_ptx: Some(recipe.minimum_ptx.into()),
                     minimum_sm: Some(recipe.minimum_sm.into()),

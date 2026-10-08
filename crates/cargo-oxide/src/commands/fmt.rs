@@ -12,14 +12,13 @@ use super::*;
 // Fmt command
 // =============================================================================
 
-/// Format (or check formatting of) every scope the `fmt` CI gate checks.
+/// Format (or check formatting of) every Rust scope in the repository.
 ///
-/// `.github/workflows/fmt.yml` checks four: the root workspace, the codegen
-/// backend crate, the cuda-macros device-only fixture, and every `Cargo.toml`
-/// under `examples/`, nested ones included. This mirrors that set on purpose --
-/// the reason CONTRIBUTING tells contributors to prefer this command over a
-/// bare `cargo fmt` is so the gate cannot fail on code they had no way to
-/// format, which only holds while the two cover the same ground.
+/// There are four: the root workspace, the codegen backend crate, the
+/// cuda-macros device-only fixture, and every `Cargo.toml` under `examples/`,
+/// nested ones included. Each is its own workspace, which is why CONTRIBUTING
+/// tells contributors to prefer this command over a bare `cargo fmt`: from the
+/// root, that reaches only the first.
 ///
 /// In `check` mode, reports which files need formatting without modifying them.
 pub fn format_all(ctx: &Context, check: bool) {

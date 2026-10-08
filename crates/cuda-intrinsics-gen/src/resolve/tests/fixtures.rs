@@ -7,34 +7,31 @@ use crate::model::{
     AbiLedgerEntry, AbiLedgerFile, BackendLoweringMechanism, CatalogHardwareAlternative,
     CatalogHardwareTarget, ClcAdmission, ClcOperation, ClusterBarrierAdmission, ClusterBarrierMode,
     ClusterMemoryAdmission, ClusterMemoryOperation, DebugControlAdmission, DebugControlOperation,
-    DotProductOperation, DotProductSignedness, EvidenceFile, EvidenceRecord, EvidenceStage,
-    EvidenceStageKind, ImportedFile, ImportedIntrinsic, IntrinsicBackend, IntrinsicSource,
-    MaskEncoding, MbarrierExtendedAdmission, MbarrierExtendedOperation, MovmatrixAdapter,
-    MovmatrixParticipation, OverlayBackendLowering, OverlayFile, OverlayIntrinsic,
-    PackedAluAdapter, PackedAluFormat, PackedAluOperation, PackedConversionAdapter,
-    PackedConversionDestinationFormat, PackedConversionFp8Admission, PackedConversionFp8Direction,
-    PackedConversionFp8F16x2Admission, PackedConversionFp8Format, PackedConversionRounding,
-    PackedConversionSaturation, PackedConversionSourceFormat, PreSm70MemberMaskRule, PrmtAdmission,
-    PrmtMode, RegisterMmaAccumulator, RegisterMmaAmpereFloatAdmission, RegisterMmaF8F6F4Admission,
-    RegisterMmaFp8Admission, RuntimeValidation, SparseMmaElement, SparseMmaF8F6F4Admission,
-    SparseMmaF8F6F4F16Admission, SpecialRegisterAdmission, StmatrixAdmission, StmatrixLayout,
-    StmatrixMultiplicity, Tcgen05Admission, Tcgen05CpAdmissionVariant, Tcgen05CpGroup,
-    Tcgen05LdAdmissionVariant, Tcgen05LdRedAdmissionVariant, Tcgen05MmaAdmissionVariant,
-    Tcgen05MmaForm, Tcgen05Operation, Tcgen05StAdmissionVariant, ThreadfenceAdmission,
-    ThreadfenceScope, TmaAdmission, VoteAdapter, VoteMode, VoteParticipation, WarpShuffleAdapter,
-    WarpShuffleMode, WarpShuffleParticipation, WarpShuffleSourceLane, WarpShuffleValueKind,
-    WgmmaControlAdmission, WgmmaControlMode,
+    DotProductOperation, DotProductSignedness, ImportedFile, ImportedIntrinsic, IntrinsicBackend,
+    IntrinsicSource, MaskEncoding, MbarrierExtendedAdmission, MbarrierExtendedOperation,
+    MovmatrixAdapter, MovmatrixParticipation, OverlayBackendLowering, OverlayFile,
+    OverlayIntrinsic, PackedAluAdapter, PackedAluFormat, PackedAluOperation,
+    PackedConversionAdapter, PackedConversionDestinationFormat, PackedConversionFp8Admission,
+    PackedConversionFp8Direction, PackedConversionFp8F16x2Admission, PackedConversionFp8Format,
+    PackedConversionRounding, PackedConversionSaturation, PackedConversionSourceFormat,
+    PreSm70MemberMaskRule, PrmtAdmission, PrmtMode, RegisterMmaAccumulator,
+    RegisterMmaAmpereFloatAdmission, RegisterMmaF8F6F4Admission, RegisterMmaFp8Admission,
+    SparseMmaElement, SparseMmaF8F6F4Admission, SparseMmaF8F6F4F16Admission,
+    SpecialRegisterAdmission, StmatrixAdmission, StmatrixLayout, StmatrixMultiplicity,
+    Tcgen05Admission, Tcgen05CpAdmissionVariant, Tcgen05CpGroup, Tcgen05LdAdmissionVariant,
+    Tcgen05LdRedAdmissionVariant, Tcgen05MmaAdmissionVariant, Tcgen05MmaForm, Tcgen05Operation,
+    Tcgen05StAdmissionVariant, ThreadfenceAdmission, ThreadfenceScope, TmaAdmission, VoteAdapter,
+    VoteMode, VoteParticipation, WarpShuffleAdapter, WarpShuffleMode, WarpShuffleParticipation,
+    WarpShuffleSourceLane, WarpShuffleValueKind, WgmmaControlAdmission, WgmmaControlMode,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use crate::util::read_json;
 use anyhow::Result;
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::model::ImportedSelection;
 use crate::resolve::abi_ledger::*;
-use crate::resolve::evidence::*;
 use crate::resolve::families::*;
 use crate::resolve::overlay::*;
 use crate::resolve::policy::*;
@@ -192,11 +189,6 @@ pub(super) fn movmatrix_policy() -> OverlayIntrinsic {
         .map(|backend| OverlayBackendLowering {
             backend,
             mechanism: BackendLoweringMechanism::InlinePtx,
-            evidence_profile: match backend {
-                IntrinsicBackend::LlvmNvptx => "llvm-test",
-                IntrinsicBackend::LibNvvm => "libnvvm-test",
-            }
-            .into(),
             targets: None,
             minimum_ptx: Some("7.8".into()),
             minimum_sm: Some("sm_75".into()),
@@ -205,7 +197,6 @@ pub(super) fn movmatrix_policy() -> OverlayIntrinsic {
     record.movmatrix = Some(crate::model::Movmatrix {
         participation: MovmatrixParticipation::AllWarpLanesSameInstructionNoExitedLanes,
         adapter: MovmatrixAdapter::PackedB16x2U32ToPackedB16x2U32,
-        runtime_validation: RuntimeValidation::Unexecuted,
     });
     record.expected_ptx = InstructionPattern::new(
         "movmatrix",
@@ -238,204 +229,11 @@ pub(super) fn declaration() -> ImportedIntrinsic {
     }
 }
 
-pub(super) fn evidence() -> EvidenceRecord {
-    EvidenceRecord {
-        id: "thread_idx_x".into(),
-        source: None,
-        source_record: Some("int_nvvm_read_ptx_sreg_tid_x".into()),
-        llvm_symbol: Some("llvm.nvvm.read.ptx.sreg.tid.x".into()),
-        resolved_llvm_symbol: None,
-        llvm_arguments: vec![],
-        llvm_results: vec!["i32".into()],
-        concrete_llvm_arguments: vec![],
-        concrete_llvm_results: vec![],
-        target_triple: "nvptx64-nvidia-cuda".into(),
-        gpu_target: "sm_70".into(),
-        ptx_feature: "+ptx60".into(),
-        status: "lowered".into(),
-        stages: vec![],
-        declaration_attributes_canonicalized: None,
-        runtime_validation: None,
-        expected_ptx: sreg_pattern("%tid.x"),
-    }
-}
-
-pub(super) fn validate_test_evidence(
-    policy: &OverlayIntrinsic,
-    record: EvidenceRecord,
-) -> Result<()> {
-    let file = EvidenceFile {
-        schema: 3,
-        backend_profile: "test".into(),
-        backend_kind: None,
-        llvm_revision: "test".into(),
-        backend_version: "LLVM version test".into(),
-        backend_sha256: "0123456789abcdef".into(),
-        artifact_path: None,
-        build_id_prefix: None,
-        nvvm_ir_version: None,
-        debug_ir_version: None,
-        records: vec![record],
-    };
-    let indexed = IndexedEvidence {
-        file: &file,
-        record: &file.records[0],
-        backend_version: &file.backend_version,
-        backend_sha256: &file.backend_sha256,
-    };
-    validate_evidence(policy, &indexed, None)
-}
-
-pub(super) fn shared_matrix_stage() -> EvidenceStage {
-    EvidenceStage {
-        targets: vec!["sm_80".into(), "ptx71".into()],
-        representation: "shared fixture".into(),
-        stage: EvidenceStageKind::BackendCodegen,
-        mechanism: Some(BackendLoweringMechanism::InlinePtx),
-        outcome: "succeeded".into(),
-        detail: "$dst remains fixture text".into(),
-        artifact_kind: None,
-        tool_path: None,
-        tool_version: None,
-        tool_sha256: None,
-    }
-}
-
-pub(super) fn synthetic_matrix_json() -> serde_json::Value {
-    serde_json::json!({
-        "schema": 6,
-        "backend_profile": "matrix-test",
-        "backend_kind": "llvm_nvptx",
-        "llvm_revision": "test",
-        "backend_version": "LLVM matrix test",
-        "backend_sha256": "0123456789abcdef",
-        "defaults": {
-            "llvm_arguments": ["i32"],
-            "llvm_results": ["i32"],
-            "target_triple": "nvptx64-nvidia-cuda",
-            "gpu_target": "sm_80",
-            "ptx_feature": "+ptx71",
-            "status": "lowered"
-        },
-        "fixtures": [{
-            "id": "shared",
-            "coverage_count": 2,
-            "stages": [{
-                "targets": ["sm_80", "ptx71"],
-                "representation": "shared fixture",
-                "stage": "backend_codegen",
-                "mechanism": "inline_ptx",
-                "outcome": "succeeded",
-                "detail": "$dst remains fixture text"
-            }]
-        }],
-        "matrices": [{
-            "axes": [{
-                "name": "element",
-                "values": ["s8", "u8"]
-            }],
-            "product_count": 2,
-            "fixtures": ["shared"],
-            "template": {
-                "id": "synthetic_${element}",
-                "source_record": "int_synthetic_${element}",
-                "llvm_symbol": "llvm.synthetic.${element}",
-                "expected_ptx": {
-                    "mnemonic": "mma",
-                    "modifiers": ["sync", "${element}"],
-                    "operands": [{"kind": "register"}]
-                }
-            }
-        }],
-        "records": [{
-            "id": "synthetic_explicit",
-            "source_record": "int_synthetic_explicit",
-            "llvm_symbol": "llvm.synthetic.explicit",
-            "llvm_arguments": ["i32"],
-            "llvm_results": ["i32"],
-            "target_triple": "nvptx64-nvidia-cuda",
-            "gpu_target": "sm_80",
-            "ptx_feature": "+ptx71",
-            "status": "lowered",
-            "expected_ptx": {
-                "mnemonic": "mma",
-                "modifiers": ["sync", "explicit"],
-                "operands": [{"kind": "register"}]
-            }
-        }]
-    })
-}
-
-pub(super) fn policy_matrix_json() -> serde_json::Value {
-    serde_json::json!({
-        "schema": 6,
-        "backend_profile": "matrix-test",
-        "llvm_revision": "test",
-        "backend_version": "LLVM matrix test",
-        "backend_sha256": "0123456789abcdef",
-        "defaults": {
-            "llvm_arguments": [],
-            "llvm_results": ["i32"],
-            "target_triple": "nvptx64-nvidia-cuda",
-            "gpu_target": "sm_70",
-            "ptx_feature": "+ptx60",
-            "status": "lowered"
-        },
-        "fixtures": [{
-            "id": "policy_fixture",
-            "coverage_count": 1,
-            "stages": [{
-                "targets": ["sm_70", "ptx60"],
-                "representation": "policy fixture",
-                "stage": "backend_codegen",
-                "mechanism": "typed_nvvm",
-                "outcome": "succeeded",
-                "detail": "shared policy fixture"
-            }]
-        }],
-        "matrices": [{
-            "axes": [{
-                "name": "axis",
-                "values": ["x"]
-            }],
-            "product_count": 1,
-            "fixtures": ["policy_fixture"],
-            "template": {
-                "id": "thread_idx_${axis}",
-                "source_record": "int_nvvm_read_ptx_sreg_tid_${axis}",
-                "llvm_symbol": "llvm.nvvm.read.ptx.sreg.tid.${axis}",
-                "expected_ptx": {
-                    "mnemonic": "mov",
-                    "modifiers": ["u32"],
-                    "operands": [
-                        {"kind": "register"},
-                        {"kind": "exact", "value": "%tid.${axis}"}
-                    ]
-                }
-            }
-        }]
-    })
-}
-
-pub(super) fn parse_synthetic_evidence(value: &serde_json::Value) -> Result<EvidenceFile> {
-    parse_evidence_bytes(&serde_json::to_vec(value).unwrap(), "synthetic evidence")
-}
-
-pub(super) fn assert_synthetic_evidence_error(value: &serde_json::Value, expected: &str) {
-    let error = parse_synthetic_evidence(value).unwrap_err();
-    let message = format!("{error:#}");
-    assert!(
-        message.contains(expected),
-        "expected {expected:?} in {message:?}"
-    );
-}
-
 pub(super) fn overlay_file(records: Vec<OverlayIntrinsic>) -> OverlayFile {
     OverlayFile {
         schema: OVERLAY_SCHEMA,
         catalog_version: "test".into(),
         intrinsic_abi: 1,
-        backend_profile: "test".into(),
         shards: vec![],
         intrinsics: records,
     }
@@ -610,7 +408,6 @@ pub(super) fn packed_alu_policy(
             crate::model::OverlayBackendLowering {
                 backend,
                 mechanism: BackendLoweringMechanism::InlinePtx,
-                evidence_profile: format!("{backend:?}-test"),
                 targets: None,
                 minimum_ptx: Some(minimum_ptx.into()),
                 minimum_sm: Some(minimum_sm.into()),
@@ -738,7 +535,6 @@ pub(super) fn packed_conversion_policy(
         .map(|backend| OverlayBackendLowering {
             backend,
             mechanism: packed_conversion_backend_mechanism(&conversion, backend),
-            evidence_profile: "test".into(),
             targets: None,
             minimum_ptx: Some(minimum_ptx.into()),
             minimum_sm: Some(minimum_sm.into()),
@@ -766,21 +562,6 @@ pub(super) fn packed_conversion_declaration(policy: &OverlayIntrinsic) -> Import
         ],
         selections: vec![],
     }
-}
-
-pub(super) fn packed_conversion_evidence(policy: &OverlayIntrinsic) -> EvidenceRecord {
-    let mut record = evidence();
-    record.id = policy.id.clone();
-    record.source_record = policy.source_record.clone();
-    record.llvm_symbol = policy.llvm_symbol.clone();
-    record.resolved_llvm_symbol = policy.resolved_llvm_symbol.clone();
-    record.llvm_arguments = policy.llvm_arguments.clone();
-    record.llvm_results = policy.llvm_results.clone();
-    record.concrete_llvm_arguments = policy.llvm_arguments.clone();
-    record.concrete_llvm_results = policy.llvm_results.clone();
-    record.declaration_attributes_canonicalized = Some(true);
-    record.expected_ptx = policy.expected_ptx.clone();
-    record
 }
 
 pub(super) fn redux_policy() -> OverlayIntrinsic {
@@ -993,7 +774,6 @@ pub(super) fn warp_shuffle_policy(
         crate::model::OverlayBackendLowering {
             backend: IntrinsicBackend::LlvmNvptx,
             mechanism: recipe.backend_mechanism,
-            evidence_profile: "llvm-test".into(),
             targets: None,
             minimum_ptx: Some("6.0".into()),
             minimum_sm: Some("sm_30".into()),
@@ -1001,7 +781,6 @@ pub(super) fn warp_shuffle_policy(
         crate::model::OverlayBackendLowering {
             backend: IntrinsicBackend::LibNvvm,
             mechanism: recipe.backend_mechanism,
-            evidence_profile: "libnvvm-test".into(),
             targets: None,
             minimum_ptx: Some("6.0".into()),
             minimum_sm: Some("sm_75".into()),
@@ -1098,17 +877,6 @@ pub(super) fn warp_shuffle_declaration(
     }
 }
 
-pub(super) fn sync_evidence(policy: &OverlayIntrinsic) -> EvidenceRecord {
-    let mut record = evidence();
-    record.id = policy.id.clone();
-    record.source_record = policy.source_record.clone();
-    record.llvm_symbol = policy.llvm_symbol.clone();
-    record.llvm_arguments = policy.llvm_arguments.clone();
-    record.llvm_results = policy.llvm_results.clone();
-    record.expected_ptx = policy.expected_ptx.clone();
-    record
-}
-
 pub(super) fn dot_product_policy(
     operation: DotProductOperation,
     signedness: DotProductSignedness,
@@ -1163,7 +931,6 @@ pub(super) fn dot_product_policy(
         crate::model::OverlayBackendLowering {
             backend: IntrinsicBackend::LlvmNvptx,
             mechanism: BackendLoweringMechanism::TypedNvvm,
-            evidence_profile: "llvm-test".into(),
             targets: None,
             minimum_ptx: None,
             minimum_sm: None,
@@ -1171,7 +938,6 @@ pub(super) fn dot_product_policy(
         crate::model::OverlayBackendLowering {
             backend: IntrinsicBackend::LibNvvm,
             mechanism: BackendLoweringMechanism::InlinePtx,
-            evidence_profile: "libnvvm-test".into(),
             targets: None,
             minimum_ptx: None,
             minimum_sm: Some("sm_75".into()),
@@ -1248,22 +1014,6 @@ pub(super) fn dot_product_declaration(
     }
 }
 
-pub(super) fn dot_product_evidence(policy: &OverlayIntrinsic) -> EvidenceRecord {
-    let mut record = evidence();
-    record.id = policy.id.clone();
-    record.source_record = policy.source_record.clone();
-    record.llvm_symbol = policy.llvm_symbol.clone();
-    record.llvm_arguments = policy.llvm_arguments.clone();
-    record.llvm_results = policy.llvm_results.clone();
-    record.concrete_llvm_arguments = policy.llvm_arguments.clone();
-    record.concrete_llvm_results = policy.llvm_results.clone();
-    record.declaration_attributes_canonicalized = Some(true);
-    record.gpu_target = "sm_61".into();
-    record.ptx_feature = "+ptx50".into();
-    record.expected_ptx = policy.expected_ptx.clone();
-    record
-}
-
 pub(super) fn validate_ptx_native_policy(policy: &OverlayIntrinsic) -> Result<()> {
     let source = resolve_policy_source(policy)?;
     validate_policy(policy, &source, None, 1)
@@ -1296,9 +1046,6 @@ pub(super) fn test_f8f6f4_admission() -> SparseMmaF8F6F4Admission {
         SparseMmaElement::E5m2,
     ];
     SparseMmaF8F6F4Admission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         a_elements: formats.clone(),
         b_elements: formats,
         product_count: 25,
@@ -1307,9 +1054,6 @@ pub(super) fn test_f8f6f4_admission() -> SparseMmaF8F6F4Admission {
 
 pub(super) fn test_sparse_mma_f8f6f4_f16_admission() -> SparseMmaF8F6F4F16Admission {
     SparseMmaF8F6F4F16Admission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         _legacy_first_abi_id: Some("i0525".into()),
         a_elements: SPARSE_MMA_F8F6F4_ELEMENTS.into(),
         b_elements: SPARSE_MMA_F8F6F4_ELEMENTS.into(),
@@ -1322,9 +1066,6 @@ pub(super) fn test_register_mma_f8f6f4_admission(
 ) -> RegisterMmaF8F6F4Admission {
     let formats = REGISTER_MMA_F8F6F4_ELEMENTS.to_vec();
     RegisterMmaF8F6F4Admission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         _legacy_first_abi_id: None,
         a_elements: formats.clone(),
         b_elements: formats,
@@ -1337,9 +1078,6 @@ pub(super) fn test_register_mma_f8f6f4_admission(
 
 pub(super) fn test_register_mma_fp8_admission() -> RegisterMmaFp8Admission {
     RegisterMmaFp8Admission {
-        llvm_evidence_profile: "llvm-fp8-test".into(),
-        libnvvm_evidence_profile: "libnvvm-fp8-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         _legacy_first_abi_id: Some("i0504".into()),
         shapes: REGISTER_MMA_FP8_SHAPES.into(),
         accumulators: REGISTER_MMA_FP8_ACCUMULATORS.into(),
@@ -1351,9 +1089,6 @@ pub(super) fn test_register_mma_fp8_admission() -> RegisterMmaFp8Admission {
 
 pub(super) fn test_register_mma_ampere_float_admission() -> RegisterMmaAmpereFloatAdmission {
     RegisterMmaAmpereFloatAdmission {
-        llvm_evidence_profile: "llvm-ampere-float-test".into(),
-        libnvvm_evidence_profile: "libnvvm-ampere-float-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         _legacy_first_abi_id: Some("i0520".into()),
         product_count: 5,
         variants: REGISTER_MMA_AMPERE_FLOAT_VARIANTS.into(),
@@ -1375,19 +1110,11 @@ pub(super) fn test_prmt_admission() -> PrmtAdmission {
         mode,
     })
     .into();
-    PrmtAdmission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
-        variants,
-    }
+    PrmtAdmission { variants }
 }
 
 pub(super) fn test_fp8_conversion_admission() -> PackedConversionFp8Admission {
     PackedConversionFp8Admission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         destination_formats: vec![
             PackedConversionDestinationFormat::E4m3x2,
             PackedConversionDestinationFormat::E5m2x2,
@@ -1402,9 +1129,6 @@ pub(super) fn test_fp8_conversion_admission() -> PackedConversionFp8Admission {
 
 pub(super) fn test_fp8_f16x2_conversion_admission() -> PackedConversionFp8F16x2Admission {
     PackedConversionFp8F16x2Admission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         fp8_formats: vec![
             PackedConversionFp8Format::E4m3x2,
             PackedConversionFp8Format::E5m2x2,
@@ -1432,12 +1156,7 @@ pub(super) fn test_cluster_barrier_admission() -> ClusterBarrierAdmission {
         mode,
     })
     .into();
-    ClusterBarrierAdmission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
-        variants,
-    }
+    ClusterBarrierAdmission { variants }
 }
 
 pub(super) fn test_wgmma_control_admission() -> WgmmaControlAdmission {
@@ -1451,19 +1170,11 @@ pub(super) fn test_wgmma_control_admission() -> WgmmaControlAdmission {
         mode,
     })
     .into();
-    WgmmaControlAdmission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
-        variants,
-    }
+    WgmmaControlAdmission { variants }
 }
 
 pub(super) fn test_special_register_admission() -> SpecialRegisterAdmission {
     SpecialRegisterAdmission {
-        llvm_evidence_profile: "rust-llvm-23.1.0-16696adc".into(),
-        libnvvm_evidence_profile: "cuda-13.3-libnvvm-13.3.33".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         registers: REVIEWED_SPECIAL_REGISTERS.into(),
         product_count: REVIEWED_SPECIAL_REGISTERS.len(),
     }
@@ -1471,9 +1182,6 @@ pub(super) fn test_special_register_admission() -> SpecialRegisterAdmission {
 
 pub(super) fn test_debug_control_admission() -> DebugControlAdmission {
     DebugControlAdmission {
-        llvm_evidence_profile: "llvm-debug-test".into(),
-        libnvvm_evidence_profile: "libnvvm-debug-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         operations: vec![
             DebugControlOperation::Trap,
             DebugControlOperation::Breakpoint,
@@ -1493,9 +1201,6 @@ pub(super) fn test_clc_admission() -> ClcAdmission {
         ClcOperation::QueryGetFirstCtaidZ,
     ];
     ClcAdmission {
-        llvm_evidence_profile: "llvm-clc-test".into(),
-        libnvvm_evidence_profile: "libnvvm-clc-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: operations
             .into_iter()
             .map(|operation| crate::model::ClcAdmissionVariant {
@@ -1508,17 +1213,6 @@ pub(super) fn test_clc_admission() -> ClcAdmission {
 
 pub(super) fn test_tma_admission() -> TmaAdmission {
     TmaAdmission {
-        llvm_evidence_profile: "llvm-tma-test".into(),
-        libnvvm_evidence_profile: "libnvvm-tma-test".into(),
-        reduce_llvm_evidence_profile: Some("llvm-tma-reduce-test".into()),
-        reduce_libnvvm_evidence_profile: Some("libnvvm-tma-reduce-test".into()),
-        bulk_llvm_evidence_profile: Some("llvm-tma-bulk-test".into()),
-        bulk_libnvvm_evidence_profile: Some("libnvvm-tma-bulk-test".into()),
-        tensor_cache_hint_llvm_evidence_profile: Some("llvm-tma-tensor-cache-hint-test".into()),
-        tensor_cache_hint_libnvvm_evidence_profile: Some(
-            "libnvvm-tma-tensor-cache-hint-test".into(),
-        ),
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: TMA_OPERATIONS
             .into_iter()
             .map(|operation| crate::model::TmaAdmissionVariant {
@@ -1561,25 +1255,8 @@ pub(super) fn test_tcgen05_admission() -> Tcgen05Admission {
         Tcgen05Operation::ShiftDownCg2,
     ];
     Tcgen05Admission {
-        llvm_evidence_profile: "llvm-tcgen05-test".into(),
-        libnvvm_evidence_profile: "libnvvm-tcgen05-test".into(),
-        cp_llvm_evidence_profile: None,
-        cp_libnvvm_evidence_profile: None,
-        ld_llvm_evidence_profile: None,
-        ld_libnvvm_evidence_profile: None,
-        st_llvm_evidence_profile: None,
-        st_libnvvm_evidence_profile: None,
-        offset_llvm_evidence_profile: None,
-        offset_libnvvm_evidence_profile: None,
-        control_llvm_evidence_profile: Some("llvm-tcgen05-control-test".into()),
-        control_libnvvm_evidence_profile: Some("libnvvm-tcgen05-control-test".into()),
-        mma_llvm_evidence_profile: None,
-        mma_libnvvm_evidence_profile: None,
-        ld_red_llvm_evidence_profile: None,
-        ld_red_libnvvm_evidence_profile: None,
         mma_llvm_target_contracts: vec![],
         mma_libnvvm_target_contracts: vec![],
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: operations
             .into_iter()
             .map(|operation| crate::model::Tcgen05AdmissionVariant {
@@ -1599,15 +1276,11 @@ pub(super) fn test_tcgen05_admission() -> Tcgen05Admission {
 
 pub(super) fn without_tcgen05_control(mut admission: Tcgen05Admission) -> Tcgen05Admission {
     admission.variants.truncate(24);
-    admission.control_llvm_evidence_profile = None;
-    admission.control_libnvvm_evidence_profile = None;
     admission
 }
 
 pub(super) fn test_tcgen05_cp_admission() -> Tcgen05Admission {
     let mut admission = test_tcgen05_admission();
-    admission.cp_llvm_evidence_profile = Some("llvm-tcgen05-cp-test".into());
-    admission.cp_libnvvm_evidence_profile = Some("libnvvm-tcgen05-cp-test".into());
     admission.cp_variants = TCGEN05_CP_MEMBERS
         .into_iter()
         .flat_map(|member| {
@@ -1627,8 +1300,6 @@ pub(super) fn test_tcgen05_cp_admission() -> Tcgen05Admission {
 
 pub(super) fn test_tcgen05_ld_admission() -> Tcgen05Admission {
     let mut admission = test_tcgen05_cp_admission();
-    admission.ld_llvm_evidence_profile = Some("llvm-tcgen05-ld-test".into());
-    admission.ld_libnvvm_evidence_profile = Some("libnvvm-tcgen05-ld-test".into());
     admission.ld_variants = TCGEN05_LD_VARIANTS
         .into_iter()
         .flat_map(|(shape, multiplicity)| {
@@ -1651,8 +1322,6 @@ pub(super) fn test_tcgen05_ld_admission() -> Tcgen05Admission {
 
 pub(super) fn test_tcgen05_ld_red_admission() -> Tcgen05Admission {
     let mut admission = test_tcgen05_admission();
-    admission.ld_red_llvm_evidence_profile = Some("llvm-tcgen05-ld-red-test".into());
-    admission.ld_red_libnvvm_evidence_profile = Some("libnvvm-tcgen05-ld-red-test".into());
     admission.ld_red_variants = tcgen05_ld_red_variants()
         .into_iter()
         .enumerate()
@@ -1671,8 +1340,6 @@ pub(super) fn test_tcgen05_ld_red_admission() -> Tcgen05Admission {
 
 pub(super) fn test_tcgen05_st_admission() -> Tcgen05Admission {
     let mut admission = test_tcgen05_ld_admission();
-    admission.st_llvm_evidence_profile = Some("llvm-tcgen05-st-test".into());
-    admission.st_libnvvm_evidence_profile = Some("libnvvm-tcgen05-st-test".into());
     admission.st_variants = TCGEN05_ST_VARIANTS
         .into_iter()
         .flat_map(|(shape, multiplicity)| {
@@ -1695,8 +1362,6 @@ pub(super) fn test_tcgen05_st_admission() -> Tcgen05Admission {
 
 pub(super) fn test_tcgen05_offset_admission() -> Tcgen05Admission {
     let mut admission = test_tcgen05_st_admission();
-    admission.offset_llvm_evidence_profile = Some("llvm-tcgen05-offset-test".into());
-    admission.offset_libnvvm_evidence_profile = Some("libnvvm-tcgen05-offset-test".into());
     admission.ld_offset_variants = TCGEN05_OFFSET_LDST_VARIANTS
         .into_iter()
         .flat_map(|(shape, multiplicity)| {
@@ -1736,8 +1401,6 @@ pub(super) fn test_tcgen05_offset_admission() -> Tcgen05Admission {
 
 pub(super) fn test_tcgen05_mma_admission() -> Tcgen05Admission {
     let mut admission = test_tcgen05_admission();
-    admission.mma_llvm_evidence_profile = Some("llvm-tcgen05-mma-test".into());
-    admission.mma_libnvvm_evidence_profile = Some("libnvvm-tcgen05-mma-test".into());
     admission.mma_llvm_target_contracts =
         expected_tcgen05_mma_target_contracts(IntrinsicBackend::LlvmNvptx);
     admission.mma_libnvvm_target_contracts =
@@ -1805,9 +1468,6 @@ pub(super) fn assert_tcgen05_backend_target_split(record: &OverlayIntrinsic) {
 
 pub(super) fn test_threadfence_admission() -> ThreadfenceAdmission {
     ThreadfenceAdmission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: vec![
             crate::model::ThreadfenceAdmissionVariant {
                 abi_id: "i0298".into(),
@@ -1827,9 +1487,6 @@ pub(super) fn test_threadfence_admission() -> ThreadfenceAdmission {
 
 pub(super) fn test_cluster_memory_admission() -> ClusterMemoryAdmission {
     ClusterMemoryAdmission {
-        llvm_evidence_profile: "llvm-cluster-memory-test".into(),
-        libnvvm_evidence_profile: "libnvvm-cluster-memory-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
         variants: vec![
             crate::model::ClusterMemoryAdmissionVariant {
                 abi_id: "i0320".into(),
@@ -1866,12 +1523,7 @@ pub(super) fn test_stmatrix_admission() -> StmatrixAdmission {
         },
     )
     .into();
-    StmatrixAdmission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
-        variants,
-    }
+    StmatrixAdmission { variants }
 }
 
 pub(super) fn test_mbarrier_extended_admission() -> MbarrierExtendedAdmission {
@@ -1893,47 +1545,5 @@ pub(super) fn test_mbarrier_extended_admission() -> MbarrierExtendedAdmission {
         operation,
     })
     .into();
-    MbarrierExtendedAdmission {
-        llvm_evidence_profile: "llvm-test".into(),
-        libnvvm_evidence_profile: "libnvvm-test".into(),
-        runtime_validation: RuntimeValidation::Unexecuted,
-        variants,
-    }
-}
-
-pub(super) struct CandidateTestRepo(pub(super) PathBuf);
-
-impl Drop for CandidateTestRepo {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
-    }
-}
-
-pub(super) fn repo_without_evidence() -> CandidateTestRepo {
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let root = std::env::temp_dir().join(format!(
-        "cuda-intrinsics-candidate-{}-{}",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-    let input = root.join("intrinsics");
-    fs::create_dir_all(input.join("overlay")).unwrap();
-    for name in [
-        "upstream.lock",
-        "imported.json",
-        "overlay.toml",
-        "abi-v1.toml",
-    ] {
-        fs::copy(source.join("intrinsics").join(name), input.join(name)).unwrap();
-    }
-    for entry in fs::read_dir(source.join("intrinsics/overlay")).unwrap() {
-        let entry = entry.unwrap();
-        if entry.path().extension().and_then(|value| value.to_str()) == Some("toml") {
-            fs::copy(entry.path(), input.join("overlay").join(entry.file_name())).unwrap();
-        }
-    }
-    CandidateTestRepo(root)
+    MbarrierExtendedAdmission { variants }
 }

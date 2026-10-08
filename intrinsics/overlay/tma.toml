@@ -4,15 +4,6 @@ schema = 64
 family = "tma"
 
 [tma]
-llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma"
-libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma"
-reduce_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma-reduce"
-reduce_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma-reduce"
-bulk_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma-bulk"
-bulk_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma-bulk"
-tensor_cache_hint_llvm_evidence_profile = "rust-llvm-23.1.0-16696adc-tma-tensor-cache-hint"
-tensor_cache_hint_libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.73-tma-tensor-cache-hint"
-runtime_validation = "unexecuted"
 
 [[tma.variant]]
 abi_id = "i0328"

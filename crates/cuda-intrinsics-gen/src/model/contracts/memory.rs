@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-use super::super::core::RuntimeValidation;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -36,7 +35,6 @@ pub struct ClusterMemory {
     pub operation: ClusterMemoryOperation,
     pub adapter: ClusterMemoryAdapter,
     pub source_contract: ClusterMemorySourceContract,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -77,7 +75,6 @@ pub struct PackedAtomic {
     pub codegen_contract: PackedAtomicCodegenContract,
     pub return_contract: PackedAtomicReturnContract,
     pub adapter: PackedAtomicAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -173,7 +170,6 @@ pub struct CpAsyncCopy {
     pub copy_size: CpAsyncCopySize,
     pub source_size: CpAsyncSourceSize,
     pub adapter: CpAsyncAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -221,7 +217,6 @@ pub enum CpAsyncAdapter {
 pub struct CpAsyncControl {
     pub operation: CpAsyncControlOperation,
     pub adapter: CpAsyncControlAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -246,7 +241,6 @@ pub struct CpAsyncMbarrier {
     pub operation: CpAsyncMbarrierOperation,
     pub state_space: CpAsyncMbarrierStateSpace,
     pub adapter: CpAsyncMbarrierAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -276,7 +270,6 @@ pub struct MbarrierBasic {
     pub operation: MbarrierBasicOperation,
     pub state_space: MbarrierStateSpace,
     pub adapter: MbarrierBasicAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -317,7 +310,6 @@ pub struct MbarrierExtended {
     pub operation: MbarrierExtendedOperation,
     pub adapter: MbarrierExtendedAdapter,
     pub source_contract: MbarrierExtendedSourceContract,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -348,7 +340,6 @@ mod tests {
 operation = "test_wait"
 state_space = "shared"
 adapter = "pointer_token_to_predicate"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<MbarrierBasic>(valid).unwrap();
         assert_eq!(parsed.operation, MbarrierBasicOperation::TestWait);
@@ -379,7 +370,6 @@ runtime_validation = "unexecuted"
 operation = "arrive_expect_tx_cta"
 adapter = "pointer_tx_count_bytes_to_token_dropping_tx_count"
 source_contract = "llvm_imported"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<MbarrierExtended>(valid).unwrap();
         assert_eq!(
@@ -412,7 +402,6 @@ runtime_validation = "unexecuted"
 operation = "arrive_no_inc"
 state_space = "shared"
 adapter = "pointer_to_void"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<CpAsyncMbarrier>(valid).unwrap();
         assert_eq!(parsed.operation, CpAsyncMbarrierOperation::ArriveNoInc);
@@ -437,7 +426,6 @@ runtime_validation = "unexecuted"
 operation = "map_shared_rank"
 adapter = "generic_const_and_mut_pointer_rank_to_same_pointer"
 source_contract = "llvm_mapa_shared_cluster_as7_identity_inline_ptx"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<ClusterMemory>(valid).unwrap();
         assert_eq!(parsed.operation, ClusterMemoryOperation::MapSharedRank);

@@ -5,9 +5,9 @@
 
 use crate::model::{
     BackendLoweringMechanism, ImportedIntrinsic, IntrinsicBackend, OverlayBackendLowering,
-    OverlayIntrinsic, RuntimeValidation, ScalarArithmetic, ScalarArithmeticAdmission,
-    ScalarArithmeticFormat, ScalarArithmeticOperation, ScalarArithmeticRounding,
-    ScalarArithmeticSaturation, ScalarArithmeticSubnormal,
+    OverlayIntrinsic, ScalarArithmetic, ScalarArithmeticAdmission, ScalarArithmeticFormat,
+    ScalarArithmeticOperation, ScalarArithmeticRounding, ScalarArithmeticSaturation,
+    ScalarArithmeticSubnormal,
 };
 use crate::ptx::{InstructionPattern, OperandPattern};
 use anyhow::{Context, Result, ensure};
@@ -237,10 +237,6 @@ pub(in crate::resolve) fn scalar_arithmetic_recipe(
 pub(in crate::resolve) fn expand_scalar_arithmetic_admission(
     admission: &ScalarArithmeticAdmission,
 ) -> Result<Vec<OverlayIntrinsic>> {
-    ensure!(
-        admission.runtime_validation == RuntimeValidation::Unexecuted,
-        "scalar-arithmetic runtime may be marked executed only with GPU evidence"
-    );
     let expected = canonical_scalar_arithmetic_variants();
     let actual = admission
         .variants
@@ -274,14 +270,13 @@ pub(in crate::resolve) fn expand_scalar_arithmetic_admission(
             );
             let recipe = scalar_arithmetic_recipe(identity)
                 .context("scalar arithmetic is outside the closed recipe set")?;
-            scalar_arithmetic_overlay_record(recipe, admission, identity, &variant.abi_id)
+            scalar_arithmetic_overlay_record(recipe, identity, &variant.abi_id)
         })
         .collect()
 }
 
 pub(in crate::resolve) fn scalar_arithmetic_overlay_record(
     recipe: ScalarArithmeticRecipe,
-    admission: &ScalarArithmeticAdmission,
     variant: ScalarArithmeticVariant,
     abi_id: &str,
 ) -> Result<OverlayIntrinsic> {
@@ -329,33 +324,25 @@ pub(in crate::resolve) fn scalar_arithmetic_overlay_record(
         ptx_isa_section: recipe.ptx_isa_section.into(),
         ptx_isa_url: recipe.ptx_isa_url.into(),
         lowering: "generated_scalar_arithmetic".into(),
-        backend_lowerings: [
-            (
-                IntrinsicBackend::LlvmNvptx,
-                &admission.llvm_evidence_profile,
-            ),
-            (
-                IntrinsicBackend::LibNvvm,
-                &admission.libnvvm_evidence_profile,
-            ),
-        ]
-        .into_iter()
-        .map(|(backend, evidence_profile)| OverlayBackendLowering {
-            backend,
-            mechanism: match backend {
-                IntrinsicBackend::LlvmNvptx if saturation == ScalarArithmeticSaturation::Sat => {
-                    // LLVM 21 has no typed intrinsic for these LLVM 22 forms.
-                    BackendLoweringMechanism::InlinePtx
-                }
-                IntrinsicBackend::LlvmNvptx => BackendLoweringMechanism::TypedNvvm,
-                IntrinsicBackend::LibNvvm => BackendLoweringMechanism::InlinePtx,
-            },
-            evidence_profile: evidence_profile.clone(),
-            targets: None,
-            minimum_ptx: Some("7.0".into()),
-            minimum_sm: Some("sm_80".into()),
-        })
-        .collect(),
+        backend_lowerings: [IntrinsicBackend::LlvmNvptx, IntrinsicBackend::LibNvvm]
+            .into_iter()
+            .map(|backend| OverlayBackendLowering {
+                backend,
+                mechanism: match backend {
+                    IntrinsicBackend::LlvmNvptx
+                        if saturation == ScalarArithmeticSaturation::Sat =>
+                    {
+                        // LLVM 21 has no typed intrinsic for these LLVM 22 forms.
+                        BackendLoweringMechanism::InlinePtx
+                    }
+                    IntrinsicBackend::LlvmNvptx => BackendLoweringMechanism::TypedNvvm,
+                    IntrinsicBackend::LibNvvm => BackendLoweringMechanism::InlinePtx,
+                },
+                targets: None,
+                minimum_ptx: Some("7.0".into()),
+                minimum_sm: Some("sm_80".into()),
+            })
+            .collect(),
         packed_atomic: None,
         redux: None,
         vote: None,
@@ -375,7 +362,6 @@ pub(in crate::resolve) fn scalar_arithmetic_overlay_record(
             rounding,
             subnormal,
             saturation,
-            runtime_validation: admission.runtime_validation,
         }),
         scalar_math: None,
         extended_minmax: None,
@@ -430,11 +416,6 @@ pub(in crate::resolve) fn validate_scalar_arithmetic_policy(
             policy.id
         )
     })?;
-    ensure!(
-        arithmetic.runtime_validation == RuntimeValidation::Unexecuted,
-        "{} scalar-arithmetic runtime may be executed only with GPU evidence",
-        policy.id
-    );
     let signature = vec![recipe.rust_type.to_owned(); recipe.argument_count];
     ensure!(
         policy.id == recipe.id
@@ -655,7 +636,6 @@ pub(in crate::resolve) fn validate_scalar_arithmetic_policy(
                         && lowering.mechanism == mechanism
                         && lowering.minimum_ptx.as_deref() == Some("7.0")
                         && lowering.minimum_sm.as_deref() == Some("sm_80")
-                        && !lowering.evidence_profile.trim().is_empty()
                 })
             }),
         "{} has the wrong reviewed scalar-arithmetic backend routes",

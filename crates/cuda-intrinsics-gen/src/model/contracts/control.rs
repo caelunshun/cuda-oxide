@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-use super::super::core::RuntimeValidation;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -55,7 +54,6 @@ pub struct SpecialRegister {
 pub struct DebugControl {
     pub operation: DebugControlOperation,
     pub adapter: DebugControlAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 /// Closed semantic contract for Cluster Launch Control.
@@ -64,7 +62,6 @@ pub struct DebugControl {
 pub struct Clc {
     pub operation: ClcOperation,
     pub adapter: ClcAdapter,
-    pub runtime_validation: RuntimeValidation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -209,7 +206,6 @@ mod tests {
         let valid = r#"
 operation = "pmevent"
 adapter = "const_generic_to_immediate_u32"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<DebugControl>(valid).unwrap();
         assert_eq!(parsed.operation, DebugControlOperation::Pmevent);
@@ -223,10 +219,6 @@ runtime_validation = "unexecuted"
             valid.replace(
                 "adapter = \"const_generic_to_immediate_u32\"",
                 "adapter = \"runtime_u32\"",
-            ),
-            valid.replace(
-                "runtime_validation = \"unexecuted\"",
-                "runtime_validation = \"assumed\"",
             ),
             format!("{valid}unreviewed = true\n"),
         ] {
@@ -242,7 +234,6 @@ runtime_validation = "unexecuted"
         let valid = r#"
 operation = "query_is_canceled"
 adapter = "pair_u64_to_i128_bool_to_u32"
-runtime_validation = "unexecuted"
 "#;
         let parsed = toml::from_str::<Clc>(valid).unwrap();
         assert_eq!(parsed.operation, ClcOperation::QueryIsCanceled);
@@ -253,10 +244,6 @@ runtime_validation = "unexecuted"
             valid.replace(
                 "adapter = \"pair_u64_to_i128_bool_to_u32\"",
                 "adapter = \"pair_u64_to_i128\"",
-            ),
-            valid.replace(
-                "runtime_validation = \"unexecuted\"",
-                "runtime_validation = \"assumed\"",
             ),
             format!("{valid}unreviewed = true\n"),
         ] {

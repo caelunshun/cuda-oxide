@@ -662,8 +662,7 @@ pub(super) fn ensure_exact_inline_ptx_backends(
         let (minimum_ptx, minimum_sm) = requirements[&lowering.backend];
         ensure!(
             lowering.minimum_ptx.as_deref() == Some(minimum_ptx)
-                && lowering.minimum_sm.as_deref() == minimum_sm
-                && !lowering.evidence_profile.trim().is_empty(),
+                && lowering.minimum_sm.as_deref() == minimum_sm,
             "{} backend {:?} does not carry its exact {family} floor",
             policy.id,
             lowering.backend

@@ -188,7 +188,6 @@ pub(in crate::resolve) fn validate_cache_policy_policy(
                     && lowering.targets.is_none()
                     && lowering.minimum_ptx.is_none()
                     && lowering.minimum_sm.is_none()
-                    && !lowering.evidence_profile.trim().is_empty()
             }),
         "{} cache-policy backend route changed",
         policy.id

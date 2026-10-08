@@ -17,7 +17,7 @@ use super::abi_ledger::*;
 use super::families::*;
 use super::guards::*;
 
-pub(super) const OVERLAY_SCHEMA: u32 = 44;
+pub(super) const OVERLAY_SCHEMA: u32 = 45;
 pub(super) const MINIMUM_OVERLAY_SHARD_SCHEMA: u32 = 26;
 pub(super) const OVERLAY_SHARD_SCHEMA: u32 = 66;
 pub(super) const REGISTER_MMA_F8F6F4_SHARD_SCHEMA: u32 = 46;
@@ -57,7 +57,7 @@ pub(super) const TCGEN05_CONTROL_SHARD_SCHEMA: u32 = 56;
 pub(super) const TCGEN05_MMA_SHARD_SCHEMA: u32 = 57;
 pub(super) const TCGEN05_LD_RED_SHARD_SCHEMA: u32 = 66;
 pub(super) const SCALAR_MATH_SHARD_SCHEMA: u32 = 58;
-pub(crate) const CATALOG_SCHEMA: u32 = 46;
+pub(crate) const CATALOG_SCHEMA: u32 = 48;
 pub(super) fn read_overlay(
     repo_root: &Path,
     manifest_path: &Path,
@@ -596,11 +596,11 @@ pub(super) fn validate_overlay_shard_schema_with_max(
         TCGEN05_ST_SHARD_SCHEMA
     );
     ensure!(
-        shard.tcgen05.as_ref().is_none_or(|admission| {
-            admission.ld_red_variants.is_empty()
-                && admission.ld_red_llvm_evidence_profile.is_none()
-                && admission.ld_red_libnvvm_evidence_profile.is_none()
-        }) || shard.schema >= TCGEN05_LD_RED_SHARD_SCHEMA,
+        shard
+            .tcgen05
+            .as_ref()
+            .is_none_or(|admission| { admission.ld_red_variants.is_empty() })
+            || shard.schema >= TCGEN05_LD_RED_SHARD_SCHEMA,
         "compact tcgen05 reducing-load admission requires overlay shard schema {}",
         TCGEN05_LD_RED_SHARD_SCHEMA
     );
@@ -613,16 +613,14 @@ pub(super) fn validate_overlay_shard_schema_with_max(
     );
     ensure!(
         shard.tcgen05.as_ref().is_none_or(|admission| {
-            admission.control_llvm_evidence_profile.is_none()
-                && admission.control_libnvvm_evidence_profile.is_none()
-                && !admission.variants.iter().any(|variant| {
-                    matches!(
-                        variant.operation,
-                        Tcgen05Operation::CommitMulticast
-                            | Tcgen05Operation::ShiftDown
-                            | Tcgen05Operation::ShiftDownCg2
-                    )
-                })
+            !admission.variants.iter().any(|variant| {
+                matches!(
+                    variant.operation,
+                    Tcgen05Operation::CommitMulticast
+                        | Tcgen05Operation::ShiftDown
+                        | Tcgen05Operation::ShiftDownCg2
+                )
+            })
         }) || shard.schema >= TCGEN05_CONTROL_SHARD_SCHEMA,
         "compact tcgen05 control admission requires overlay shard schema {}",
         TCGEN05_CONTROL_SHARD_SCHEMA
@@ -631,25 +629,17 @@ pub(super) fn validate_overlay_shard_schema_with_max(
         && shard.schema >= TCGEN05_CONTROL_SHARD_SCHEMA
     {
         ensure!(
-            admission
-                .control_llvm_evidence_profile
-                .as_deref()
-                .is_some_and(|profile| !profile.trim().is_empty())
-                && admission
-                    .control_libnvvm_evidence_profile
-                    .as_deref()
-                    .is_some_and(|profile| !profile.trim().is_empty())
-                && [
-                    Tcgen05Operation::CommitMulticast,
-                    Tcgen05Operation::ShiftDown,
-                    Tcgen05Operation::ShiftDownCg2,
-                ]
-                .into_iter()
-                .all(|operation| admission
-                    .variants
-                    .iter()
-                    .any(|variant| variant.operation == operation)),
-            "compact tcgen05 schema {} requires all three control variants and both backend evidence profiles",
+            [
+                Tcgen05Operation::CommitMulticast,
+                Tcgen05Operation::ShiftDown,
+                Tcgen05Operation::ShiftDownCg2,
+            ]
+            .into_iter()
+            .all(|operation| admission
+                .variants
+                .iter()
+                .any(|variant| variant.operation == operation)),
+            "compact tcgen05 schema {} requires all three control variants",
             TCGEN05_CONTROL_SHARD_SCHEMA
         );
     }
@@ -666,8 +656,6 @@ pub(super) fn validate_overlay_shard_schema_with_max(
     ensure!(
         shard.tcgen05.as_ref().is_none_or(|admission| {
             admission.mma_variants.is_empty()
-                && admission.mma_llvm_evidence_profile.is_none()
-                && admission.mma_libnvvm_evidence_profile.is_none()
                 && admission.mma_llvm_target_contracts.is_empty()
                 && admission.mma_libnvvm_target_contracts.is_empty()
         }) || shard.schema >= TCGEN05_MMA_SHARD_SCHEMA,

@@ -28,78 +28,6 @@ cuda-oxide currently targets **Linux only**. Windows is not supported.
 
 ---
 
-## Dev Container
-
-The repository includes a standard devcontainer setup in `.devcontainer/`.
-Using it is the quickest way to get a reproducible development environment with
-CUDA Toolkit 13.0, LLVM 21, Clang 21, and the pinned Rust nightly already
-installed.
-
-The host does not need the CUDA Toolkit installed. It does need:
-
-- an NVIDIA GPU
-- an NVIDIA driver compatible with CUDA 13.0 (R580 or newer)
-- Docker with the NVIDIA Container Toolkit installed
-
-With a devcontainer-aware editor, open the repository and choose "Reopen in
-Container" when prompted. The editor reads `.devcontainer/devcontainer.json`,
-builds the image, requests GPU access with `--gpus=all`, and opens the checkout
-inside the container.
-
-For CLI-only usage, start the container with:
-
-```bash
-npx -y @devcontainers/cli up --workspace-folder .
-```
-
-Then run commands inside it with:
-
-```bash
-npx -y @devcontainers/cli exec --workspace-folder . cargo oxide doctor
-npx -y @devcontainers/cli exec --workspace-folder . cargo oxide run vecadd
-```
-
-If the host driver is too old, GPU commands such as `nvidia-smi`,
-`cargo oxide doctor`, or `cargo oxide run vecadd` will fail inside the
-container. Update the host NVIDIA driver rather than installing a different
-CUDA Toolkit in the container.
-
-If you use the devcontainer, you can skip the manual CUDA, LLVM, Clang, and
-Rust setup sections below.
-
----
-
-## Nix / flake.nix
-
-The repository also ships a `flake.nix` providing a reproducible dev shell
-(CUDA 13, LLVM 22, Clang, pinned Rust nightly). Requires
-[Nix](https://nixos.org/download/) with flakes enabled, an NVIDIA driver on
-the host, and Linux (x86\_64 or aarch64).
-
-Inside the cuda-oxide repo — `cargo-oxide` is included in the shell:
-
-```bash
-nix develop
-cargo oxide run vecadd
-```
-
-To bootstrap a new project without cloning:
-
-```bash
-nix run github:NVlabs/cuda-oxide#new my-project
-cd my-project && nix develop
-```
-
-This scaffolds via `cargo oxide new` and drops in a `flake.nix` that inherits
-this repo's dev shell. The shellHook auto-discovers host NVIDIA driver
-libraries on NixOS and non-NixOS systems; if the host driver is too old,
-update it rather than changing what's inside the Nix shell.
-
-If you use the Nix flake, you can skip the manual CUDA, LLVM, Clang, and
-Rust setup sections below.
-
----
-
 ## CUDA Toolkit
 
 Install the CUDA Toolkit from the [NVIDIA CUDA Downloads](https://developer.nvidia.com/cuda-downloads) page, then make sure it is on your `PATH`:
@@ -137,26 +65,25 @@ path gets PTX from the selected toolkit's nvJitLink. If that PTX is newer than
 the driver understands, module loading returns
 `CUDA_ERROR_UNSUPPORTED_PTX_VERSION` (error 222).
 
-For example, the toolchains used during current validation produced:
+For example, with a toolkit newer than the installed driver:
 
 ```text
-LLVM llc ───────────────► PTX 8.7 ──► driver 580 ✓
-CUDA 13.3 nvJitLink ───► PTX 9.3 ──► driver 580 ✗ error 222
+LLVM llc ─────────────► older PTX ──► older driver ✓
+newer nvJitLink ─────► newer PTX ──► older driver ✗ error 222
 ```
 
-These are observed versions, not permanent properties of the two paths. Check
-the generated PTX `.version` directive when diagnosing another toolchain.
+Which PTX version each path emits depends on the toolchain, so check the
+generated PTX `.version` directive when diagnosing a failure.
 
-CUDA 13.x minor-version compatibility starts at driver 580, while CUDA 13.3's
-corresponding full-support driver is 610.43.02. A 580 driver can therefore load
-compatible finished cubins, but it cannot JIT PTX 9.3 produced by CUDA 13.3.
-See the [CUDA release notes](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)
+CUDA minor-version compatibility lets an older driver of the same major version
+load compatible finished cubins, but it cannot JIT PTX newer than the driver
+itself understands. See the [CUDA release notes](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)
 for the current driver table.
 
 Upgrade the driver or select a compatible toolkit for the command:
 
 ```bash
-CUDA_TOOLKIT_PATH=/usr/local/cuda-13.0 cargo oxide run <example> --arch sm_86
+CUDA_TOOLKIT_PATH=/path/to/compatible/cuda cargo oxide run <example> --arch sm_86
 ```
 
 See NVIDIA's

@@ -7,9 +7,9 @@ use super::*;
 
 use crate::model::{
     BackendLoweringMechanism, IntrinsicSource, MbarrierBasicOperation, ReduxAdapter,
-    WarpBarrierAdapter, WarpShuffleMode, WarpShuffleValueKind,
+    WarpBarrierAdapter,
 };
-use crate::render::common::{intrinsic_marker, llvm};
+use crate::render::common::intrinsic_marker;
 use crate::render::families::{
     active_masks, cp_async_controls, cp_async_copies, cp_async_mbarriers, mbarrier_basics, redux,
     vote_intrinsics, warp_barriers, warp_matches, warp_shuffles,
@@ -141,24 +141,8 @@ fn cp_async_mbarrier_rendering_preserves_counting_and_state_space_routes() {
     assert!(lowering.contains("\"arrive_no_inc\", \"generic\""));
     assert!(lowering.contains("\"arrive_no_inc\", \"shared\""));
 
-    let generic = records
-        .iter()
-        .find(|record| record.id == "cp_async_mbarrier_arrive")
-        .unwrap();
-    let generic_probe = render_probe(&catalog, generic, "test-hash");
-    assert!(generic_probe.contains("declare void @llvm.nvvm.cp.async.mbarrier.arrive(ptr)"));
-    assert!(!generic_probe.contains("addrspacecast"));
-    let shared = records
-        .iter()
-        .find(|record| record.id == "cp_async_mbarrier_arrive_shared")
-        .unwrap();
-    let shared_probe = render_probe(&catalog, shared, "test-hash");
-    assert!(shared_probe.contains("ptr addrspace(3)"));
-    assert!(shared_probe.contains("addrspacecast ptr %barrier_generic"));
-
     let reference = render_reference(&catalog, "test-hash");
     assert!(reference.contains("## cp.async mbarrier contracts"));
-    assert!(reference.contains("cp_async_mbarrier_arrive_noinc`: runtime `unexecuted`"));
 
     let outputs = all_outputs(&catalog, "{}\n".into(), "test-hash").unwrap();
     assert!(outputs.contains_key(&PathBuf::from(
@@ -210,22 +194,6 @@ fn redux_rendering_preserves_mask_first_api_and_source_first_llvm_order() {
     assert!(lowering.contains("convert_redux(ctx, rewriter, self.get_operation(), operands_info"));
     assert!(lowering.contains("\"llvm_nvvm_redux_sync_add\""));
 
-    let probe = render_probe(&catalog, record, "test-hash");
-    assert!(probe.contains("define i32 @probe_redux_sync_add(i32 %member_mask, i32 %value)"));
-    assert!(probe.contains("call i32 @llvm.nvvm.redux.sync.add(i32 %value, i32 %member_mask)"));
-
-    let f32_record = redux(&catalog)
-        .find(|record| record.id == "redux_sync_min_f32")
-        .unwrap();
-    let f32_probe = render_probe(&catalog, f32_record, "test-hash");
-    assert!(
-        f32_probe
-            .contains("define float @probe_redux_sync_min_f32(i32 %member_mask, float %value)")
-    );
-    assert!(
-        f32_probe.contains("call float @llvm.nvvm.redux.sync.fmin(float %value, i32 %member_mask)")
-    );
-
     let raw = render_raw_abi(&catalog, "test-hash").unwrap();
     let signature = "pub unsafe fn i0017(_arg0: u32, _arg1: u32) -> u32";
     let index = raw.find(signature).unwrap();
@@ -271,10 +239,6 @@ fn vote_rendering_keeps_types_selection_pairs_and_raw_only_uni() {
         .find(|record| record.id == "ballot_sync")
         .unwrap();
     assert_eq!(record.selections.len(), 2);
-    let probe = render_probe(&catalog, record, "test-hash");
-    assert!(probe.contains("define i32 @probe_ballot_sync(i32 %member_mask, i1 %predicate)"));
-    assert!(probe.contains("define i32 @probe_ballot_sync_immediate(i1 %predicate)"));
-    assert!(probe.contains("i32 -1, i1 %predicate"));
 
     let raw = render_raw_abi(&catalog, "test-hash").unwrap();
     for abi_id in ["i0040", "i0041", "i0042", "i0043"] {
@@ -315,15 +279,6 @@ fn active_mask_and_warp_match_rendering_preserves_backend_and_abi_contracts() {
     assert!(lowering.contains("convert_match_any("));
     assert!(lowering.contains("convert_match_all("));
     assert!(lowering.contains("\"llvm_nvvm_match_all_sync_i64p\""));
-
-    let match_all = warp_matches(&catalog)
-        .find(|record| record.id == "match_all_sync")
-        .unwrap();
-    let probe = render_probe(&catalog, match_all, "test-hash");
-    for suffix in ["rr", "ri", "ir", "ii"] {
-        assert!(probe.contains(&format!("@probe_match_all_sync_{suffix}")));
-    }
-    assert!(probe.contains("declare { i32, i1 } @llvm.nvvm.match.all.sync.i32p"));
 
     let raw = render_raw_abi(&catalog, "test-hash").unwrap();
     assert!(raw.contains("pub fn i0044() -> u32"));
@@ -374,13 +329,6 @@ fn warp_barrier_rendering_preserves_mask_and_void_contracts() {
         lowering
             .contains("convert_bar_warp_sync(ctx, rewriter, self.get_operation(), operands_info)")
     );
-
-    let probe = render_probe(&catalog, record, "test-hash");
-    assert!(probe.contains("declare void @llvm.nvvm.bar.warp.sync(i32)"));
-    assert!(probe.contains("define void @probe_sync_mask(i32 %member_mask)"));
-    assert!(probe.contains("call void @llvm.nvvm.bar.warp.sync(i32 %member_mask)"));
-    assert!(probe.contains("define void @probe_sync_mask_immediate()"));
-    assert!(probe.contains("call void @llvm.nvvm.bar.warp.sync(i32 -1)"));
 
     let raw = render_raw_abi(&catalog, "test-hash").unwrap();
     assert!(raw.contains("pub unsafe fn i0049(_arg0: u32) -> ()"));
@@ -483,41 +431,6 @@ fn warp_shuffle_rendering_owns_all_i32_f32_and_i64_modes() {
     assert!(!lowering.contains("llvm_nvvm_shfl_sync_down_i64"));
     assert!(!lowering.contains("llvm_nvvm_shfl_sync_up_i64"));
 
-    for record in warp_shuffles(&catalog) {
-        let probe = render_probe(&catalog, record, "test-hash");
-        let shuffle = record.warp_shuffle.as_ref().unwrap();
-        if shuffle.value_kind == WarpShuffleValueKind::I64 {
-            let mode = match shuffle.mode {
-                WarpShuffleMode::Idx => "idx",
-                WarpShuffleMode::Bfly => "bfly",
-                WarpShuffleMode::Down => "down",
-                WarpShuffleMode::Up => "up",
-            };
-            let asm = format!(
-                "{{ .reg .b32 lo; .reg .b32 hi; mov.b64 {{lo, hi}}, $1; shfl.sync.{mode}.b32 lo, lo, $2, {}, $3; shfl.sync.{mode}.b32 hi, hi, $2, {}, $3; mov.b64 $0, {{lo, hi}}; }}",
-                shuffle.clamp, shuffle.clamp
-            );
-            assert!(probe.contains(&format!(
-                "define i64 @probe_{}(i32 %member_mask, i64 %value, i32 %lane) #0",
-                record.id
-            )));
-            assert!(probe.contains(&format!(
-                    "call i64 asm sideeffect {asm:?}, \"=l,l,r,r\"(i64 %value, i32 %lane, i32 %member_mask) #0"
-                )));
-            assert_eq!(probe.matches("asm sideeffect").count(), 1);
-            assert_eq!(probe.matches("attributes #0 = { convergent }").count(), 1);
-            assert!(!probe.contains("declare i64 @llvm.nvvm.shfl"));
-            for suffix in ["rr", "ri", "ir", "ii"] {
-                assert!(!probe.contains(&format!("@probe_{}_{suffix}", record.id)));
-            }
-        } else {
-            for suffix in ["rr", "ri", "ir", "ii"] {
-                assert!(probe.contains(&format!("@probe_{}_{suffix}", record.id)));
-            }
-            assert!(probe.contains(&format!(", i32 {})", shuffle.clamp)));
-        }
-    }
-
     let raw = render_raw_abi(&catalog, "test-hash").unwrap();
     assert!(raw.contains("pub unsafe fn i0050(_arg0: u32, _arg1: u32, _arg2: u32) -> u32"));
     assert!(raw.contains("pub unsafe fn i0057(_arg0: u32, _arg1: f32, _arg2: u32) -> f32"));
@@ -576,10 +489,6 @@ fn sync_rendering_keeps_barrier_and_threadfence_contracts_explicit() {
     assert!(lowering.contains("IntrinsicBackend::LlvmNvptx"));
     assert!(lowering.contains("IntrinsicBackend::LibNvvm"));
     assert!(lowering.contains("\"bar.sync 0;\", \"~{memory}\""));
-
-    let probe = render_probe(&catalog, record, "test-hash");
-    assert!(probe.contains("declare void @llvm.nvvm.barrier.cta.sync.aligned.all(i32)"));
-    assert!(probe.contains("call void @llvm.nvvm.barrier.cta.sync.aligned.all(i32 0)"));
 
     let targets = render_targets(&catalog, "test-hash");
     assert!(targets.contains("id: \"sync_threads\", abi_id: \"i0034\""));
@@ -646,9 +555,6 @@ fn sync_rendering_keeps_barrier_and_threadfence_contracts_explicit() {
         assert!(lowering.contains(&format!("impl MirToLlvmConversion for {op_type}")));
         assert!(lowering.contains(&format!("\"{llvm_identifier}\"")));
 
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains(&format!("declare void @{}()", llvm(record).symbol)));
-        assert!(probe.contains(&format!("call void @{}()", llvm(record).symbol)));
         assert!(targets.contains(&format!("id: \"{id}\", abi_id: \"{abi_id}\"")));
         assert!(targets.contains(&format!("asm: \"{ptx}\"")));
     }
@@ -708,10 +614,6 @@ fn basic_mbarrier_rendering_preserves_existing_paths_shapes_and_routes() {
         assert!(targets.contains(&format!("id: {:?}", record.id)));
         assert!(raw.contains(&format!("pub unsafe fn {}", record.rust.abi_id)));
 
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(
-            probe.contains("%barrier = addrspacecast ptr %barrier_generic to ptr addrspace(3)")
-        );
         let mbarrier = record.mbarrier_basic.as_ref().unwrap();
         let llvm_route = record
             .backend_lowerings
@@ -741,20 +643,12 @@ fn basic_mbarrier_rendering_preserves_existing_paths_shapes_and_routes() {
                         "convert_init(ctx, rewriter, self.get_operation(), operands_info)"
                     )
                 );
-                assert!(probe.contains(&format!(
-                    "declare void @{}(ptr addrspace(3), i32)",
-                    llvm(record).symbol
-                )));
             }
             MbarrierBasicOperation::Arrive => {
                 assert!(importer.contains("MbarrierArriveSharedOp::build(ctx, barrier)"));
                 assert!(lowering.contains(
                     "convert_arrive(ctx, rewriter, self.get_operation(), operands_info)"
                 ));
-                assert!(probe.contains(&format!(
-                    "declare i64 @{}(ptr addrspace(3))",
-                    llvm(record).symbol
-                )));
             }
             MbarrierBasicOperation::ArriveNoComplete => {
                 assert!(
@@ -764,22 +658,12 @@ fn basic_mbarrier_rendering_preserves_existing_paths_shapes_and_routes() {
                 assert!(lowering.contains(
                     "convert_arrive_no_complete(ctx, rewriter, self.get_operation(), operands_info)"
                 ));
-                assert!(probe.contains(&format!(
-                    "declare i64 @{}(ptr addrspace(3), i32)",
-                    llvm(record).symbol
-                )));
-                assert!(probe.contains("i32 %count"));
-                assert!(probe.contains("ret i64 %state"));
             }
             MbarrierBasicOperation::TestWait => {
                 assert!(importer.contains("MbarrierTestWaitSharedOp::build(ctx, barrier, token)"));
                 assert!(lowering.contains(
                     "convert_test_wait(ctx, rewriter, self.get_operation(), operands_info)"
                 ));
-                assert!(probe.contains("mbarrier.test_wait.shared.b64"));
-                assert!(probe.contains("asm sideeffect"));
-                assert!(probe.contains("attributes #0 = { convergent }"));
-                assert!(!probe.contains(&format!("declare i1 @{}", llvm(record).symbol)));
             }
             MbarrierBasicOperation::Inval => {
                 assert!(importer.contains("MbarrierInvalSharedOp::build(ctx, barrier)"));
@@ -788,10 +672,6 @@ fn basic_mbarrier_rendering_preserves_existing_paths_shapes_and_routes() {
                         "convert_inval(ctx, rewriter, self.get_operation(), operands_info)"
                     )
                 );
-                assert!(probe.contains(&format!(
-                    "declare void @{}(ptr addrspace(3))",
-                    llvm(record).symbol
-                )));
             }
         }
     }
@@ -863,11 +743,6 @@ fn extended_mbarrier_rendering_preserves_all_manual_contracts() {
             record.mbarrier_extended.as_ref().unwrap().operation,
         );
         assert!(lowering.contains(&format!("{template:?}, {constraints:?}")));
-        let probe = render_probe(&catalog, record, "test-hash");
-        assert!(probe.contains("asm sideeffect"));
-        assert!(probe.contains(template));
-        assert!(probe.contains("~{memory}"));
-        assert!(probe.contains("attributes #0 = { convergent }"));
     }
 
     assert!(dialect.contains("address_space::GENERIC | address_space::SHARED"));
@@ -901,7 +776,6 @@ fn extended_mbarrier_rendering_preserves_all_manual_contracts() {
         .unwrap();
     assert!(remote.llvm.is_none());
     assert!(matches!(remote.source, IntrinsicSource::PtxNative { .. }));
-    assert!(!render_probe(&catalog, remote, "test-hash").contains("declare"));
 
     let reference = render_reference(&catalog, "test-hash");
     assert!(reference.contains("## Extended mbarrier contracts"));

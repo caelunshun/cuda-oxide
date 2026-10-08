@@ -112,9 +112,9 @@ impl FinalizationOptions {
 
     /// Options for compiling one PTX module to cubin (no `-lto`).
     ///
-    /// `-lineinfo` and `-g` are honored on this route (verified on CUDA 13.3:
-    /// debug sections appear in the cubin). `-fma=<n>` is accepted without
-    /// `-lto` but observed to be inert for PTX input on CUDA 13.3 nvJitLink:
+    /// `-lineinfo` and `-g` are honored on this route (verified: debug
+    /// sections appear in the cubin). `-fma=<n>` is accepted without `-lto`
+    /// but observed to be inert for PTX input in nvJitLink:
     /// `-fma=0` and `-fma=1` produce byte-identical cubins even for
     /// contractable modeless `mul.f32`+`add.f32` PTX, which standalone
     /// `ptxas --fmad=false` does split. FMA policy for PTX inputs is

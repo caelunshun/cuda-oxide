@@ -4,9 +4,6 @@ schema = 31
 family = "cluster_barrier"
 
 [cluster_barrier]
-llvm_evidence_profile = "rust-llvm-23.1.0-16696adc"
-libnvvm_evidence_profile = "cuda-13.3-libnvvm-13.3.33-cluster-barrier"
-runtime_validation = "unexecuted"
 
 [[cluster_barrier.variant]]
 abi_id = "i0277"
