@@ -27,13 +27,13 @@ pub enum RustFloatMathIntrinsic {
     PowiF32,
     /// `core::intrinsics::powif64`.
     PowiF64,
-    /// `core::intrinsics::sinf32`.
+    /// `core::intrinsics::sin::<f32>`.
     SinF32,
-    /// `core::intrinsics::sinf64`.
+    /// `core::intrinsics::sin::<f64>`.
     SinF64,
-    /// `core::intrinsics::cosf32`.
+    /// `core::intrinsics::cos::<f32>`.
     CosF32,
-    /// `core::intrinsics::cosf64`.
+    /// `core::intrinsics::cos::<f64>`.
     CosF64,
     /// `core::intrinsics::tanf32`.
     TanF32,
@@ -43,25 +43,25 @@ pub enum RustFloatMathIntrinsic {
     PowfF32,
     /// `core::intrinsics::powf64`.
     PowfF64,
-    /// `core::intrinsics::expf32`.
+    /// `core::intrinsics::exp::<f32>`.
     ExpF32,
-    /// `core::intrinsics::expf64`.
+    /// `core::intrinsics::exp::<f64>`.
     ExpF64,
-    /// `core::intrinsics::exp2f32`.
+    /// `core::intrinsics::exp2::<f32>`.
     Exp2F32,
-    /// `core::intrinsics::exp2f64`.
+    /// `core::intrinsics::exp2::<f64>`.
     Exp2F64,
-    /// `core::intrinsics::logf32`.
+    /// `core::intrinsics::log::<f32>`.
     LogF32,
-    /// `core::intrinsics::logf64`.
+    /// `core::intrinsics::log::<f64>`.
     LogF64,
-    /// `core::intrinsics::log2f32`.
+    /// `core::intrinsics::log2::<f32>`.
     Log2F32,
-    /// `core::intrinsics::log2f64`.
+    /// `core::intrinsics::log2::<f64>`.
     Log2F64,
-    /// `core::intrinsics::log10f32`.
+    /// `core::intrinsics::log10::<f32>`.
     Log10F32,
-    /// `core::intrinsics::log10f64`.
+    /// `core::intrinsics::log10::<f64>`.
     Log10F64,
     /// `core::intrinsics::fmaf32`.
     FmaF32,
@@ -181,24 +181,10 @@ impl RustFloatMathIntrinsic {
             "core::intrinsics::sqrtf64" | "std::intrinsics::sqrtf64" => Some(Self::SqrtF64),
             "core::intrinsics::powif32" | "std::intrinsics::powif32" => Some(Self::PowiF32),
             "core::intrinsics::powif64" | "std::intrinsics::powif64" => Some(Self::PowiF64),
-            "core::intrinsics::sinf32" | "std::intrinsics::sinf32" => Some(Self::SinF32),
-            "core::intrinsics::sinf64" | "std::intrinsics::sinf64" => Some(Self::SinF64),
-            "core::intrinsics::cosf32" | "std::intrinsics::cosf32" => Some(Self::CosF32),
-            "core::intrinsics::cosf64" | "std::intrinsics::cosf64" => Some(Self::CosF64),
             "core::intrinsics::tanf32" | "std::intrinsics::tanf32" => Some(Self::TanF32),
             "core::intrinsics::tanf64" | "std::intrinsics::tanf64" => Some(Self::TanF64),
             "core::intrinsics::powf32" | "std::intrinsics::powf32" => Some(Self::PowfF32),
             "core::intrinsics::powf64" | "std::intrinsics::powf64" => Some(Self::PowfF64),
-            "core::intrinsics::expf32" | "std::intrinsics::expf32" => Some(Self::ExpF32),
-            "core::intrinsics::expf64" | "std::intrinsics::expf64" => Some(Self::ExpF64),
-            "core::intrinsics::exp2f32" | "std::intrinsics::exp2f32" => Some(Self::Exp2F32),
-            "core::intrinsics::exp2f64" | "std::intrinsics::exp2f64" => Some(Self::Exp2F64),
-            "core::intrinsics::logf32" | "std::intrinsics::logf32" => Some(Self::LogF32),
-            "core::intrinsics::logf64" | "std::intrinsics::logf64" => Some(Self::LogF64),
-            "core::intrinsics::log2f32" | "std::intrinsics::log2f32" => Some(Self::Log2F32),
-            "core::intrinsics::log2f64" | "std::intrinsics::log2f64" => Some(Self::Log2F64),
-            "core::intrinsics::log10f32" | "std::intrinsics::log10f32" => Some(Self::Log10F32),
-            "core::intrinsics::log10f64" | "std::intrinsics::log10f64" => Some(Self::Log10F64),
             "core::intrinsics::fmaf32" | "std::intrinsics::fmaf32" => Some(Self::FmaF32),
             "core::intrinsics::fmaf64" | "std::intrinsics::fmaf64" => Some(Self::FmaF64),
             "core::intrinsics::fmuladdf32" | "std::intrinsics::fmuladdf32" => {
@@ -238,8 +224,9 @@ impl RustFloatMathIntrinsic {
             | "std::intrinsics::minimum_number_nsz_f64" => Some(Self::MinNumNszF64),
             // Trig that still routes through `std`'s libm shim. On current
             // nightlies `core_float_math` moves `sin`/`cos` into core
-            // intrinsics (caught above), but `tan` is *not* in that feature,
-            // so `f{32,64}::tan()` lowers to `std::sys::cmath::tan{,f}` and
+            // intrinsics (caught by `from_generic_core_call`), but `tan` is
+            // *not* in that feature, so `f{32,64}::tan()` lowers to
+            // `std::sys::cmath::tan{,f}` and
             // would otherwise trip the forbidden-`std`-crate guard. Intercept
             // it (and sin/cos defensively, for toolchains/builds that take the
             // std path) and lower to `__nv_tan{,f}` like every other libdevice
@@ -394,6 +381,58 @@ impl RustFloatMathIntrinsic {
             "core::intrinsics::fdiv_fast" | "std::intrinsics::fdiv_fast" => Some(Self::FdivFast),
             "core::intrinsics::frem_fast" | "std::intrinsics::frem_fast" => Some(Self::FremFast),
             _ => None,
+        }
+    }
+
+    /// The `(f32, f64)` variants behind a type-generic float intrinsic
+    /// (`core::intrinsics::sin::<T>` and friends). Unlike the fast-math
+    /// family these lower to width-specific libdevice calls, so the width has
+    /// to be resolved at the call site; see [`Self::from_generic_core_call`].
+    fn generic_core_path_variants(name: &str) -> Option<(Self, Self)> {
+        match name {
+            "core::intrinsics::sin" | "std::intrinsics::sin" => Some((Self::SinF32, Self::SinF64)),
+            "core::intrinsics::cos" | "std::intrinsics::cos" => Some((Self::CosF32, Self::CosF64)),
+            "core::intrinsics::exp" | "std::intrinsics::exp" => Some((Self::ExpF32, Self::ExpF64)),
+            "core::intrinsics::exp2" | "std::intrinsics::exp2" => {
+                Some((Self::Exp2F32, Self::Exp2F64))
+            }
+            "core::intrinsics::log" | "std::intrinsics::log" => Some((Self::LogF32, Self::LogF64)),
+            "core::intrinsics::log2" | "std::intrinsics::log2" => {
+                Some((Self::Log2F32, Self::Log2F64))
+            }
+            "core::intrinsics::log10" | "std::intrinsics::log10" => {
+                Some((Self::Log10F32, Self::Log10F64))
+            }
+            _ => None,
+        }
+    }
+
+    /// Recognize a type-generic float intrinsic call and pick its f32/f64
+    /// variant from the type of the first operand.
+    pub fn from_generic_core_call(
+        name: &str,
+        body: &mir::Body,
+        args: &[mir::Operand],
+        loc: &Location,
+    ) -> TranslationResult<Option<Self>> {
+        use crate::error::TranslationErr;
+        use pliron::input_err;
+        use rustc_public::ty::{FloatTy, RigidTy, TyKind};
+
+        let Some((f32_variant, f64_variant)) = Self::generic_core_path_variants(name) else {
+            return Ok(None);
+        };
+        let float_ty = args.first().and_then(|arg| arg.ty(body.locals()).ok());
+        match float_ty.as_ref().map(|ty| ty.kind()) {
+            Some(TyKind::RigidTy(RigidTy::Float(FloatTy::F32))) => Ok(Some(f32_variant)),
+            Some(TyKind::RigidTy(RigidTy::Float(FloatTy::F64))) => Ok(Some(f64_variant)),
+            _ => input_err!(
+                loc.clone(),
+                TranslationErr::unsupported(format!(
+                    "rustc intrinsic `{name}` is only supported on the device for f32 and f64, \
+                     found {float_ty:?}"
+                ))
+            ),
         }
     }
 
@@ -732,6 +771,75 @@ mod tests {
         );
         assert_eq!(
             RustFloatMathIntrinsic::from_core_path("core::intrinsics::minimumf32"),
+            None
+        );
+    }
+
+    /// rustc folded `sinf32`/`sinf64`-style intrinsics into type-generic
+    /// `sin::<T>` and friends; pin both widths of each generic path, and that
+    /// the generic names do not leak into the width-suffixed table.
+    #[test]
+    fn generic_core_paths_map_to_both_widths() {
+        for (path, expected) in [
+            (
+                "core::intrinsics::sin",
+                (
+                    RustFloatMathIntrinsic::SinF32,
+                    RustFloatMathIntrinsic::SinF64,
+                ),
+            ),
+            (
+                "std::intrinsics::cos",
+                (
+                    RustFloatMathIntrinsic::CosF32,
+                    RustFloatMathIntrinsic::CosF64,
+                ),
+            ),
+            (
+                "core::intrinsics::exp",
+                (
+                    RustFloatMathIntrinsic::ExpF32,
+                    RustFloatMathIntrinsic::ExpF64,
+                ),
+            ),
+            (
+                "core::intrinsics::exp2",
+                (
+                    RustFloatMathIntrinsic::Exp2F32,
+                    RustFloatMathIntrinsic::Exp2F64,
+                ),
+            ),
+            (
+                "core::intrinsics::log",
+                (
+                    RustFloatMathIntrinsic::LogF32,
+                    RustFloatMathIntrinsic::LogF64,
+                ),
+            ),
+            (
+                "core::intrinsics::log2",
+                (
+                    RustFloatMathIntrinsic::Log2F32,
+                    RustFloatMathIntrinsic::Log2F64,
+                ),
+            ),
+            (
+                "core::intrinsics::log10",
+                (
+                    RustFloatMathIntrinsic::Log10F32,
+                    RustFloatMathIntrinsic::Log10F64,
+                ),
+            ),
+        ] {
+            assert_eq!(
+                RustFloatMathIntrinsic::generic_core_path_variants(path),
+                Some(expected),
+                "`{path}` did not map to the expected generic intrinsic"
+            );
+            assert_eq!(RustFloatMathIntrinsic::from_core_path(path), None);
+        }
+        assert_eq!(
+            RustFloatMathIntrinsic::generic_core_path_variants("core::intrinsics::sinf32"),
             None
         );
     }

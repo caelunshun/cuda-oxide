@@ -162,7 +162,7 @@ Inside the cuda-oxide repo, `cargo oxide` works out of the box via a workspace a
 For use outside the repo (your own projects), install it with the pinned nightly toolchain:
 
 ```bash
-cargo +nightly-2026-08-28 install --git https://github.com/NVlabs/cuda-oxide.git cargo-oxide
+cargo +nightly-2026-10-08 install --git https://github.com/NVlabs/cuda-oxide.git cargo-oxide
 ```
 
 On first run, `cargo-oxide` will automatically fetch and build the codegen backend.
@@ -172,8 +172,8 @@ On first run, `cargo-oxide` will automatically fetch and build the codegen backe
 ```bash
 # Toolchain installed automatically via rust-toolchain.toml
 # Manual install if needed:
-rustup toolchain install nightly-2026-08-28
-rustup component add rust-src rustc-dev rust-analyzer clippy rustfmt llvm-tools --toolchain nightly-2026-08-28
+rustup toolchain install nightly-2026-10-08
+rustup component add rust-src rustc-dev rust-analyzer clippy rustfmt llvm-tools --toolchain nightly-2026-10-08
 ```
 
 #### CUDA

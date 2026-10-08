@@ -103,6 +103,7 @@ use rustc_middle::mir::interpret::{AllocId, GlobalAlloc, Scalar};
 use rustc_middle::mir::visit::Visitor;
 use rustc_middle::mir::{ConstOperand, ConstValue, Location};
 use rustc_middle::mono::MonoItem;
+use rustc_middle::ty::consts::ConstExt;
 use rustc_middle::ty::layout::{LayoutCx, LayoutOf};
 use rustc_middle::ty::{EarlyBinder, Instance, InstanceKind, ShimKind, TypingEnv};
 use rustc_middle::ty::{Ty, TyCtxt, TyKind};
@@ -1072,7 +1073,7 @@ pub fn generate_device_code<'tcx>(
             let def_id = func.instance.def_id();
             matches!(
                 tcx.codegen_fn_attrs(def_id).inline,
-                rustc_hir::attrs::InlineAttr::Always | rustc_hir::attrs::InlineAttr::Force { .. }
+                rustc_attr_ir::InlineAttr::Always | rustc_attr_ir::InlineAttr::Force { .. }
             )
         })
         .collect();

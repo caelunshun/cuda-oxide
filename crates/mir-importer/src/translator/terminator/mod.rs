@@ -2791,6 +2791,26 @@ fn try_dispatch_intrinsic(
         ));
     }
 
+    if let Some(intrinsic) =
+        intrinsics::integer_minmax::RustIntegerMinMaxIntrinsic::from_core_path(name)
+    {
+        return Ok(Some(
+            intrinsics::integer_minmax::emit_rust_integer_minmax_intrinsic(
+                ctx,
+                body,
+                intrinsic,
+                args,
+                destination,
+                target,
+                block_ptr,
+                prev_op,
+                value_map,
+                block_map,
+                loc,
+            )?,
+        ));
+    }
+
     if let Some(intrinsic) = intrinsics::exact_div::RustExactDivIntrinsic::from_core_path(name) {
         return Ok(Some(intrinsics::exact_div::emit_rust_exact_div_intrinsic(
             ctx,
@@ -2839,7 +2859,14 @@ fn try_dispatch_intrinsic(
         )?));
     }
 
-    if let Some(intrinsic) = intrinsics::float_math::RustFloatMathIntrinsic::from_core_path(name) {
+    let float_math_intrinsic =
+        match intrinsics::float_math::RustFloatMathIntrinsic::from_generic_core_call(
+            name, body, args, &loc,
+        )? {
+            Some(intrinsic) => Some(intrinsic),
+            None => intrinsics::float_math::RustFloatMathIntrinsic::from_core_path(name),
+        };
+    if let Some(intrinsic) = float_math_intrinsic {
         return Ok(Some(
             intrinsics::float_math::emit_rust_float_math_intrinsic(
                 ctx,

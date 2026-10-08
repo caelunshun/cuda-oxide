@@ -449,7 +449,7 @@ pub(crate) fn convert_grid_constant_storage_type(
 /// args. Structs and closures are unflattened only at kernel boundaries
 /// because the host pushes them as a single scalar — see
 /// `cuda_host::push_kernel_scalar`. The exception is a rustc-proven
-/// `#[repr(transparent)]` `ValueAbi::Scalar` struct: its single non-ZST
+/// `#[repr(transparent)]` `ValueRepr::Scalar` struct: its single non-ZST
 /// field is the kernel parameter, matching the source type's transparent ABI.
 /// Internal device-side call sites stay flattened: caller and callee are both
 /// inside this backend, so the ABI is private and there is no host to disagree

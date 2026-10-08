@@ -51,6 +51,7 @@ pub mod float_math;
 pub mod generated;
 pub mod iket;
 pub mod indexing;
+pub mod integer_minmax;
 pub mod layout;
 pub mod memory;
 pub mod saturating;

@@ -72,7 +72,8 @@ use dialect_mir::ops::{MirCallOp, MirFuncOp};
 use dialect_mir::rust_intrinsics;
 use dialect_mir::types::{MirDisjointSliceType, MirSliceType, MirStructType, MirTupleType};
 use llvm_export::attributes::{
-    FCmpPredicateAttr, FastmathFlags, FastmathFlagsAttr, IntegerOverflowFlagsAttr,
+    FCmpPredicateAttr, FastmathFlags, FastmathFlagsAttr, ICmpPredicateAttr,
+    IntegerOverflowFlagsAttr,
 };
 use llvm_export::op_interfaces::{
     BinArithOp, CastOpInterface, CastOpWithNNegInterface, FloatBinArithOpWithFastMathFlags,
@@ -152,6 +153,24 @@ impl RustSaturatingIntrinsic {
         match callee {
             rust_intrinsics::CALLEE_SATURATING_ADD => Some(Self::Add),
             rust_intrinsics::CALLEE_SATURATING_SUB => Some(Self::Sub),
+            _ => None,
+        }
+    }
+}
+
+/// Internal placeholder for rustc integer min/max intrinsics.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RustIntegerMinMaxIntrinsic {
+    Min,
+    Max,
+}
+
+impl RustIntegerMinMaxIntrinsic {
+    /// Convert an importer placeholder name back into the intrinsic it represents.
+    fn from_placeholder_callee(callee: &str) -> Option<Self> {
+        match callee {
+            rust_intrinsics::CALLEE_INTEGER_MIN => Some(Self::Min),
+            rust_intrinsics::CALLEE_INTEGER_MAX => Some(Self::Max),
             _ => None,
         }
     }
@@ -623,6 +642,10 @@ pub fn convert(
         return convert_rust_saturating_intrinsic(ctx, rewriter, op, operands_info, intrinsic);
     }
 
+    if let Some(intrinsic) = RustIntegerMinMaxIntrinsic::from_placeholder_callee(&callee_name) {
+        return convert_rust_integer_minmax(ctx, rewriter, op, operands_info, intrinsic);
+    }
+
     if RustExactDivIntrinsic::from_placeholder_callee(&callee_name).is_some() {
         return convert_rust_exact_div(ctx, rewriter, op, operands_info);
     }
@@ -851,6 +874,69 @@ fn convert_rust_select_unpredictable(
     let select = llvm::SelectOp::new(ctx, *cond, *true_val, *false_val);
     rewriter.insert_operation(ctx, select.get_operation());
     rewriter.replace_operation(ctx, op, select.get_operation());
+    Ok(())
+}
+
+/// Lower rustc's `integer_min` / `integer_max` intrinsics to `icmp` + `select`.
+///
+/// Like the saturating intrinsics, the signedness comes from the original MIR
+/// type in `operands_info`. A compare/select pair (rather than `llvm.smin` and
+/// friends) needs no legalization for the legacy NVVM dialect, and LLVM folds
+/// it back into a min/max where the target has one.
+fn convert_rust_integer_minmax(
+    ctx: &mut Context,
+    rewriter: &mut DialectConversionRewriter,
+    op: Ptr<Operation>,
+    operands_info: &OperandsInfo,
+    intrinsic: RustIntegerMinMaxIntrinsic,
+) -> Result<()> {
+    let loc = op.deref(ctx).loc();
+    if op.deref(ctx).get_num_results() != 1 {
+        return pliron::input_err!(
+            loc,
+            "Rust integer min/max intrinsic call must have one result"
+        );
+    }
+
+    let args: Vec<Value> = op.deref(ctx).operands().collect();
+    let [lhs, rhs] = args.as_slice() else {
+        return pliron::input_err!(
+            loc,
+            "Rust integer min/max intrinsic requires left and right operands"
+        );
+    };
+    let (lhs, rhs) = (*lhs, *rhs);
+    let lhs_ty = lhs.get_type(ctx);
+    let is_signed =
+        if let Some(int_ty) = operands_info.lookup_most_recent_of_type::<IntegerType>(ctx, lhs) {
+            int_ty.signedness() == Signedness::Signed
+        } else {
+            return pliron::input_err!(
+                loc,
+                "expected integer type for Rust integer min/max intrinsic"
+            );
+        };
+
+    let (rhs, _) = cast_integer_value_to_type(ctx, rewriter, rhs, lhs_ty, loc.clone())?;
+    let predicate = match (is_signed, intrinsic) {
+        (true, RustIntegerMinMaxIntrinsic::Min) => ICmpPredicateAttr::SLT,
+        (false, RustIntegerMinMaxIntrinsic::Min) => ICmpPredicateAttr::ULT,
+        (true, RustIntegerMinMaxIntrinsic::Max) => ICmpPredicateAttr::SGT,
+        (false, RustIntegerMinMaxIntrinsic::Max) => ICmpPredicateAttr::UGT,
+    };
+    let compare = llvm::ICmpOp::new(ctx, predicate, lhs, rhs).get_operation();
+    rewriter.insert_operation(ctx, compare);
+    let condition = compare.deref(ctx).get_result(0);
+    let select = llvm::SelectOp::new(ctx, condition, lhs, rhs).get_operation();
+    rewriter.insert_operation(ctx, select);
+
+    let result_mir_ty = op.deref(ctx).get_result(0).get_type(ctx);
+    let result_ty = convert_type(ctx, result_mir_ty).map_err(anyhow_to_pliron)?;
+    let selected = select.deref(ctx).get_result(0);
+    let (_, final_op) = cast_integer_value_to_type(ctx, rewriter, selected, result_ty, loc)?;
+    let replacement = final_op.unwrap_or(select);
+    rewriter.replace_operation(ctx, op, replacement);
+
     Ok(())
 }
 

@@ -45,6 +45,13 @@ pub const CALLEE_SATURATING_ADD: &str = placeholder!("saturating_add");
 /// Placeholder call used for `core::intrinsics::saturating_sub`.
 pub const CALLEE_SATURATING_SUB: &str = placeholder!("saturating_sub");
 
+/// Placeholder call used for `core::intrinsics::integer_min` (backs `Ord::min`
+/// on the integer primitives).
+pub const CALLEE_INTEGER_MIN: &str = placeholder!("integer_min");
+/// Placeholder call used for `core::intrinsics::integer_max` (backs `Ord::max`
+/// on the integer primitives).
+pub const CALLEE_INTEGER_MAX: &str = placeholder!("integer_max");
+
 /// Placeholder call used for `core::intrinsics::exact_div`.
 ///
 /// Division where the caller guarantees the divisor is non-zero and divides the
@@ -65,13 +72,13 @@ pub const CALLEE_SQRT_F64: &str = placeholder!("sqrtf64");
 pub const CALLEE_POWI_F32: &str = placeholder!("powif32");
 /// Placeholder call used for `core::intrinsics::powif64`.
 pub const CALLEE_POWI_F64: &str = placeholder!("powif64");
-/// Placeholder call used for `core::intrinsics::sinf32`.
+/// Placeholder call used for `core::intrinsics::sin::<f32>`.
 pub const CALLEE_SIN_F32: &str = placeholder!("sinf32");
-/// Placeholder call used for `core::intrinsics::sinf64`.
+/// Placeholder call used for `core::intrinsics::sin::<f64>`.
 pub const CALLEE_SIN_F64: &str = placeholder!("sinf64");
-/// Placeholder call used for `core::intrinsics::cosf32`.
+/// Placeholder call used for `core::intrinsics::cos::<f32>`.
 pub const CALLEE_COS_F32: &str = placeholder!("cosf32");
-/// Placeholder call used for `core::intrinsics::cosf64`.
+/// Placeholder call used for `core::intrinsics::cos::<f64>`.
 pub const CALLEE_COS_F64: &str = placeholder!("cosf64");
 /// Placeholder call used for `core::intrinsics::tanf32`.
 pub const CALLEE_TAN_F32: &str = placeholder!("tanf32");
@@ -81,25 +88,25 @@ pub const CALLEE_TAN_F64: &str = placeholder!("tanf64");
 pub const CALLEE_POWF_F32: &str = placeholder!("powf32");
 /// Placeholder call used for `core::intrinsics::powf64`.
 pub const CALLEE_POWF_F64: &str = placeholder!("powf64");
-/// Placeholder call used for `core::intrinsics::expf32`.
+/// Placeholder call used for `core::intrinsics::exp::<f32>`.
 pub const CALLEE_EXP_F32: &str = placeholder!("expf32");
-/// Placeholder call used for `core::intrinsics::expf64`.
+/// Placeholder call used for `core::intrinsics::exp::<f64>`.
 pub const CALLEE_EXP_F64: &str = placeholder!("expf64");
-/// Placeholder call used for `core::intrinsics::exp2f32`.
+/// Placeholder call used for `core::intrinsics::exp2::<f32>`.
 pub const CALLEE_EXP2_F32: &str = placeholder!("exp2f32");
-/// Placeholder call used for `core::intrinsics::exp2f64`.
+/// Placeholder call used for `core::intrinsics::exp2::<f64>`.
 pub const CALLEE_EXP2_F64: &str = placeholder!("exp2f64");
-/// Placeholder call used for `core::intrinsics::logf32`.
+/// Placeholder call used for `core::intrinsics::log::<f32>`.
 pub const CALLEE_LOG_F32: &str = placeholder!("logf32");
-/// Placeholder call used for `core::intrinsics::logf64`.
+/// Placeholder call used for `core::intrinsics::log::<f64>`.
 pub const CALLEE_LOG_F64: &str = placeholder!("logf64");
-/// Placeholder call used for `core::intrinsics::log2f32`.
+/// Placeholder call used for `core::intrinsics::log2::<f32>`.
 pub const CALLEE_LOG2_F32: &str = placeholder!("log2f32");
-/// Placeholder call used for `core::intrinsics::log2f64`.
+/// Placeholder call used for `core::intrinsics::log2::<f64>`.
 pub const CALLEE_LOG2_F64: &str = placeholder!("log2f64");
-/// Placeholder call used for `core::intrinsics::log10f32`.
+/// Placeholder call used for `core::intrinsics::log10::<f32>`.
 pub const CALLEE_LOG10_F32: &str = placeholder!("log10f32");
-/// Placeholder call used for `core::intrinsics::log10f64`.
+/// Placeholder call used for `core::intrinsics::log10::<f64>`.
 pub const CALLEE_LOG10_F64: &str = placeholder!("log10f64");
 /// Placeholder call used for `core::intrinsics::fmaf32`.
 pub const CALLEE_FMA_F32: &str = placeholder!("fmaf32");
@@ -256,6 +263,8 @@ pub fn is_known_placeholder(callee: &str) -> bool {
                 | CALLEE_BITREVERSE
                 | CALLEE_SATURATING_ADD
                 | CALLEE_SATURATING_SUB
+                | CALLEE_INTEGER_MIN
+                | CALLEE_INTEGER_MAX
                 | CALLEE_EXACT_DIV
                 | CALLEE_CARRYING_MUL_ADD
                 | CALLEE_MAXNUM_NSZ_F32
@@ -491,6 +500,8 @@ mod tests {
         CALLEE_BITREVERSE,
         CALLEE_SATURATING_ADD,
         CALLEE_SATURATING_SUB,
+        CALLEE_INTEGER_MIN,
+        CALLEE_INTEGER_MAX,
         CALLEE_EXACT_DIV,
         CALLEE_CARRYING_MUL_ADD,
         CALLEE_FADD_FAST,

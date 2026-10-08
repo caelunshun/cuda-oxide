@@ -689,7 +689,7 @@ impl Verify for MirDisjointSliceType {
 /// Physical ABI classification relevant at a CUDA kernel boundary.
 ///
 /// Most Rust structs cross the boundary as one by-value aggregate. A
-/// `#[repr(transparent)]` struct whose rustc layout is `ValueAbi::Scalar`
+/// `#[repr(transparent)]` struct whose rustc layout is `ValueRepr::Scalar`
 /// instead uses the scalar representation of its single non-ZST field.
 /// Keeping that fact explicit prevents the lowering from guessing from field
 /// count alone, which would incorrectly scalarize ordinary one-field structs.
@@ -699,7 +699,7 @@ pub enum StructAbiKind {
     /// Ordinary aggregate ABI, including closures and synthetic structs.
     #[default]
     Aggregate,
-    /// `#[repr(transparent)]` with rustc `ValueAbi::Scalar`.
+    /// `#[repr(transparent)]` with rustc `ValueRepr::Scalar`.
     TransparentScalar,
 }
 
